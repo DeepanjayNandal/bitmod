@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """
-BitMod Live Demo
-================
-Shows cache hit rate on customer support Q&A data.
-No API keys needed — runs fully local with SQLite.
+BitMod Demo
+===========
+Shows the cache working on real questions: which queries hit, which layer
+served them, the answer, the latency — then the full 50-query benchmark.
 
 Usage:
     cd bitmod
-    pip install -e core/
-    python demo.py
+    python3 demo.py
 """
 
 import os
@@ -20,10 +19,17 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "core"))
 
 from bitmod.adapters.db_sqlite import SQLiteBackend
 from bitmod.adapters.embed_ollama import OllamaEmbeddingAdapter
-from bitmod.cache_engine import compute_answer_key, fuzzy_match, normalize_query, normalize_query_fuzzy, semantic_cache_search, store_answer, try_cache
+from bitmod.cache_engine import (
+    compute_answer_key,
+    fuzzy_match,
+    normalize_query_fuzzy,
+    semantic_cache_search,
+    store_answer,
+    try_cache,
+)
 
 # ---------------------------------------------------------------------------
-# 30 realistic customer support Q&A pairs
+# 30 customer support Q&A pairs seeded into cache
 # ---------------------------------------------------------------------------
 
 QA_PAIRS = [
@@ -60,29 +66,41 @@ QA_PAIRS = [
 ]
 
 # ---------------------------------------------------------------------------
-# Test queries — exact same questions + stopword-only paraphrases + new ones
+# Showcase queries — hand-picked to demonstrate each cache layer + a miss
 # ---------------------------------------------------------------------------
 
-# After stopword removal, these paraphrases become identical to the originals
-PARAPHRASES = [
-    "What is the refund policy?",           # same as: What is your refund policy?
-    "How can I track my order?",             # same as: How do I track my order?
-    "How can I reset my password?",          # same as: How do I reset my password?
-    "Do you have free shipping?",            # same as: Do you offer free shipping?
-    "How can I cancel my subscription?",     # same as: How do I cancel my subscription?
-    "What payment options do you accept?",   # same as: What payment methods do you accept?
-    "How long does shipping take?",          # same as: How long does delivery take?
-    "Can I update my delivery address?",     # same as: Can I change my delivery address?
-    "How can I contact customer support?",   # same as: How do I contact customer support?
-    "Is my payment info safe?",              # same as: Is my payment information safe?
-    "How do I use a discount code?",         # same as: How do I apply a discount code?
-    "What happens when my item arrives damaged?",  # same as above
-    "Do you ship to other countries?",       # same as: Do you ship internationally?
-    "How can I update my email address?",    # same as: How do I update my email address?
-    "Can I return a discounted item?",       # same as: Can I return a sale item?
+SHOWCASE = [
+    "What is your refund policy?",      # exact hit
+    "How do I track my order?",         # exact hit
+    "What is the refund policy?",       # fuzzy or semantic hit
+    "Is my payment info safe?",         # fuzzy or semantic hit
+    "How long does shipping take?",     # fuzzy or semantic hit
+    "Do you have a mobile app?",        # miss
+    "Can I schedule a delivery time?",  # miss
 ]
 
-# 5 genuinely new questions — expected to miss
+# ---------------------------------------------------------------------------
+# Full benchmark queries
+# ---------------------------------------------------------------------------
+
+PARAPHRASES = [
+    "What is the refund policy?",
+    "How can I track my order?",
+    "How can I reset my password?",
+    "Do you have free shipping?",
+    "How can I cancel my subscription?",
+    "What payment options do you accept?",
+    "How long does shipping take?",
+    "Can I update my delivery address?",
+    "How can I contact customer support?",
+    "Is my payment info safe?",
+    "How do I use a discount code?",
+    "What happens when my item arrives damaged?",
+    "Do you ship to other countries?",
+    "How can I update my email address?",
+    "Can I return a discounted item?",
+]
+
 NEW_QUESTIONS = [
     "Do you have a mobile app?",
     "Can I schedule a delivery time?",
@@ -92,23 +110,52 @@ NEW_QUESTIONS = [
 ]
 
 
-def demo_query(backend, session, question: str, embedder=None) -> str:
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _lookup(backend, session, question: str, embedder) -> tuple[str, str, float]:
+    """Return (hit_type, answer_text, elapsed_ms)."""
+    t0 = time.perf_counter()
+
     result = try_cache(backend, session, question, filters={})
     if result:
-        return "exact_hit"
-    fuzzy_results = fuzzy_match(
-        backend, session, question, filters={}, similarity_threshold=0.75, max_candidates=3
-    )
-    if fuzzy_results:
-        return "fuzzy_hit"
-    if embedder:
-        semantic_matches = semantic_cache_search(
-            backend, session, question, filters={}, embedder=embedder, threshold=0.75, max_results=3
-        )
-        if semantic_matches:
-            return "semantic_hit"
-    return "miss"
+        ms = (time.perf_counter() - t0) * 1000
+        return "exact", result.answer_text, ms
 
+    fuzzy = fuzzy_match(backend, session, question, filters={}, similarity_threshold=0.75, max_candidates=3)
+    if fuzzy:
+        ms = (time.perf_counter() - t0) * 1000
+        return "fuzzy", fuzzy[0].answer_text, ms
+
+    sem = semantic_cache_search(backend, session, question, filters={}, embedder=embedder, threshold=0.75, max_results=3)
+    if sem:
+        ms = (time.perf_counter() - t0) * 1000
+        label = f"semantic · {sem[0].similarity:.2f} similarity"
+        return label, sem[0].record.answer_text, ms
+
+    ms = (time.perf_counter() - t0) * 1000
+    return "miss", "", ms
+
+
+def _preview(text: str, width: int = 72) -> str:
+    text = text.replace("\n", " ").strip()
+    return text[:width] + "..." if len(text) > width else text
+
+
+def _hit_type_for_stats(hit_type: str) -> str:
+    if hit_type == "exact":
+        return "exact_hit"
+    if hit_type == "fuzzy":
+        return "fuzzy_hit"
+    if hit_type == "miss":
+        return "miss"
+    return "semantic_hit"
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 
 def main():
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
@@ -118,20 +165,15 @@ def main():
         backend = SQLiteBackend(db_path)
         print("\nConnecting to Ollama embeddings...", end="", flush=True)
         embedder = OllamaEmbeddingAdapter(model="nomic-embed-text")
-        print(" ready.")
+        print(" ready.\n")
 
-        print("\n" + "=" * 55)
-        print("  BitMod Cache Demo — Customer Support Dataset")
-        print("=" * 55)
-
-        # --- Seed the cache ---
-        print(f"\nSeeding cache with {len(QA_PAIRS)} Q&A pairs...", end="", flush=True)
+        # Seed
+        print(f"Seeding {len(QA_PAIRS)} Q&A pairs into cache...", end="", flush=True)
         with backend.session() as session:
             for question, answer in QA_PAIRS:
                 embedding = embedder.embed(question)
                 store_answer(
-                    backend,
-                    session,
+                    backend, session,
                     answer_key=compute_answer_key(question),
                     question_raw=question,
                     question_normalized=normalize_query_fuzzy(question),
@@ -144,49 +186,107 @@ def main():
                 )
         print(" done.")
 
-        # --- Run test queries ---
+        W = 58
+
+        # ── Showcase ────────────────────────────────────────────────────────
+        print()
+        print("=" * W)
+        print("  BitMod Cache Demo — Live Query Results")
+        print("=" * W)
+
+        with backend.session() as session:
+            for question in SHOWCASE:
+                hit_type, answer_text, ms = _lookup(backend, session, question, embedder)
+
+                print()
+                print(f"  Q: \"{question}\"")
+                if hit_type == "miss":
+                    print(f"  ✗  CACHE MISS    no cached answer — LLM would be called")
+                else:
+                    print(f"  ✓  CACHE HIT     {hit_type}    {ms:.0f}ms")
+                    print(f"     \"{_preview(answer_text)}\"")
+
+        # ── Cache learning ──────────────────────────────────────────────────
+        LEARN_Q = "Can I pay with cryptocurrency?"
+        LEARN_A = "We do not currently accept cryptocurrency. We accept Visa, Mastercard, Amex, PayPal, and UPI."
+
+        print()
+        print("-" * W)
+        print("  Cache Learning — miss then store then hit")
+        print("-" * W)
+
+        with backend.session() as session:
+            hit_type, _, _ = _lookup(backend, session, LEARN_Q, embedder)
+            print()
+            print(f"  Q: \"{LEARN_Q}\"")
+            print(f"  ✗  CACHE MISS    LLM called, response stored.")
+
+            embedding = embedder.embed(LEARN_Q)
+            store_answer(
+                backend, session,
+                answer_key=compute_answer_key(LEARN_Q),
+                question_raw=LEARN_Q,
+                question_normalized=normalize_query_fuzzy(LEARN_Q),
+                filters={},
+                answer_text=LEARN_A,
+                source_sections=[],
+                model_used="gpt-4o",
+                generation_ms=3400,
+                query_embedding=embedding,
+            )
+
+            hit_type, answer_text, ms = _lookup(backend, session, LEARN_Q, embedder)
+            print()
+            print(f"  Q: \"{LEARN_Q}\"  [same question again]")
+            print(f"  ✓  CACHE HIT     {hit_type}    {ms:.0f}ms")
+            print(f"     \"{_preview(answer_text)}\"")
+
+        # ── Full benchmark ───────────────────────────────────────────────────
+        print()
+        print("-" * W)
+        print("  Full benchmark: 50 queries")
+        print("-" * W)
+
         all_queries = (
             [(q, "exact") for q, _ in QA_PAIRS]
             + [(q, "paraphrase") for q in PARAPHRASES]
             + [(q, "new") for q in NEW_QUESTIONS]
         )
 
-        print(f"\nRunning {len(all_queries)} test queries...\n")
-
-        results = {"exact_hit": 0, "fuzzy_hit": 0, "semantic_hit": 0, "miss": 0}
-        by_type = {"exact": [], "paraphrase": [], "new": []}
+        counts = {"exact_hit": 0, "fuzzy_hit": 0, "semantic_hit": 0, "miss": 0}
+        by_type: dict[str, list[str]] = {"exact": [], "paraphrase": [], "new": []}
 
         with backend.session() as session:
             for question, qtype in all_queries:
-                outcome = demo_query(backend, session, question, embedder=embedder)
-                results[outcome] += 1
-                by_type[qtype].append(outcome)
+                hit_type, _, _ = _lookup(backend, session, question, embedder)
+                stat = _hit_type_for_stats(hit_type)
+                counts[stat] += 1
+                by_type[qtype].append(stat)
 
         total = len(all_queries)
-        hits = results["exact_hit"] + results["fuzzy_hit"] + results["semantic_hit"]
+        hits = total - counts["miss"]
         hit_rate = hits / total * 100
 
-        print(f"  Exact hits    : {results['exact_hit']}")
-        print(f"  Fuzzy hits    : {results['fuzzy_hit']}")
-        print(f"  Semantic hits : {results['semantic_hit']}")
-        print(f"  Misses        : {results['miss']}")
-        print(f"  Total queries: {total}")
         print()
-        print(f"  ✓ Cache hit rate: {hit_rate:.1f}%")
+        print(f"  Exact hits    : {counts['exact_hit']}")
+        print(f"  Fuzzy hits    : {counts['fuzzy_hit']}")
+        print(f"  Semantic hits : {counts['semantic_hit']}")
+        print(f"  Misses        : {counts['miss']}")
+        print()
+        print(f"  ✓ Cache hit rate: {hit_rate:.0f}%")
         print()
 
-        # Breakdown
-        def rate(lst):
+        def rate(lst: list[str]) -> str:
             h = sum(1 for r in lst if r != "miss")
-            return f"{h}/{len(lst)} ({h/len(lst)*100:.0f}%)"
+            return f"{h}/{len(lst)} ({h / len(lst) * 100:.0f}%)"
 
         print("  Breakdown by query type:")
-        print(f"    Same questions asked again : {rate(by_type['exact'])}")
-        print(f"    Rephrased questions        : {rate(by_type['paraphrase'])}")
-        print(f"    New unseen questions       : {rate(by_type['new'])} (expected)")
+        print(f"    Same questions again  : {rate(by_type['exact'])}")
+        print(f"    Rephrased questions   : {rate(by_type['paraphrase'])}")
+        print(f"    New unseen questions  : {rate(by_type['new'])}  ← correct, should miss")
         print()
-        print("  New questions correctly returned no cached answer.")
-        print("=" * 55 + "\n")
+        print("=" * W)
+        print()
 
     finally:
         os.unlink(db_path)

@@ -4,6 +4,8 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://python.org)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
+![BitMod](docs/homepage.png)
+
 > **Compute once, serve forever.** BitMod sits between your application and any LLM provider, intercepting queries and serving semantically equivalent ones from cache, cutting response latency and API costs without changing a line of application code.
 
 BitMod is a reverse proxy and semantic cache for LLM APIs. Drop it in front of any OpenAI, Anthropic, or Gemini endpoint. Your application changes only its base URL, nothing else. Repeated and rephrased queries are served from cache instead of reaching the LLM, cutting response time from seconds to milliseconds and eliminating redundant API spend.
@@ -40,7 +42,19 @@ Measured on high-repetition corpora: support tickets, legal Q&A, code review.
 python demo.py  # requires Ollama running with nomic-embed-text
 ```
 
+![BitMod demo — per-query cache decisions](docs/demo_queries.png)
+
+![BitMod demo — cache learning and full benchmark](docs/demo_stats.png)
+
 Benchmark hit rates are workload-dependent. High-repetition datasets (helpdesk, legal Q&A) hit differently than open-ended conversations. See Known Limitations.
+
+### Interactive Playground
+
+The playground UI shows every cache layer decision in real time. First query goes to the LLM and is stored. Second identical query is served from Exact Cache in 5ms.
+
+![Playground — first query, LLM generated](docs/chatscreen1.png)
+
+![Playground — second query, Exact Cache HIT in 5ms](docs/chatscreen2.png)
 
 ---
 

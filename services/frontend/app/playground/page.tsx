@@ -565,9 +565,9 @@ export default function PlaygroundPage() {
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="flex flex-col gap-6">
         {/* Chat Area */}
-        <Card className="border-border/40 bg-card/50 flex flex-col h-[700px]">
+        <Card className="border-border/40 bg-card/50 flex flex-col h-[85vh]">
           <CardHeader className="pb-0 pt-3 px-4 flex flex-row items-center justify-between">
             <CardTitle className="text-sm flex items-center gap-1.5">
               <MessageSquare className="h-3.5 w-3.5" />
@@ -758,8 +758,8 @@ export default function PlaygroundPage() {
           </div>
         </Card>
 
-        {/* Sidebar */}
-        <div className="space-y-4">
+        {/* Sidebar — horizontal row below chat */}
+        <div className="grid grid-cols-3 gap-4">
           {/* Pipeline Trace Toggle */}
           <Card className="border-border/40 bg-card/50">
             <CardContent className="pt-4 pb-4">

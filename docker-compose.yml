@@ -51,6 +51,8 @@ services:
     env_file: .env
     environment:
       - BITMOD_SQLITE_PATH=/app/data/bitmod.db
+      - OLLAMA_URL=http://host.docker.internal:11434
+      - BITMOD_LLM_URL=http://host.docker.internal:11434/v1
     volumes:
       - bitmod_data:/app/data
     # Internal only — accessed via gateway, connects to data stores
@@ -112,7 +114,7 @@ services:
     profiles: ["postgres", "full"]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-bitmod}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env — generate with: python3 -c "import secrets; print(secrets.token_hex(16))"}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env — generate with: python3 -c 'import secrets; print(secrets.token_hex(16))'}"
       POSTGRES_DB: ${POSTGRES_DB:-bitmod}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -132,12 +134,12 @@ services:
     image: redis:7-alpine
     container_name: bitmod-redis
     profiles: ["postgres", "full"]
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD:-localdev}
     volumes:
       - redis_data:/data
     # No external port — only reachable from bitmod-data network
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-localdev}", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5

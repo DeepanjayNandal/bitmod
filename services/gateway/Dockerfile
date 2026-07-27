@@ -10,9 +10,9 @@ COPY services/gateway/requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --prefix=/install -r requirements.txt
 
-COPY README.md /build/README.md
 COPY core/ /build/core/
 RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install hatchling && \
     pip install --prefix=/install /build/core/
 
 

@@ -1,6 +1,6 @@
 # BitMod — AI Inference Cache & Semantic Reuse Engine
 
-[![CI](https://github.com/DeepanjayNandal/BitMod--AI-Inference-Cache-Semantic-Reuse-Engine/actions/workflows/ci.yml/badge.svg)](https://github.com/DeepanjayNandal/BitMod--AI-Inference-Cache-Semantic-Reuse-Engine/actions/workflows/ci.yml)
+[![CI](https://github.com/DeepanjayNandal/bitmod/actions/workflows/ci.yml/badge.svg)](https://github.com/DeepanjayNandal/bitmod/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://python.org)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
@@ -219,8 +219,8 @@ bitmod query "What is our refund policy?"
 ### Option B: Docker (one command)
 
 ```bash
-git clone https://github.com/DeepanjayNandal/BitMod--AI-Inference-Cache-Semantic-Reuse-Engine.git
-cd BitMod--AI-Inference-Cache-Semantic-Reuse-Engine
+git clone https://github.com/DeepanjayNandal/bitmod.git
+cd bitmod
 
 docker compose up                                    # SQLite + FastAPI (default)
 docker compose --profile ollama up                   # + local Ollama (no API keys)

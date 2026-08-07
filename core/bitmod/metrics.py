@@ -40,6 +40,31 @@ def prometheus_available() -> bool:
 
 
 # ---------------------------------------------------------------------------
+# No-op stub — always defined so tests can import it regardless of whether
+# prometheus_client is installed.
+# ---------------------------------------------------------------------------
+
+
+class _NoOpLabeled:
+    """Stub that accepts .labels(...).inc() / .observe() etc."""
+
+    def labels(self, *args, **kwargs):
+        return self
+
+    def inc(self, amount=1):
+        pass
+
+    def dec(self, amount=1):
+        pass
+
+    def observe(self, amount):
+        pass
+
+    def set(self, value):
+        pass
+
+
+# ---------------------------------------------------------------------------
 # Metric definitions (real or no-op)
 # ---------------------------------------------------------------------------
 
@@ -143,44 +168,24 @@ if _PROMETHEUS_AVAILABLE:
     )
 
 else:
-    # No-op stubs so callers can use metrics without guarding imports.
-
-    class _NoOpLabeled:
-        """Stub that accepts .labels(...).inc() / .observe() etc."""
-
-        def labels(self, *args, **kwargs):
-            return self
-
-        def inc(self, amount=1):
-            pass
-
-        def dec(self, amount=1):
-            pass
-
-        def observe(self, amount):
-            pass
-
-        def set(self, value):
-            pass
-
     _noop = _NoOpLabeled()
 
-    REQUEST_COUNT = _noop
-    REQUEST_DURATION = _noop
-    CACHE_HIT_TOTAL = _noop
-    CACHE_HITS = _noop
-    CACHE_MISS_TOTAL = _noop
-    CACHE_MISSES = _noop
-    LLM_REQUEST_TOTAL = _noop
-    LLM_CALLS = _noop
-    LLM_LATENCY_SECONDS = _noop
-    LLM_LATENCY = _noop
-    COST_SAVED_USD = _noop
-    REQUEST_DURATION_SECONDS = _noop
-    CACHE_ENTRIES = _noop
-    DOCUMENTS_TOTAL = _noop
-    ACTIVE_CONNECTIONS = _noop
-    SECURITY_EVENTS_TOTAL = _noop
+    REQUEST_COUNT = _noop  # type: ignore[assignment]
+    REQUEST_DURATION = _noop  # type: ignore[assignment]
+    CACHE_HIT_TOTAL = _noop  # type: ignore[assignment]
+    CACHE_HITS = _noop  # type: ignore[assignment]
+    CACHE_MISS_TOTAL = _noop  # type: ignore[assignment]
+    CACHE_MISSES = _noop  # type: ignore[assignment]
+    LLM_REQUEST_TOTAL = _noop  # type: ignore[assignment]
+    LLM_CALLS = _noop  # type: ignore[assignment]
+    LLM_LATENCY_SECONDS = _noop  # type: ignore[assignment]
+    LLM_LATENCY = _noop  # type: ignore[assignment]
+    COST_SAVED_USD = _noop  # type: ignore[assignment]
+    REQUEST_DURATION_SECONDS = _noop  # type: ignore[assignment]
+    CACHE_ENTRIES = _noop  # type: ignore[assignment]
+    DOCUMENTS_TOTAL = _noop  # type: ignore[assignment]
+    ACTIVE_CONNECTIONS = _noop  # type: ignore[assignment]
+    SECURITY_EVENTS_TOTAL = _noop  # type: ignore[assignment]
 
 
 # ---------------------------------------------------------------------------

@@ -361,7 +361,7 @@ class RedisRateLimiter:
         try:
             import redis.asyncio as aioredis
 
-            self._redis = aioredis.from_url(
+            self._redis = aioredis.from_url(  # type: ignore[assignment]
                 self._redis_url,
                 decode_responses=True,
                 socket_connect_timeout=2.0,

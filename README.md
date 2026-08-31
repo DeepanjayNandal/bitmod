@@ -6,6 +6,10 @@
 
 > **Compute once, serve forever.** BitMod sits between your application and any LLM provider, intercepting queries and serving semantically equivalent ones from cache, cutting response latency and API costs without changing a line of application code.
 
+BitMod is a reverse proxy and semantic cache for LLM APIs. Drop it in front of any OpenAI, Anthropic, or Gemini endpoint. Your application changes only its base URL, nothing else. Repeated and rephrased queries are served from cache instead of reaching the LLM, cutting response time from seconds to milliseconds and eliminating redundant API spend.
+
+Built for high-repetition workloads: customer support bots, legal Q&A, HR documentation, code review pipelines. Ships with 1,141 tests across Python 3.11, 3.12, and 3.13 with mypy strict typing enforced on every commit.
+
 ---
 
 ## Benchmark Results
@@ -90,7 +94,7 @@ flowchart TD
 
 ## How the Cache Engine Works
 
-Bitmod uses **Bayesian evidence accumulation**: each layer contributes a confidence score `[0, 1]`, composed as:
+BitMod uses **Bayesian evidence accumulation**: each layer contributes a confidence score `[0, 1]`, composed as:
 
 ```
 total_confidence = 1 - ∏(1 - cᵢ)

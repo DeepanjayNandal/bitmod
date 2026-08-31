@@ -44,3 +44,10 @@ tests/stress/*.jsonl
 # Backup sessions (generated at runtime)
 bitmod_backup/
 services/gateway/bitmod_backup/
+
+# Test coverage data
+.coverage
+
+# TypeScript incremental build info
+tsconfig.tsbuildinfo
+services/frontend/tsconfig.tsbuildinfo

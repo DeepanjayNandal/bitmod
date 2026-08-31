@@ -10,14 +10,26 @@
 
 ## Benchmark Results
 
-Two scenarios measured: local Ollama (no API cost) and remote LLM (GPT-4o / Claude)
+### Demo (no API key required)
 
-| Scenario | Cache Hit Rate | Cached Latency | LLM Latency | Speedup |
-|---|---|---|---|---|
-| Local — Ollama llama3.2 | 50.7% | ~0ms | 500ms+ | >500× |
-| Remote — GPT-4o / Claude | **94%** | **71ms avg** | **12.5s avg** | **176×** |
+30 customer support Q&A pairs cached, then 50 test queries run locally using SQLite and Ollama embeddings.
 
-The gap between the two scenarios reflects query repetition patterns. Remote LLM benchmarks run with high-repetition prompt sets (legal Q&A, support tickets, code review), exactly the workloads where caching pays off most.
+| Query type | Result |
+|---|---|
+| Same question again | 30/30 — 100% |
+| Rephrased question | 14/15 — 93% |
+| New unseen question | 0/5 — 0% (correct: new questions should miss) |
+| **Overall** | **44/50 — 88%** |
+
+```bash
+python demo.py  # requires Ollama running with nomic-embed-text
+```
+
+### Remote LLM workloads (GPT-4o / Claude)
+
+On high-repetition corpora (support tickets, legal Q&A): **94% cache hit rate**, 71ms cached latency vs 12.5s LLM latency — **176× speedup**.
+
+Benchmark hit rates are workload-dependent. High-repetition datasets (helpdesk, legal Q&A) hit differently than open-ended conversations. See Known Limitations.
 
 ---
 

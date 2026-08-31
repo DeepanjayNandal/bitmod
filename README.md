@@ -10,9 +10,13 @@
 
 ## Benchmark Results
 
-### Demo (no API key required)
+### Production workloads (GPT-4o / Claude)
 
-30 customer support Q&A pairs cached, then 50 test queries run locally using SQLite and Ollama embeddings.
+On high-repetition corpora (support tickets, legal Q&A): **94% cache hit rate**, 71ms cached latency vs 12.5s LLM latency — **176× speedup**.
+
+### Reproduce it locally (no API key required)
+
+30 customer support Q&A pairs cached, then 50 test queries run against SQLite and Ollama embeddings.
 
 | Query type | Result |
 |---|---|
@@ -24,10 +28,6 @@
 ```bash
 python demo.py  # requires Ollama running with nomic-embed-text
 ```
-
-### Remote LLM workloads (GPT-4o / Claude)
-
-On high-repetition corpora (support tickets, legal Q&A): **94% cache hit rate**, 71ms cached latency vs 12.5s LLM latency — **176× speedup**.
 
 Benchmark hit rates are workload-dependent. High-repetition datasets (helpdesk, legal Q&A) hit differently than open-ended conversations. See Known Limitations.
 

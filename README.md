@@ -12,7 +12,14 @@
 
 ### Production workloads (GPT-4o / Claude)
 
-On high-repetition corpora (support tickets, legal Q&A): **94% cache hit rate**, 71ms cached latency vs 12.5s LLM latency — **176× speedup**.
+Measured on high-repetition corpora: support tickets, legal Q&A, code review.
+
+| Metric | Value |
+|---|---|
+| Cache hit rate | **94%** |
+| Cached response latency | **71ms** avg |
+| LLM latency (no cache) | 12.5s avg |
+| Speedup | **176×** |
 
 ### Reproduce it locally (no API key required)
 

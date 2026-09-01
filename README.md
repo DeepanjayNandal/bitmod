@@ -8,7 +8,7 @@
 
 BitMod is a reverse proxy and semantic cache for LLM APIs. Drop it in front of any OpenAI, Anthropic, or Gemini endpoint. Your application changes only its base URL, nothing else. Repeated and rephrased queries are served from cache instead of reaching the LLM, cutting response time from seconds to milliseconds and eliminating redundant API spend.
 
-Built for high-repetition workloads: customer support bots, legal Q&A, HR documentation, code review pipelines. Ships with 1,141 tests across Python 3.11, 3.12, and 3.13 with mypy strict typing enforced on every commit.
+Built for high-repetition workloads: customer support bots, legal Q&A, HR documentation, code review pipelines. Ships with 1,168 tests, CI runs on Python 3.11, 3.12, and 3.13 with mypy type checking on every commit.
 
 ---
 
@@ -87,7 +87,7 @@ flowchart TD
 
 **Three possible outcomes for every query:**
 - **Cache hit** (confidence ≥ 0.95): response served immediately, no LLM call
-- **Partial hit** (0.30–0.94): cached context injected into a reduced LLM prompt, cutting token usage 50–80%
+- **Partial hit** (0.30–0.94): cached context injected into the LLM prompt, reducing redundant generation
 - **Cache miss** (< 0.30): full LLM generation, result stored for future reuse
 
 ---
@@ -176,7 +176,7 @@ This ensures answers never go stale when documents are updated.
 
 | Layer | Technology |
 |---|---|
-| Core library | Python 3.10+, fully typed (mypy strict) |
+| Core library | Python 3.10+, fully typed (mypy) |
 | API services | FastAPI, SSE streaming, Pydantic v2 |
 | Frontend | Next.js 15, React 19, Tailwind v4, shadcn/ui |
 | Default database | SQLite with FTS5 + cosine similarity |

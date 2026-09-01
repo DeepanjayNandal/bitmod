@@ -249,6 +249,19 @@ db_backend: sqlite      # postgresql | mysql | mongodb
 
 ---
 
+## Document Ingestion
+
+Feed existing content into BitMod so common queries are answered from cache on the first request.
+
+```bash
+bitmod ingest ./docs/         # directory
+bitmod ingest report.pdf      # single file
+```
+
+Supported formats: **PDF** (PyMuPDF / pdfplumber), **DOCX**, **HTML**, **Markdown**, **CSV**, **JSON**, **plain text**. Documents are chunked, embedded, and stored with SHA-256 version hashes — answers are automatically invalidated if the source document changes.
+
+---
+
 ## Supported Providers
 
 ### LLM

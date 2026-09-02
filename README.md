@@ -168,7 +168,7 @@ This ensures answers never go stale when documents are updated.
 └────────────────────┘
 ```
 
-**Design decision, hexagonal architecture:** All external dependencies (LLM, database, embeddings, vector stores) sit behind typed abstract interfaces. Swapping from SQLite to PostgreSQL or from OpenAI to Anthropic is a one-line config change, not a code change. This is enforced via `core/bitmod/interfaces/` and 29 concrete adapter implementations.
+**Design decision, hexagonal architecture:** All external dependencies (LLM, database, embeddings, vector stores) sit behind typed abstract interfaces. Swapping from SQLite to PostgreSQL or from OpenAI to Anthropic is a one-line config change, not a code change. This is enforced via `core/bitmod/interfaces/` and 23 concrete adapter implementations (12 LLM, 4 database, 4 embedding, 3 vector store).
 
 ---
 

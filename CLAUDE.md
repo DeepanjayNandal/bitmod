@@ -51,7 +51,7 @@ Packagable modular AI data infrastructure platform. 9-layer intelligent cache en
 - `.github/workflows/ci.yml` — CI pipeline (lint, typecheck, test, build, frontend, security)
 
 ## CI Pipeline
-7 jobs: Lint (ruff), Type Check (mypy), Test (3.11/3.12/3.13), Build Package, Frontend (eslint), Security (gitleaks/pip-audit/semgrep)
+7 jobs: Lint (ruff), Type Check (mypy), Test (3.10/3.11/3.12/3.13), Build Package, Frontend (eslint), Security (gitleaks/pip-audit/semgrep)
 
 ## Agent Team
 This project has a full development and security team defined in `~/.claude/agents/`. Use the right agent for the job:

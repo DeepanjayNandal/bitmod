@@ -401,4 +401,4 @@ bitmod/
 
 ## License
 
-MIT License — © 2026 Deepanjay Nandal. See [LICENSE](LICENSE).
+MIT License — © 2026 Deepanjay Nandal

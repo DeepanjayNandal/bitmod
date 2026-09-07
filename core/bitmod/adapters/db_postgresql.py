@@ -424,6 +424,18 @@ class PostgreSQLBackend(DatabaseBackend):
             )
         )
 
+    def cache_clear_all(self, session: Any, reason: str = "Manual clear") -> int:
+        result = session.execute(
+            update(self._cache)
+            .where(self._cache.c.is_valid.is_(True))
+            .values(
+                is_valid=False,
+                invalidated_at=datetime.now(timezone.utc),
+                invalidation_reason=reason,
+            )
+        )
+        return int(result.rowcount or 0)
+
     def cache_invalidate_by_section(self, session: Any, section_id: str) -> int:
         sql = text("""
             UPDATE answer_cache SET is_valid = false, invalidated_at = NOW(),

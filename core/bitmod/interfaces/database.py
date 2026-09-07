@@ -338,6 +338,10 @@ class DatabaseBackend(ABC):
         """Invalidate all cached answers referencing a section. Returns count."""
 
     @abstractmethod
+    def cache_clear_all(self, session: Any, reason: str = "Manual clear") -> int:
+        """Invalidate every valid cached answer. Returns count."""
+
+    @abstractmethod
     def cache_increment_serve(self, session: Any, answer_id: str) -> None:
         """Increment the serve count for a cache hit."""
 

@@ -134,14 +134,11 @@ bitmod migrate --target N`}
 {`# View cache stats and per-layer breakdown
 curl http://localhost:8000/v1/cache/stats
 
-# Delete a specific cache entry by key
-curl -X DELETE http://localhost:8000/v1/cache/<key>
+# Clear all cached answers
+bitmod cache clear
 
-# Clear all cache entries
-curl -X DELETE http://localhost:8000/v1/cache
-
-# Clear cache entries by namespace
-curl -X DELETE http://localhost:8000/v1/cache?namespace=<namespace>`}
+# Same, when running under Docker (the container has its own database)
+docker compose exec bitmod-chat bitmod cache clear`}
               </CodeBlock>
 
               <p className="text-sm text-muted-foreground">

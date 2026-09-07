@@ -208,6 +208,13 @@ class MongoDBBackend(DatabaseBackend):
             {"$set": {"is_valid": False, "invalidated_at": datetime.now(timezone.utc), "invalidation_reason": reason}},
         )
 
+    def cache_clear_all(self, session: Any, reason: str = "Manual clear") -> int:
+        result = session.answer_cache.update_many(
+            {"is_valid": True},
+            {"$set": {"is_valid": False, "invalidated_at": datetime.now(timezone.utc), "invalidation_reason": reason}},
+        )
+        return int(result.modified_count)
+
     def cache_invalidate_by_section(self, session: Any, section_id: str) -> int:
         result = session.answer_cache.update_many(
             {"is_valid": True, "source_sections.section_id": section_id},

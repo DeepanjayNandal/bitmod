@@ -196,6 +196,68 @@ class TestCacheOperations:
             assert backend.cache_lookup(session, "ci-key-1") is None
             assert backend.cache_lookup(session, "ci-key-2") is not None
 
+    def _store_entries(self, backend, count, prefix="cc"):
+        for i in range(count):
+            with backend.session() as session:
+                backend.cache_store(
+                    session,
+                    AnswerCacheRecord(
+                        id=f"{prefix}-{i}",
+                        answer_key=f"{prefix}-key-{i}",
+                        source_sections=[{"section_id": "sec-001", "version_hash": "abc123hash"}],
+                        answer_text=f"answer {i}",
+                    ),
+                )
+
+    def test_cache_clear_all(self, backend, sample_document, sample_section):
+        """Clearing removes every valid entry and reports how many were cleared."""
+        with backend.session() as session:
+            backend.store_document(session, sample_document)
+            backend.store_section(session, sample_section)
+        self._store_entries(backend, 3)
+
+        with backend.session() as session:
+            assert backend.cache_clear_all(session) == 3
+
+        with backend.session() as session:
+            for i in range(3):
+                assert backend.cache_lookup(session, f"cc-key-{i}") is None
+
+    def test_cache_clear_all_on_empty_cache(self, backend):
+        """Clearing an empty cache is a no-op reporting zero, not an error."""
+        with backend.session() as session:
+            assert backend.cache_clear_all(session) == 0
+
+    def test_cache_clear_all_skips_already_invalidated(self, backend, sample_document, sample_section):
+        """Entries invalidated earlier are not counted a second time."""
+        with backend.session() as session:
+            backend.store_document(session, sample_document)
+            backend.store_section(session, sample_section)
+        self._store_entries(backend, 2, prefix="ci2")
+
+        with backend.session() as session:
+            backend.cache_invalidate(session, "ci2-0", "already gone")
+
+        with backend.session() as session:
+            assert backend.cache_clear_all(session) == 1
+
+    def test_cache_clear_all_persists_reason(self, backend, sample_document, sample_section):
+        """The supplied reason is written to the invalidated rows."""
+        with backend.session() as session:
+            backend.store_document(session, sample_document)
+            backend.store_section(session, sample_section)
+        self._store_entries(backend, 1, prefix="cr")
+
+        with backend.session() as session:
+            backend.cache_clear_all(session, reason="demo reset")
+
+        with backend.session() as session:
+            row = session.execute(
+                "SELECT is_valid, invalidation_reason FROM answer_cache WHERE id = ?", ("cr-0",)
+            ).fetchone()
+            assert row["is_valid"] == 0
+            assert row["invalidation_reason"] == "demo reset"
+
 
 class TestSessionRollback:
     def test_session_rollback_on_error(self, backend, sample_document):

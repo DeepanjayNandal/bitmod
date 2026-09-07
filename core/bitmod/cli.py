@@ -13,6 +13,7 @@ Usage:
     bitmod cache stats             Show cache performance statistics
     bitmod cache recent            Show recently cached queries
     bitmod cache search "query"    Search cache for matching entries
+    bitmod cache clear             Invalidate all cached answers
     bitmod migrate                 Run database migrations
     bitmod migrate --status        Show migration status
     bitmod migrate --target N      Migrate to specific version
@@ -2436,7 +2437,7 @@ def cmd_proxy(args: argparse.Namespace) -> int:
 
 
 def cmd_cache(args: argparse.Namespace) -> int:
-    """Manage cache: stats, recent queries, search."""
+    """Manage cache: stats, recent queries, search, clear."""
     from bitmod.api import Bitmod
 
     action = args.action
@@ -2459,6 +2460,24 @@ def cmd_cache(args: argparse.Namespace) -> int:
         _print(f"  {_dim('Total serves:')}   {stats.get('total_serves', 0)}")
         _print(f"  {_dim('Compute saved:')}  {stats.get('total_compute_saved_s', 0)}s")
         _print(f"  {_dim('Avg generation:')} {stats.get('avg_generation_ms', 0)}ms")
+
+        bm.close()
+        return 0
+
+    if action == "clear":
+        backend = bm._get_backend()
+        with backend.session() as session:
+            count = backend.cache_clear_all(session)
+
+        if _is_json():
+            _json_output({"cleared": count})
+            bm.close()
+            return 0
+
+        if count:
+            _print(f"{_green('+')} Cleared {count} cached {'entry' if count == 1 else 'entries'}")
+        else:
+            _print(f"{_dim('Cache was already empty.')}")
 
         bm.close()
         return 0
@@ -2550,7 +2569,7 @@ def cmd_cache(args: argparse.Namespace) -> int:
         return 0
 
     print(f"{_red('x')} Unknown action: {action}")
-    print("  Available: stats, recent, search")
+    print("  Available: stats, recent, search, clear")
     bm.close()
     return 1
 
@@ -2575,7 +2594,7 @@ _bitmod_completions() {
             COMPREPLY=($(compgen -W "list show context export import delete" -- "$cur"))
             ;;
         cache)
-            COMPREPLY=($(compgen -W "stats recent search" -- "$cur"))
+            COMPREPLY=($(compgen -W "stats recent search clear" -- "$cur"))
             ;;
         config)
             COMPREPLY=($(compgen -W "show" -- "$cur"))
@@ -2610,7 +2629,7 @@ _bitmod() {
         'serve:Start local API server'
         'proxy:Start the gateway proxy'
         'status:Show system status'
-        'cache:Manage cache (stats, recent, search)'
+        'cache:Manage cache (stats, recent, search, clear)'
         'migrate:Run database migrations'
         'backup:Manage backup sessions'
         'update:Check for new versions'
@@ -2638,7 +2657,7 @@ _bitmod() {
                     _values 'action' list show context export import delete
                     ;;
                 cache)
-                    _values 'action' stats recent search
+                    _values 'action' stats recent search clear
                     ;;
                 config)
                     _values 'action' show
@@ -2674,7 +2693,7 @@ complete -c bitmod -n '__fish_use_subcommand' -a completions -d 'Generate shell 
 complete -c bitmod -n '__fish_use_subcommand' -l format -a 'text json' -d 'Output format'
 complete -c bitmod -n '__fish_use_subcommand' -l quiet -d 'Suppress non-essential output'
 complete -c bitmod -n '__fish_seen_subcommand_from backup' -a 'list show context export import delete'
-complete -c bitmod -n '__fish_seen_subcommand_from cache' -a 'stats recent search'
+complete -c bitmod -n '__fish_seen_subcommand_from cache' -a 'stats recent search clear'
 complete -c bitmod -n '__fish_seen_subcommand_from config' -a 'show'
 complete -c bitmod -n '__fish_seen_subcommand_from completions' -a 'bash zsh fish'
 """
@@ -2878,8 +2897,8 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("status", help="Show system status")
 
     # --- cache ---
-    p_cache = subparsers.add_parser("cache", help="Manage cache (stats, recent, search)")
-    p_cache.add_argument("action", choices=["stats", "recent", "search"], help="Action to perform")
+    p_cache = subparsers.add_parser("cache", help="Manage cache (stats, recent, search, clear)")
+    p_cache.add_argument("action", choices=["stats", "recent", "search", "clear"], help="Action to perform")
     p_cache.add_argument("query", nargs="?", default=None, help="Search query (for search action)")
     p_cache.add_argument("-n", "--limit", type=int, default=None, help="Max entries (for recent)")
 

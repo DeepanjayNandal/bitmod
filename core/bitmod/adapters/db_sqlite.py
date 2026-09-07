@@ -641,6 +641,14 @@ class SQLiteBackend(DatabaseBackend):
                 count += 1
         return count
 
+    def cache_clear_all(self, session: Any, reason: str = "Manual clear") -> int:
+        now = datetime.now(timezone.utc).isoformat()
+        cursor = session.execute(
+            "UPDATE answer_cache SET is_valid = 0, invalidated_at = ?, invalidation_reason = ? WHERE is_valid = 1",
+            (now, reason),
+        )
+        return int(cursor.rowcount or 0)
+
     def cache_increment_serve(self, session: Any, answer_id: str) -> None:
         now = datetime.now(timezone.utc).isoformat()
         session.execute(

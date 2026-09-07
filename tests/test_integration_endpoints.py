@@ -103,7 +103,7 @@ class TestGatewayEndpoints:
         assert r.status_code == 200
         spec = r.json()
         assert spec["info"]["title"] == "BitMod API"
-        assert spec["info"]["version"] == "0.2.0"
+        assert spec["info"]["version"] == "0.2.1"
         assert "paths" in spec
         # Verify tags exist
         tag_names = {t["name"] for t in spec.get("tags", [])}

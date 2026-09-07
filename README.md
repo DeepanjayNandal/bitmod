@@ -395,11 +395,10 @@ bitmod/
 ## Known Limitations
 
 - **Benchmark hit rates are workload-dependent**: the 94% figure is measured on high-repetition corpora (support tickets, legal Q&A). Diverse or open-ended conversations will see lower rates.
-- **Failed LLM responses can get cached**, if an LLM call errors and the response passes the confidence gate, it gets stored and served to future queries. Mitigation: response validation before cache write is on the roadmap.
 - **Not a RAG replacement**: BitMod caches and reuses LLM outputs; it does not do retrieval-augmented generation or long-document reasoning.
 
 ---
 
 ## License
 
-MIT License — © 2026 Deepanjay Nandal
+MIT License — © 2026 Deepanjay Nandal. See [LICENSE](LICENSE).

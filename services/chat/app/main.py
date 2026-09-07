@@ -132,7 +132,7 @@ def _record_conversation(
         logger.debug("Failed to record conversation", exc_info=True)
 
 
-app = FastAPI(title="Bitmod Chat", version="0.2.0")
+app = FastAPI(title="Bitmod Chat", version="0.2.1")
 
 
 @app.on_event("shutdown")
@@ -275,7 +275,7 @@ def _sanitize_filters(filters: dict) -> dict:
 
 @app.get("/health")
 async def health():
-    return HealthResponse(status="ok", service="chat", version="0.2.0")
+    return HealthResponse(status="ok", service="chat", version="0.2.1")
 
 
 @app.get("/healthz")
@@ -1026,36 +1026,43 @@ async def chat(request: ChatRequest, raw_request: Request = None):
             ", ".join(filter_rules),
         )
 
-    # Cache the answer (with query embedding for semantic cache)
-    query_embedding = None
-    if embedder:
-        try:
-            query_embedding = embedder.embed(norm_query)
-        except Exception:
-            logger.debug("Query embedding failed for cache store, storing without embedding", exc_info=True)
+    # Never cache a failed generation. _agent_loop returns model_used="error"
+    # when the LLM call raised; storing that would serve the error text to every
+    # future query that matches this one.
+    if model_used == "error":
+        logger.warning("Skipping cache store: LLM generation failed")
+        _step("cache_store", "SKIPPED", {"reason": "generation failed"})
+    else:
+        # Cache the answer (with query embedding for semantic cache)
+        query_embedding = None
+        if embedder:
+            try:
+                query_embedding = embedder.embed(norm_query)
+            except Exception:
+                logger.debug("Query embedding failed for cache store, storing without embedding", exc_info=True)
 
-    with backend.session() as session:
-        store_answer(
-            backend=backend,
-            session=session,
-            answer_key=answer_key,
-            question_raw=message,
-            question_normalized=norm_query,
-            filters=filters,
-            answer_text=answer_text,
-            source_sections=sources,
-            model_used=model_used,
-            generation_ms=elapsed_ms,
-            query_embedding=query_embedding,
+        with backend.session() as session:
+            store_answer(
+                backend=backend,
+                session=session,
+                answer_key=answer_key,
+                question_raw=message,
+                question_normalized=norm_query,
+                filters=filters,
+                answer_text=answer_text,
+                source_sections=sources,
+                model_used=model_used,
+                generation_ms=elapsed_ms,
+                query_embedding=query_embedding,
+            )
+        _step(
+            "cache_store",
+            "STORED",
+            {
+                "answer_key": answer_key[:16] + "...",
+                "has_embedding": query_embedding is not None,
+            },
         )
-    _step(
-        "cache_store",
-        "STORED",
-        {
-            "answer_key": answer_key[:16] + "...",
-            "has_embedding": query_embedding is not None,
-        },
-    )
 
     _record_conversation(
         message, answer_text, model_used=model_used, cache_hit=False, generation_ms=elapsed_ms, project_id=project_id

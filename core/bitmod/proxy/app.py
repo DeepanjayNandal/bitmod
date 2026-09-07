@@ -90,7 +90,7 @@ def create_proxy_app():
     _app = FastAPI(
         title="BitMod Proxy",
         description="Intelligent LLM cache proxy — drop in, save tokens.",
-        version="0.2.0",
+        version="0.2.1",
         docs_url="/docs" if _debug else None,
         redoc_url="/redoc" if _debug else None,
         openapi_url="/openapi.json" if _debug else None,
@@ -213,7 +213,7 @@ def create_proxy_app():
 
     @_app.get("/health")
     async def health():
-        return {"status": "ok", "service": "bitmod-proxy", "version": "0.2.0"}
+        return {"status": "ok", "service": "bitmod-proxy", "version": "0.2.1"}
 
     @_app.get("/healthz")
     async def healthz():

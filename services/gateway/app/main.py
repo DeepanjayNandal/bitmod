@@ -98,7 +98,7 @@ app = FastAPI(
         "9-layer intelligent cache engine with universal LLM adapter, "
         "multi-tenant namespace isolation, and project knowledge indexing."
     ),
-    version="0.2.0",
+    version="0.2.1",
     docs_url=None if _disable_docs else "/docs",
     redoc_url=None if _disable_docs else "/redoc",
     openapi_url=None if _disable_docs else "/openapi.json",
@@ -460,7 +460,7 @@ async def timing(request: Request, call_next):
 # Health check
 @app.get("/health", tags=["health"])
 async def health():
-    return HealthResponse(status="ok", service="gateway", version="0.2.0")
+    return HealthResponse(status="ok", service="gateway", version="0.2.1")
 
 
 # --- Deep health checks ---

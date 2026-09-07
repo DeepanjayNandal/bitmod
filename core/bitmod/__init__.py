@@ -15,7 +15,7 @@ Quick start:
     print(result.answer)
 """
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 from bitmod.config import BitmodConfig
 

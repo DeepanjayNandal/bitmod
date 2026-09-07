@@ -2922,7 +2922,7 @@ def _get_version() -> str:
 
         return __version__
     except ImportError:
-        return "0.2.0"
+        return "0.2.1"
 
 
 # ---------------------------------------------------------------------------

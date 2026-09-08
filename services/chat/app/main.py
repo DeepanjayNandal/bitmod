@@ -1421,6 +1421,9 @@ async def _generate(
                                 "section_id": r["section_id"],
                                 "citation": r.get("citation", ""),
                                 "score": r.get("score", 0),
+                                # Required by double_verify at serve time; without it
+                                # the entry is unverifiable and can never be served.
+                                "version_hash": r.get("version_hash", ""),
                             }
                         )
                 elif tool_name == "search_project" and "results" in result:
@@ -1491,6 +1494,8 @@ def _pre_search_for_stream(
                     "title": r.title,
                     "snippet": r.snippet[:500],
                     "score": r.score,
+                    # Carried so the sources built below can record it.
+                    "version_hash": r.version_hash,
                 }
                 for r in results
             ],
@@ -1525,6 +1530,9 @@ def _pre_search_for_stream(
                     "section_id": r["section_id"],
                     "citation": citation,
                     "score": r.get("score", 0),
+                    # Required by double_verify at serve time; without it the
+                    # entry is unverifiable and can never be served.
+                    "version_hash": r.get("version_hash", ""),
                 }
             )
 

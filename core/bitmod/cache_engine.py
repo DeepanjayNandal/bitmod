@@ -352,11 +352,33 @@ def cache_lookup(backend: DatabaseBackend, session, answer_key: str) -> AnswerCa
     return backend.cache_lookup(session, answer_key)
 
 
-def double_verify(backend: DatabaseBackend, session, cached: AnswerCacheRecord) -> bool:
+def double_verify(
+    backend: DatabaseBackend,
+    session,
+    cached: AnswerCacheRecord,
+    hash_cache: dict[str, str | None] | None = None,
+) -> bool:
     """Serve-time double verification (Patent §VIII).
 
     Before serving ANY cached answer, verify that every source section's
     version_hash still matches. Returns True if all sources still valid.
+
+    Three distinct outcomes, only one of which invalidates:
+
+    - hash matches            -> verified, safe to serve
+    - hash present but differs-> stale, invalidate and refuse
+    - hash missing entirely   -> unverifiable, refuse but DO NOT invalidate
+
+    The last case is not evidence of staleness, it is absence of evidence.
+    Destroying a row we were unable to check would discard a possibly-valid
+    answer, so we decline to serve it and leave it for a writer that records
+    the hash.
+
+    ``hash_cache`` is an optional per-request memo of section_id -> current
+    hash. One lookup issues a query per source section, and a single pipeline
+    verifies several candidates that usually cite the same documents, so
+    sharing the memo across those calls collapses the repeated reads. Scope it
+    to one request: it is a snapshot, not a long-lived cache.
     """
     source_sections = cached.source_sections or []
     if not source_sections:
@@ -368,18 +390,19 @@ def double_verify(backend: DatabaseBackend, session, cached: AnswerCacheRecord) 
         if not section_id:
             continue
         if not expected_hash:
+            # Unverifiable, not stale — decline to serve but leave the row intact.
             logger.warning(
-                "Source section %s has no version_hash — cannot verify integrity, treating as stale",
+                "Source section %s has no version_hash — cannot verify integrity, declining to serve",
                 section_id,
-            )
-            backend.cache_invalidate(
-                session,
-                cached.id,
-                reason=f"Double-verify failed: section {section_id} missing version_hash",
             )
             return False
 
-        current_hash = backend.get_section_version_hash(session, section_id)
+        if hash_cache is not None and section_id in hash_cache:
+            current_hash = hash_cache[section_id]
+        else:
+            current_hash = backend.get_section_version_hash(session, section_id)
+            if hash_cache is not None:
+                hash_cache[section_id] = current_hash
 
         if current_hash is None or current_hash != expected_hash:
             backend.cache_invalidate(

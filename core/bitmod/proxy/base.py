@@ -21,6 +21,7 @@ from bitmod.cache_engine import (
     _similarity_to_confidence,
     compute_answer_key,
     decompose_answer,
+    double_verify,
     estimate_generation_cost,
     fuzzy_match,
     normalize_query,
@@ -394,6 +395,11 @@ class BitmodProxy:
         start_time = time.perf_counter()
         trace: list[dict] = []
         evidence = PipelineEvidence()
+        # Per-request memo of section_id -> current version hash. Verifying
+        # several candidates that cite the same documents would otherwise reread
+        # the same sections once per candidate. Deliberately request-scoped: a
+        # longer-lived cache would serve answers against a stale snapshot.
+        verify_cache: dict[str, str | None] = {}
         logger.debug(
             "Pipeline entry: query_len=%d namespace=%s",
             len(user_message),
@@ -562,7 +568,15 @@ class BitmodProxy:
                             threshold=0.75,
                             max_results=3,
                         )
+                # Verify BEFORE adding to evidence, not after. Layer ⑦ seeds its
+                # traversal from evidence.evidences, so a stale candidate that
+                # reaches the evidence list is still walked for links even if it
+                # is never served itself.
+                unverified = 0
                 for match in semantic_matches:
+                    if not double_verify(self._backend, session, match.record, hash_cache=verify_cache):
+                        unverified += 1
+                        continue
                     conf = _similarity_to_confidence(match.similarity, "semantic")
                     evidence.add(
                         CacheEvidence(
@@ -576,7 +590,11 @@ class BitmodProxy:
                 _step(
                     "semantic_cache",
                     "EVIDENCE" if semantic_matches else "MISS",
-                    {"matches": len(semantic_matches), "total_confidence": round(evidence.total_confidence, 3)},
+                    {
+                        "matches": len(semantic_matches),
+                        "dropped_unverified": unverified,
+                        "total_confidence": round(evidence.total_confidence, 3),
+                    },
                 )
         else:
             _step("semantic_cache", "SKIP", {})
@@ -848,9 +866,38 @@ class BitmodProxy:
         if evidence.total_confidence >= serve_threshold:
             best = evidence.best_single_answer()
             if best:
-                # --- LLM promotion verification (optional, off by default) ---
+                # --- ③ Source Verification on the chosen answer ---
+                # Semantic candidates were verified at collection, but the winner
+                # can also come from fuzzy or link traversal, which are not. This
+                # is the last gate before an answer reaches the user.
                 demoted = False
-                if self._promotion_config.enabled and best.confidence < 1.0 and self._can_verify_today():
+                if best.record_id:
+                    try:
+                        with self._backend.session() as verify_session:
+                            best_record = self._backend.cache_lookup_by_id(verify_session, best.record_id)
+                            if best_record and not double_verify(
+                                self._backend, verify_session, best_record, hash_cache=verify_cache
+                            ):
+                                _step(
+                                    "serve_verify",
+                                    "DROPPED",
+                                    {"best_layer": best.layer, "record_id": best.record_id[:12]},
+                                )
+                                # Drop the candidate and let confidence fall rather
+                                # than aborting — the request still gets an answer,
+                                # just a generated one.
+                                evidence.add(CacheEvidence(layer="serve_verify", confidence=-1.0, answer_text=""))
+                                demoted = True
+                    except Exception:
+                        logger.debug("Serve-time source verification failed", exc_info=True)
+
+                # --- LLM promotion verification (optional, off by default) ---
+                if (
+                    not demoted
+                    and self._promotion_config.enabled
+                    and best.confidence < 1.0
+                    and self._can_verify_today()
+                ):
                     verified = self._verify_cached_answer(user_message, best.answer_text)
                     if not verified:
                         _step(

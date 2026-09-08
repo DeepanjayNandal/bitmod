@@ -490,6 +490,9 @@ class Bitmod:
                     "citation": result.citation,
                     "title": result.title,
                     "score": result.score,
+                    # Required by double_verify at serve time; without it the
+                    # entry is unverifiable and can never be served.
+                    "version_hash": result.version_hash,
                 }
             )
 
@@ -637,6 +640,9 @@ class Bitmod:
                     "citation": sr.citation,
                     "title": sr.title,
                     "score": sr.score,
+                    # Required by double_verify at serve time; without it the
+                    # entry is unverifiable and can never be served.
+                    "version_hash": sr.version_hash,
                 }
             )
 

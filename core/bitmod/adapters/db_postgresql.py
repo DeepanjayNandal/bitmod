@@ -71,6 +71,8 @@ class PostgreSQLBackend(DatabaseBackend):
         with self._engine.connect() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+            # levenshtein(), used alongside trigram similarity in cache_fuzzy_match
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS fuzzystrmatch"))
             conn.commit()
 
         # --- Core tables ---
@@ -502,23 +504,52 @@ class PostgreSQLBackend(DatabaseBackend):
         threshold: float = 0.85,
         max_results: int = 5,
     ) -> list[AnswerCacheRecord]:
+        """Pre-filter with trigrams in the database, score in Python.
+
+        Scoring deliberately does not happen in SQL. Trigram similarity is not
+        the same measure as the token overlap used by the other adapters: adding
+        a word costs trigram similarity a lot, while the overlap coefficient is
+        near-indifferent to it because a subset match is exactly what a
+        rephrasing looks like. Scoring in SQL therefore gave PostgreSQL
+        genuinely different cache behaviour from SQLite and MySQL for the same
+        query — "waht is the refund policy" scored 0.74 here and 0.87 there.
+
+        Trigram is still the right tool for the *pre-filter*: it is index-backed
+        and typo-tolerant, so it cheaply discards the clearly unrelated while
+        keeping misspellings in play. The final decision then comes from
+        cache_engine.fuzzy_similarity, which is the one definition of the
+        formula across every backend.
+        """
+        from bitmod.cache_engine import _get_config, fuzzy_similarity
+
+        prefilter = _get_config().fuzzy_prefilter_similarity
         sql = text("""
-            SELECT *, similarity(question_normalized, :query) as sim_score
-            FROM answer_cache WHERE is_valid = true
-                AND similarity(question_normalized, :query) > :threshold
+            SELECT * FROM answer_cache
+            WHERE is_valid = true
                 AND filters::text = :filters
-            ORDER BY sim_score DESC LIMIT :limit
+                AND similarity(question_normalized, :query) >= :prefilter
+            ORDER BY similarity(question_normalized, :query) DESC
+            LIMIT 200
         """)
         rows = session.execute(
             sql,
             {
                 "query": normalized_query,
-                "threshold": threshold,
+                "prefilter": prefilter,
                 "filters": json.dumps(filters, sort_keys=True),
-                "limit": max_results,
             },
         ).fetchall()
-        return [self._row_to_cache(r) for r in rows]
+
+        scored: list[tuple[float, AnswerCacheRecord]] = []
+        for row in rows:
+            if not row.question_normalized:
+                continue
+            similarity_score = fuzzy_similarity(normalized_query, row.question_normalized)
+            if similarity_score >= threshold:
+                scored.append((similarity_score, self._row_to_cache(row)))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return [record for _, record in scored[:max_results]]
 
     # --- Admin stats (matches SQLite parity) ---
 

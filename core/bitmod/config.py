@@ -281,6 +281,18 @@ class CacheConfig:
     fuzzy_max_candidates: int = field(default_factory=lambda: int(os.getenv("BITMOD_CACHE_FUZZY_MAX_CANDIDATES", "5")))
     search_max_results: int = field(default_factory=lambda: int(os.getenv("BITMOD_CACHE_SEARCH_MAX_RESULTS", "3")))
 
+    # --- Fuzzy pre-filter ---
+    # Candidates are pre-filtered on token prefixes of this length. Longer is
+    # more selective but stops tolerating typos near the start of a word;
+    # shorter widens the candidate set that scoring then has to reject.
+    fuzzy_prefix_length: int = field(default_factory=lambda: int(os.getenv("BITMOD_CACHE_FUZZY_PREFIX_LENGTH", "3")))
+    # PostgreSQL pre-filters candidates with an index-backed trigram similarity
+    # before Python scoring. Permissive on purpose: it only has to discard the
+    # clearly unrelated, and a typo pair scores around 0.81 here.
+    fuzzy_prefilter_similarity: float = field(
+        default_factory=lambda: float(os.getenv("BITMOD_CACHE_FUZZY_PREFILTER_SIMILARITY", "0.30"))
+    )
+
 
 @dataclass
 class BitmodConfig:

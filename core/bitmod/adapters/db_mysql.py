@@ -440,21 +440,28 @@ class MySQLBackend(DatabaseBackend):
         threshold: float = 0.85,
         max_results: int = 5,
     ) -> list[AnswerCacheRecord]:
-        # MySQL lacks pg_trgm — use token-set similarity (Jaccard) like SQLite
-        query_tokens = set(normalized_query.split())
-        if not query_tokens:
+        # MySQL lacks pg_trgm — pre-filter with LIKE, then score in Python using
+        # the same cache_engine.fuzzy_similarity the SQLite adapter uses.
+        #
+        # The filter matches token *prefixes*, not whole tokens: '%pollicy%'
+        # never matches stored 'policy', so a whole-token filter would never
+        # retrieve the row a typo is meant to find, and scoring would never run.
+        from bitmod.cache_engine import fuzzy_prefilter_terms, fuzzy_similarity
+
+        if not normalized_query.split():
             return []
 
-        # Pre-filter with LIKE on the longest words
-        sorted_words = sorted(query_tokens, key=len, reverse=True)
-        if len(sorted_words) >= 2:
-            w1, w2 = sorted_words[0], sorted_words[1]
+        prefixes = fuzzy_prefilter_terms(normalized_query)
+        if not prefixes:
+            return []
+
+        if len(prefixes) >= 2:
             rows = session.execute(
                 select(self._cache)
                 .where(
                     self._cache.c.is_valid.is_(True),
-                    self._cache.c.question_normalized.like(f"%{w1}%"),
-                    self._cache.c.question_normalized.like(f"%{w2}%"),
+                    self._cache.c.question_normalized.like(f"%{prefixes[0]}%"),
+                    self._cache.c.question_normalized.like(f"%{prefixes[1]}%"),
                 )
                 .limit(200)
             ).fetchall()
@@ -463,7 +470,7 @@ class MySQLBackend(DatabaseBackend):
                     select(self._cache)
                     .where(
                         self._cache.c.is_valid.is_(True),
-                        self._cache.c.question_normalized.like(f"%{w1}%"),
+                        self._cache.c.question_normalized.like(f"%{prefixes[0]}%"),
                     )
                     .limit(200)
                 ).fetchall()
@@ -472,25 +479,16 @@ class MySQLBackend(DatabaseBackend):
                 select(self._cache)
                 .where(
                     self._cache.c.is_valid.is_(True),
-                    self._cache.c.question_normalized.like(f"%{sorted_words[0]}%"),
+                    self._cache.c.question_normalized.like(f"%{prefixes[0]}%"),
                 )
                 .limit(200)
             ).fetchall()
 
-        from bitmod.cache_engine import _levenshtein_similarity
-
         scored: list[tuple[float, AnswerCacheRecord]] = []
         for row in rows:
-            candidate_tokens = set(row.question_normalized.split())
-            if not candidate_tokens:
+            if not row.question_normalized:
                 continue
-            intersection = query_tokens & candidate_tokens
-            union = query_tokens | candidate_tokens
-            jaccard = len(intersection) / len(union) if union else 0.0
-            overlap = len(intersection) / min(len(query_tokens), len(candidate_tokens))
-            token_sim = 0.4 * jaccard + 0.6 * overlap
-            edit_sim = _levenshtein_similarity(normalized_query, row.question_normalized)
-            similarity = 0.6 * token_sim + 0.4 * edit_sim
+            similarity = fuzzy_similarity(normalized_query, row.question_normalized)
             if similarity >= threshold:
                 scored.append((similarity, self._row_to_cache(row)))
 

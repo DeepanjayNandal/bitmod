@@ -297,6 +297,64 @@ def _levenshtein_similarity(s1: str, s2: str) -> float:
     return 1.0 - _levenshtein_distance(s1, s2) / max_len
 
 
+def fuzzy_similarity(query_normalized: str, candidate_normalized: str) -> float:
+    """Similarity between two fuzzy-normalized queries, in [0.0, 1.0].
+
+    Takes the **greater** of two measures rather than blending them:
+
+    - token overlap, which catches rephrasing ("refund policy" / "policy for
+      refunds") but reads a misspelled word as an entirely different one
+    - edit distance, which catches typos ("policy" / "pollicy") but is dragged
+      down by reordering and added words
+
+    They answer different questions — "same words?" and "same spelling?" — and a
+    query is similar if either says yes. Averaging them asserts that both must
+    partly agree, which was never the claim, and no weighting satisfies both:
+    any weight high enough to pass typos on edit distance pushes the rephrasing
+    cases below threshold, because the two measures disagree in opposite
+    directions on different inputs.
+
+    Shared by the SQLite and MySQL adapters so the formula has one definition.
+    PostgreSQL computes the same shape in SQL with GREATEST(similarity(),
+    levenshtein()) to keep the work in the database.
+    """
+    query_tokens = set(query_normalized.split())
+    candidate_tokens = set(candidate_normalized.split())
+    if query_tokens and candidate_tokens:
+        intersection = query_tokens & candidate_tokens
+        union = query_tokens | candidate_tokens
+        jaccard = len(intersection) / len(union) if union else 0.0
+        # Overlap coefficient: high when one query is a subset of the other,
+        # which is what a rephrasing that adds or drops a word looks like.
+        overlap = len(intersection) / min(len(query_tokens), len(candidate_tokens))
+        token_sim = 0.4 * jaccard + 0.6 * overlap
+    else:
+        token_sim = 0.0
+
+    edit_sim = _levenshtein_similarity(query_normalized, candidate_normalized)
+    return max(token_sim, edit_sim)
+
+
+def fuzzy_prefilter_terms(query_normalized: str, prefix_length: int | None = None) -> list[str]:
+    """Prefixes to pre-filter candidates on, longest token first.
+
+    A whole-word LIKE cannot retrieve the row a typo is meant to find: searching
+    for '%pollicy%' will never match stored 'policy', so the candidate is never
+    scored and the weighting is irrelevant. Matching on a short prefix keeps
+    both spellings in play ('pol') and leaves the decision to scoring.
+
+    Ordering is by descending length then alphabetically. The alphabetical
+    tiebreak matters: sorting a set by length alone leaves equal-length tokens
+    in set-iteration order, which varies per process under hash randomisation,
+    so the same query could retrieve different candidates on different runs.
+    """
+    if prefix_length is None:
+        prefix_length = _get_config().fuzzy_prefix_length
+    tokens = {t for t in query_normalized.split() if t}
+    ordered = sorted(tokens, key=lambda t: (-len(t), t))
+    return [t[:prefix_length] for t in ordered]
+
+
 # ---------------------------------------------------------------------------
 # Composite Key Generation (Patent §VII)
 # ---------------------------------------------------------------------------

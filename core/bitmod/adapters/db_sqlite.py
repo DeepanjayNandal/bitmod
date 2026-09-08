@@ -790,55 +790,47 @@ class SQLiteBackend(DatabaseBackend):
     ) -> list[AnswerCacheRecord]:
         """Find cached answers with similar normalized queries.
 
-        Uses token-set similarity (Jaccard on word tokens) to score candidates.
-        SQLite doesn't have pg_trgm, so we pre-filter with LIKE on the longest
-        word, then score in Python and enforce the threshold.
+        SQLite has no pg_trgm, so candidates are pre-filtered with LIKE and then
+        scored in Python by cache_engine.fuzzy_similarity.
+
+        The pre-filter matches on token *prefixes*, not whole tokens. A
+        whole-token filter cannot retrieve the row a typo is meant to find:
+        '%pollicy%' never matches stored 'policy', so the candidate is never
+        scored and the threshold never gets a say.
         """
-        query_tokens = set(normalized_query.split())
-        if not query_tokens:
+        from bitmod.cache_engine import fuzzy_prefilter_terms, fuzzy_similarity
+
+        if not normalized_query.split():
             return []
 
-        # Pre-filter: try 2-word LIKE first, fall back to 1-word if no results.
-        # This balances precision (fewer false candidates) with recall (catch rephrasings).
-        sorted_words = sorted(query_tokens, key=len, reverse=True)
-        if len(sorted_words) >= 2:
-            w1, w2 = sorted_words[0], sorted_words[1]
+        prefixes = fuzzy_prefilter_terms(normalized_query)
+        if not prefixes:
+            return []
+
+        # Two prefixes first for precision, one as a fallback for recall.
+        if len(prefixes) >= 2:
             rows = session.execute(
                 "SELECT * FROM answer_cache WHERE is_valid = 1 "
                 "AND question_normalized LIKE ? AND question_normalized LIKE ? LIMIT 200",
-                (f"%{w1}%", f"%{w2}%"),
+                (f"%{prefixes[0]}%", f"%{prefixes[1]}%"),
             ).fetchall()
-            # Fallback: if strict 2-word filter misses, try single longest word
             if not rows:
                 rows = session.execute(
                     "SELECT * FROM answer_cache WHERE is_valid = 1 AND question_normalized LIKE ? LIMIT 200",
-                    (f"%{w1}%",),
+                    (f"%{prefixes[0]}%",),
                 ).fetchall()
         else:
             rows = session.execute(
                 "SELECT * FROM answer_cache WHERE is_valid = 1 AND question_normalized LIKE ? LIMIT 200",
-                (f"%{sorted_words[0]}%",),
+                (f"%{prefixes[0]}%",),
             ).fetchall()
-
-        from bitmod.cache_engine import _levenshtein_similarity
 
         scored: list[tuple[float, AnswerCacheRecord]] = []
         for row in rows:
-            candidate_tokens = set(row["question_normalized"].split())
-            if not candidate_tokens:
+            candidate = row["question_normalized"]
+            if not candidate:
                 continue
-            intersection = query_tokens & candidate_tokens
-            union = query_tokens | candidate_tokens
-            jaccard = len(intersection) / len(union) if union else 0.0
-            # Overlap coefficient: high when one query is a subset of another
-            overlap = len(intersection) / min(len(query_tokens), len(candidate_tokens))
-            # Weighted blend: 40% Jaccard + 60% overlap
-            # This favours subset matches (rephrasings that add/drop a word)
-            token_sim = 0.4 * jaccard + 0.6 * overlap
-            # Levenshtein similarity catches typos and minor word variations
-            edit_sim = _levenshtein_similarity(normalized_query, row["question_normalized"])
-            # Combined: 60% token overlap + 40% edit distance
-            similarity = 0.6 * token_sim + 0.4 * edit_sim
+            similarity = fuzzy_similarity(normalized_query, candidate)
             if similarity >= threshold:
                 scored.append((similarity, self._row_to_cache(row)))
 

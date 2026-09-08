@@ -37,6 +37,51 @@ class SessionState:
         return f"Previous Q: {self.queries[-1]}\nPrevious A: {self.answers[-1]}"
 
 
+def resolve_against_history(query: str, state: SessionState) -> str | None:
+    """Rewrite a context-dependent follow-up into a query that stands alone.
+
+    Grafts the topic of the previous turn onto whatever new subject the current
+    query introduces::
+
+        previous: "what is the refund policy"
+        current:  "what about electronics?"
+        result:   "refund policy electronics"
+
+    Returns ``None`` when no rewrite is possible, which is the common case and
+    not an error. Two reasons it declines:
+
+    - there is no previous turn to resolve against
+    - the query contributes no subject of its own, only elaboration words
+
+    Purely rule-based: operates on strings already held in memory, costs no
+    query and no network call. An LLM rewrite would be more capable — it could
+    resolve references into the *text of the previous answer*, which this
+    cannot — but it would put a model call on the cache read path, paying
+    latency on every conversational turn to avoid a model call only sometimes.
+    Queries this declines are left for the qualification gate to block.
+    """
+    from bitmod.cache_qualify import substantive_words
+
+    if not state.queries:
+        return None
+
+    # Elaboration-only query: nothing to graft, so nothing to rewrite.
+    subject = substantive_words(query)
+    if not subject:
+        return None
+
+    prior_subject = substantive_words(state.queries[-1])
+    if not prior_subject:
+        return None
+
+    # Already shares the previous topic — the query stands on its own.
+    if any(t in prior_subject for t in subject):
+        return None
+
+    merged = prior_subject + [t for t in subject if t not in prior_subject]
+    return " ".join(merged)
+
+
 class SessionTracker:
     """In-memory LRU-bounded session tracker.
 

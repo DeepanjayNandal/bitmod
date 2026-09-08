@@ -46,6 +46,69 @@ _CONTEXT_DEPENDENT_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+# Words that carry no subject of their own. A query built only from these is
+# asking for more about the previous answer, not asking about a new topic.
+# Shared with session.resolve_against_history, which refuses to rewrite a query
+# that contributes nothing but these.
+ELABORATION_WORDS = frozenset(
+    [
+        "tell",
+        "me",
+        "more",
+        "please",
+        "again",
+        "else",
+        "next",
+        "mean",
+        "meant",
+        "clarify",
+        "explain",
+        "elaborate",
+        "deeper",
+        "summarize",
+        "summarise",
+        "repeat",
+        "continue",
+        "said",
+        "say",
+        "just",
+        "yes",
+        "no",
+        "ok",
+        "okay",
+        "sure",
+        "right",
+        "exactly",
+        "correct",
+        "wrong",
+        "thing",
+        "things",
+        "same",
+        "like",
+        "before",
+        "earlier",
+        "back",
+        "go",
+        "on",
+        "put",
+        "together",
+        "one",
+        "ones",
+        "second",
+        "third",
+        "last",
+        "previous",
+        "other",
+        "another",
+        "you",
+        "your",
+        "we",
+        "us",
+        "topic",
+        "about",
+    ]
+)
+
 # Short queries with pronouns are almost always context-dependent
 _SHORT_PRONOUN_RE = re.compile(
     r"^(what|where|when|who|how|why|is|are|do|does|did|can|will|would)\s+"
@@ -76,12 +139,25 @@ class QualificationResult:
 # ---------------------------------------------------------------------------
 
 
+def substantive_words(query: str) -> list[str]:
+    """Words in a query that name a subject, rather than point at one.
+
+    Drops stopwords and elaboration markers. What remains is what the query
+    contributes on its own, independent of any previous turn.
+    """
+    from bitmod.cache_engine import STOPWORDS
+
+    tokens = "".join(c if c.isalnum() or c.isspace() else " " for c in query.lower()).split()
+    return [t for t in tokens if t not in STOPWORDS and t not in ELABORATION_WORDS]
+
+
 def is_context_dependent(query: str, history: list | None = None) -> bool:
     """Detect if a query depends on conversation history to be meaningful."""
     q = query.strip()
+    word_count = len(q.split())
 
     # Very short queries with history are almost always context-dependent
-    if history and len(history) > 0 and len(q.split()) <= 3:
+    if history and len(history) > 0 and word_count <= 3:
         return True
 
     # Pattern-based detection

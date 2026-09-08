@@ -54,3 +54,6 @@ services/gateway/bitmod_backup/
 # TypeScript incremental build info
 tsconfig.tsbuildinfo
 services/frontend/tsconfig.tsbuildinfo
+
+# Local working notes, not part of the repo
+BACKLOG.md

@@ -30,7 +30,7 @@ from bitmod.cache_engine import (
     try_cache,
     try_composable_cache,
 )
-from bitmod.cache_qualify import qualify_cache_hit
+from bitmod.cache_qualify import is_context_dependent, qualify_cache_hit
 from bitmod.config import PromotionConfig
 from bitmod.crypto import decrypt_if_needed, is_encrypted
 from bitmod.intent import IntentRegistry, detect_intent
@@ -39,7 +39,7 @@ from bitmod.interfaces.llm import LLMMessage
 from bitmod.observability import get_tracer
 from bitmod.roles import RoleRegistry
 from bitmod.router import CircuitBreaker, LLMRouter
-from bitmod.session import SessionTracker
+from bitmod.session import SessionTracker, resolve_against_history
 from bitmod.usage import UsageRecord, UsageTracker
 
 logger = logging.getLogger(__name__)
@@ -423,14 +423,50 @@ class BitmodProxy:
             context_hash = hashlib.sha256(history_str.encode()).hexdigest()[:8]
 
         filters = {"_context": context_hash} if context_hash else {}
-        norm = normalize_query(user_message)
-        answer_key = compute_answer_key(user_message, filters, namespace_id=namespace_id)
+
+        # --- ⑨ Session resolution — rewrite follow-ups so they stand alone ---
+        # Runs here rather than at the end of the pipeline: a rewritten query has
+        # to be what the exact, semantic and fuzzy layers actually match on, so
+        # it must exist before any of them run. The previous turn is still added
+        # as evidence further down, but at zero confidence — supplying context to
+        # the LLM without pushing a context-dependent query toward being served.
+        session_state = self._session_tracker.get_or_create(messages_for_context)
+        match_query = user_message
+        if session_state.turn_count > 0 and is_context_dependent(user_message, messages_for_context[:-1]):
+            rewritten = resolve_against_history(user_message, session_state)
+            if rewritten:
+                match_query = rewritten
+                _step("session_resolve", "REWRITTEN", {"resolved": rewritten[:80]})
+            else:
+                # Nothing to graft — an elaboration request or a reference into
+                # the previous answer. Left for the qualification gate to block.
+                _step("session_resolve", "UNRESOLVED", {})
+        was_rewritten = match_query != user_message
+
+        def _gate(answer_text: str):
+            """Qualification gate, shared by every route that can serve.
+
+            Returns (may_serve, detail). A successfully rewritten query is let
+            through: resolution already replaced the anaphora with the topic it
+            referred to, so the thing the gate guards against is gone. Checking
+            the original text would block a query we just repaired, and checking
+            the rewrite would trip the short-query rule instead.
+            """
+            if was_rewritten:
+                return True, {}
+            hist = messages_for_context[:-1] if len(messages_for_context) > 1 else None
+            q = qualify_cache_hit(query=user_message, cached_answer=answer_text, history=hist)
+            return q.serve, {"reason": q.reason, "check": q.check}
+
+        norm = normalize_query(match_query)
+        answer_key = compute_answer_key(match_query, filters, namespace_id=namespace_id)
         _step(
             "normalization",
             "DONE",
             {
                 "query_length": len(user_message),
                 "has_history": len(messages_for_context) > 1,
+                "rewritten": match_query != user_message,
                 "namespace_id": namespace_id,
             },
         )
@@ -460,9 +496,9 @@ class BitmodProxy:
         if self._db_circuit.can_execute():
             try:
                 with self._backend.session() as session:
-                    cached = try_cache(self._backend, session, user_message, filters, namespace_id=namespace_id)
+                    cached = try_cache(self._backend, session, match_query, filters, namespace_id=namespace_id)
                     if not cached and _ns_fallback:
-                        cached = try_cache(self._backend, session, user_message, filters, namespace_id=None)
+                        cached = try_cache(self._backend, session, match_query, filters, namespace_id=None)
                 self._db_circuit.track_success()
             except Exception:
                 self._db_circuit.track_failure()
@@ -471,10 +507,9 @@ class BitmodProxy:
             # Qualification gate — skip context-dependent queries (e.g. "tell me
             # more", pronoun-heavy follow-ups) so they go to the LLM instead of
             # getting a cached answer from a different conversation context.
-            history = messages_for_context[:-1] if len(messages_for_context) > 1 else None
-            qual = qualify_cache_hit(query=user_message, cached_answer=cached.answer_text, history=history)
-            if not qual.serve:
-                _step("exact_cache", "SKIP_QUALIFIED", {"reason": qual.reason, "check": qual.check})
+            may_serve, detail = _gate(cached.answer_text)
+            if not may_serve:
+                _step("exact_cache", "SKIP_QUALIFIED", detail)
                 cached = None
         if cached:
             elapsed_ms = int((time.perf_counter() - start_time) * 1000)
@@ -523,7 +558,7 @@ class BitmodProxy:
                     semantic_matches = semantic_cache_search(
                         self._backend,
                         session,
-                        user_message,
+                        match_query,
                         filters,
                         self._embedder,
                         threshold=0.75,
@@ -536,7 +571,7 @@ class BitmodProxy:
                     semantic_matches = semantic_cache_search(
                         self._backend,
                         session,
-                        user_message,
+                        match_query,
                         filters,
                         self._embedder,
                         threshold=0.75,
@@ -551,7 +586,7 @@ class BitmodProxy:
                         semantic_matches = semantic_cache_search(
                             self._backend,
                             session,
-                            user_message,
+                            match_query,
                             filters,
                             self._embedder,
                             threshold=0.75,
@@ -562,7 +597,7 @@ class BitmodProxy:
                         semantic_matches = semantic_cache_search(
                             self._backend,
                             session,
-                            user_message,
+                            match_query,
                             filters,
                             self._embedder,
                             threshold=0.75,
@@ -604,7 +639,7 @@ class BitmodProxy:
             composable = try_composable_cache(
                 self._backend,
                 session,
-                user_message,
+                match_query,
                 filters,
                 namespace_id=namespace_id,
             )
@@ -632,10 +667,9 @@ class BitmodProxy:
                     combined = "\n\n".join(sections)
                     # Qualification gate — same check as exact cache to ensure
                     # composable hits are not served for context-dependent queries.
-                    history = messages_for_context[:-1] if len(messages_for_context) > 1 else None
-                    qual = qualify_cache_hit(query=user_message, cached_answer=combined, history=history)
-                    if not qual.serve:
-                        _step("composable_cache", "SKIP_QUALIFIED", {"reason": qual.reason, "check": qual.check})
+                    may_serve, detail = _gate(combined)
+                    if not may_serve:
+                        _step("composable_cache", "SKIP_QUALIFIED", detail)
                         combined = ""
                     if combined:
                         elapsed_ms = int((time.perf_counter() - start_time) * 1000)
@@ -664,7 +698,7 @@ class BitmodProxy:
             fuzzy_hits = fuzzy_match(
                 self._backend,
                 session,
-                user_message,
+                match_query,
                 filters,
                 similarity_threshold=0.85,
                 max_candidates=3,
@@ -827,15 +861,18 @@ class BitmodProxy:
             reason = "no_embedder" if not self._embedder else "no_backend_support"
             _step("atomic_facts", "SKIP", {"reason": reason})
 
-        # --- ⑨ Session Context — prior turn injection ---
-        session_state = self._session_tracker.get_or_create(messages_for_context)
+        # --- ⑨ Session Context — prior turn as LLM context, not as a vote ---
+        # The resolution step above already used this history to rewrite the
+        # query. Carrying the exchange at zero confidence keeps it available to
+        # context_for_llm() on a miss while removing the flat +0.25 that used to
+        # push exactly the context-dependent queries the gate exists to stop.
         if session_state.turn_count > 0:
             ctx = session_state.last_exchange_context()
             if ctx:
                 evidence.add(
                     CacheEvidence(
                         layer="session",
-                        confidence=0.25,
+                        confidence=0.0,
                         answer_text=ctx,
                         is_partial=True,
                         sub_query="[session_context]",

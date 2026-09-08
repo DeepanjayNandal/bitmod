@@ -903,6 +903,17 @@ class BitmodProxy:
         if evidence.total_confidence >= serve_threshold:
             best = evidence.best_single_answer()
             if best:
+                # --- Qualification gate on the accumulated-confidence path ---
+                # Exact match and composable each consult the gate before serving,
+                # but this path did not, so a query the gate blocks from an exact
+                # hit could still be served once layers 4, 6 and 7 together
+                # cleared the threshold. The gate has to guard every route out.
+                may_serve, detail = _gate(best.answer_text)
+                if not may_serve:
+                    _step("accumulated_serve", "SKIP_QUALIFIED", {**detail, "best_layer": best.layer})
+                    best = None
+
+            if best:
                 # --- ③ Source Verification on the chosen answer ---
                 # Semantic candidates were verified at collection, but the winner
                 # can also come from fuzzy or link traversal, which are not. This

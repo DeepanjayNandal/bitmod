@@ -109,6 +109,19 @@ ELABORATION_WORDS = frozenset(
     ]
 )
 
+# How much subject a query must carry before it stands on its own.
+#
+# Raw word count cannot make this call. "can you tell me more about that topic?"
+# is 8 words and entirely context-dependent; "Does that policy cover
+# international shipping for enterprise customers?" is 9 and entirely
+# self-contained. Length is inverted between them.
+#
+# Counting words that are neither stopwords nor elaboration markers separates
+# them cleanly — the first has 0, the second has 6. Across the phrases these
+# rules were built from, context-dependent queries top out at 2 substantive
+# words and self-contained ones start at 5. The bound sits in that gap.
+MAX_SUBSTANTIVE_WORDS = 3
+
 # Short queries with pronouns are almost always context-dependent
 _SHORT_PRONOUN_RE = re.compile(
     r"^(what|where|when|who|how|why|is|are|do|does|did|can|will|would)\s+"
@@ -159,6 +172,18 @@ def is_context_dependent(query: str, history: list | None = None) -> bool:
     # Very short queries with history are almost always context-dependent
     if history and len(history) > 0 and word_count <= 3:
         return True
+
+    # Anaphora only makes a query context-dependent while the query carries too
+    # little subject of its own to be matched directly:
+    #
+    #   "how does it work"                                     -> dependent
+    #   "how does it work when a customer disputes a charge?"   -> standalone
+    #
+    # Both open with the same anaphoric phrase; only the first needs the previous
+    # turn to mean anything. Applied to the pattern list and the pronoun rule
+    # alike, since either can match a long specific question.
+    if len(substantive_words(q)) > MAX_SUBSTANTIVE_WORDS:
+        return False
 
     # Pattern-based detection
     if _CONTEXT_DEPENDENT_PATTERNS.search(q):

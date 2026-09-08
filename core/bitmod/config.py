@@ -293,6 +293,74 @@ class CacheConfig:
         default_factory=lambda: float(os.getenv("BITMOD_CACHE_FUZZY_PREFILTER_SIMILARITY", "0.30"))
     )
 
+    # --- Serve decision ---
+    # Accumulated confidence at or above this serves from cache. The single
+    # most behaviour-changing value in the pipeline.
+    serve_threshold: float = field(default_factory=lambda: float(os.getenv("BITMOD_CACHE_SERVE_THRESHOLD", "0.95")))
+
+    # --- Per-layer confidence contributions ---
+    # What each layer is worth when it matches. Exact match is 1.0 by
+    # definition — the key matched — so it is not configurable.
+    composable_confidence: float = field(
+        default_factory=lambda: float(os.getenv("BITMOD_CACHE_COMPOSABLE_CONFIDENCE", "0.85"))
+    )
+    fuzzy_confidence: float = field(default_factory=lambda: float(os.getenv("BITMOD_CACHE_FUZZY_CONFIDENCE", "0.40")))
+
+    # --- Atomic facts (layer 8) ---
+    fact_min_similarity: float = field(
+        default_factory=lambda: float(os.getenv("BITMOD_CACHE_FACT_MIN_SIMILARITY", "0.80"))
+    )
+    fact_confidence_weight: float = field(
+        default_factory=lambda: float(os.getenv("BITMOD_CACHE_FACT_CONFIDENCE_WEIGHT", "0.40"))
+    )
+    fact_dedup_threshold: float = field(
+        default_factory=lambda: float(os.getenv("BITMOD_CACHE_FACT_DEDUP_THRESHOLD", "0.95"))
+    )
+    fact_min_answer_length: int = field(
+        default_factory=lambda: int(os.getenv("BITMOD_CACHE_FACT_MIN_ANSWER_LENGTH", "100"))
+    )
+    fact_max_per_answer: int = field(default_factory=lambda: int(os.getenv("BITMOD_CACHE_FACT_MAX_PER_ANSWER", "10")))
+
+    # --- Similarity links (layer 7) ---
+    # Near-misses in this band are recorded as links. Below it the pair is not
+    # related enough to be worth remembering; above it the query would have
+    # been served on semantic similarity alone.
+    link_learn_min: float = field(default_factory=lambda: float(os.getenv("BITMOD_CACHE_LINK_LEARN_MIN", "0.75")))
+    link_learn_max: float = field(default_factory=lambda: float(os.getenv("BITMOD_CACHE_LINK_LEARN_MAX", "0.91")))
+    link_hop2_discount: float = field(
+        default_factory=lambda: float(os.getenv("BITMOD_CACHE_LINK_HOP2_DISCOUNT", "0.30"))
+    )
+    link_strength_bonus: float = field(
+        default_factory=lambda: float(os.getenv("BITMOD_CACHE_LINK_STRENGTH_BONUS", "0.05"))
+    )
+    link_strength_bonus_cap: float = field(
+        default_factory=lambda: float(os.getenv("BITMOD_CACHE_LINK_STRENGTH_BONUS_CAP", "0.25"))
+    )
+    link_max_per_query: int = field(default_factory=lambda: int(os.getenv("BITMOD_CACHE_LINK_MAX_PER_QUERY", "10")))
+    link_max_total: int = field(default_factory=lambda: int(os.getenv("BITMOD_CACHE_LINK_MAX_TOTAL", "1000000")))
+    # A traversed link is weaker evidence than the semantic match that seeded
+    # it — this scales its similarity down before it enters the evidence pool.
+    link_confidence_weight: float = field(
+        default_factory=lambda: float(os.getenv("BITMOD_CACHE_LINK_CONFIDENCE_WEIGHT", "0.50"))
+    )
+
+    # --- Verification penalties ---
+    # Negative evidence applied when a check rejects the chosen answer. The
+    # serve-verify penalty is large enough to drop any single serve below
+    # threshold; the promotion penalty is softer because an LLM disagreeing is
+    # weaker grounds than a source hash mismatch.
+    serve_verify_penalty: float = field(
+        default_factory=lambda: float(os.getenv("BITMOD_CACHE_SERVE_VERIFY_PENALTY", "1.0"))
+    )
+    promotion_demotion_penalty: float = field(
+        default_factory=lambda: float(os.getenv("BITMOD_CACHE_PROMOTION_DEMOTION_PENALTY", "0.5"))
+    )
+    # Assumed similarity when a backend returns a bare fact rather than a
+    # (fact, similarity) pair. Adapter contracts differ on this.
+    fact_assumed_similarity: float = field(
+        default_factory=lambda: float(os.getenv("BITMOD_CACHE_FACT_ASSUMED_SIMILARITY", "0.85"))
+    )
+
 
 @dataclass
 class BitmodConfig:

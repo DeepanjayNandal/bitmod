@@ -30,6 +30,7 @@ from bitmod.cache_engine import (
     try_cache,
     try_composable_cache,
 )
+from bitmod.cache_engine import _get_config as get_cache_config
 from bitmod.cache_qualify import is_context_dependent, qualify_cache_hit
 from bitmod.config import PromotionConfig
 from bitmod.crypto import decrypt_if_needed, is_encrypted
@@ -391,7 +392,8 @@ class BitmodProxy:
                 span.end()
             return _CacheResult(hit=False, trace=reject_trace)
 
-        serve_threshold = 0.95
+        cache_cfg = get_cache_config()
+        serve_threshold = cache_cfg.serve_threshold
         start_time = time.perf_counter()
         trace: list[dict] = []
         evidence = PipelineEvidence()
@@ -551,7 +553,7 @@ class BitmodProxy:
             )
         _step("exact_cache", "MISS", {})
 
-        # --- ④ Semantic Similarity — embedding cosine search (collect ALL matches >= 0.75) ---
+        # --- ④ Semantic Similarity — embedding cosine search (threshold from config) ---
         if self._embedder and self._embed_circuit.can_execute():
             with self._backend.session() as session:
                 try:
@@ -561,8 +563,8 @@ class BitmodProxy:
                         match_query,
                         filters,
                         self._embedder,
-                        threshold=0.75,
-                        max_results=3,
+                        threshold=cache_cfg.search_threshold,
+                        max_results=cache_cfg.search_max_results,
                         namespace_id=namespace_id,
                     )
                     self._embed_circuit.track_success()
@@ -574,8 +576,8 @@ class BitmodProxy:
                         match_query,
                         filters,
                         self._embedder,
-                        threshold=0.75,
-                        max_results=3,
+                        threshold=cache_cfg.search_threshold,
+                        max_results=cache_cfg.search_max_results,
                     )
                     self._embed_circuit.track_success()
                 except Exception:
@@ -589,8 +591,8 @@ class BitmodProxy:
                             match_query,
                             filters,
                             self._embedder,
-                            threshold=0.75,
-                            max_results=3,
+                            threshold=cache_cfg.search_threshold,
+                            max_results=cache_cfg.search_max_results,
                             namespace_id=None,
                         )
                     except TypeError:
@@ -600,8 +602,8 @@ class BitmodProxy:
                             match_query,
                             filters,
                             self._embedder,
-                            threshold=0.75,
-                            max_results=3,
+                            threshold=cache_cfg.search_threshold,
+                            max_results=cache_cfg.search_max_results,
                         )
                 # Verify BEFORE adding to evidence, not after. Layer ⑦ seeds its
                 # traversal from evidence.evidences, so a stale candidate that
@@ -651,7 +653,7 @@ class BitmodProxy:
                     evidence.add(
                         CacheEvidence(
                             layer="composable",
-                            confidence=0.85,
+                            confidence=cache_cfg.composable_confidence,
                             answer_text=sq_answer_text,
                             record_id=None,
                             is_partial=True,
@@ -693,15 +695,15 @@ class BitmodProxy:
             else:
                 _step("composable_cache", "MISS", {})
 
-        # --- ⑥ Fuzzy Match — Jaccard + token overlap (contributes context, never serves directly) ---
+        # --- ⑥ Fuzzy Match — max(token overlap, edit distance); see cache_engine.fuzzy_similarity ---
         with self._backend.session() as session:
             fuzzy_hits = fuzzy_match(
                 self._backend,
                 session,
                 match_query,
                 filters,
-                similarity_threshold=0.85,
-                max_candidates=3,
+                similarity_threshold=cache_cfg.fuzzy_threshold,
+                max_candidates=cache_cfg.fuzzy_max_candidates,
                 namespace_id=namespace_id,
             )
             if fuzzy_hits:
@@ -709,7 +711,7 @@ class BitmodProxy:
                     evidence.add(
                         CacheEvidence(
                             layer="fuzzy",
-                            confidence=0.40,
+                            confidence=cache_cfg.fuzzy_confidence,
                             answer_text=fh.answer_text,
                             record_id=fh.id,
                         )
@@ -722,7 +724,7 @@ class BitmodProxy:
         if hasattr(self._backend, "get_similarity_links"):
             semantic_evidences = [e for e in evidence.evidences if e.layer == "semantic" and e.record_id]
             link_count = 0
-            max_total_links = 10  # bound to prevent explosion
+            max_total_links = cache_cfg.link_max_per_query
             seen_link_targets: set[str] = set()
             with self._backend.session() as session:
                 for sem_ev in semantic_evidences:
@@ -758,8 +760,11 @@ class BitmodProxy:
                             continue
                         if linked_record and linked_record.is_valid:
                             # Strength bonus: each reinforcement adds 0.05 confidence, capped at 0.25
-                            strength_bonus = min(link.strength * 0.05, 0.25)
-                            conf = link.similarity * 0.5 + strength_bonus
+                            strength_bonus = min(
+                                link.strength * cache_cfg.link_strength_bonus,
+                                cache_cfg.link_strength_bonus_cap,
+                            )
+                            conf = link.similarity * cache_cfg.link_confidence_weight + strength_bonus
                             evidence.add(
                                 CacheEvidence(
                                     layer="similarity_link",
@@ -792,7 +797,9 @@ class BitmodProxy:
                             except Exception:  # noqa: S112
                                 continue
                             if linked2 and linked2.is_valid:
-                                conf2 = link2.similarity * 0.5 * 0.3  # 0.3x discount for 2nd hop
+                                conf2 = (
+                                    link2.similarity * cache_cfg.link_confidence_weight * cache_cfg.link_hop2_discount
+                                )
                                 evidence.add(
                                     CacheEvidence(
                                         layer="similarity_link",
@@ -830,12 +837,12 @@ class BitmodProxy:
                         if isinstance(item, tuple):
                             fact, sim = item
                         else:
-                            fact, sim = item, 0.85
-                        if sim >= 0.80:
+                            fact, sim = item, cache_cfg.fact_assumed_similarity
+                        if sim >= cache_cfg.fact_min_similarity:
                             best_fact_sim = max(best_fact_sim, sim)
-                            # Weight by quality_score: confidence = similarity * quality_score * 0.4
+                            # Weight by quality_score, scaled by the configured fact weight
                             qs = getattr(fact, "quality_score", 0.5)
-                            fact_conf = sim * qs * 0.4
+                            fact_conf = sim * qs * cache_cfg.fact_confidence_weight
                             evidence.add(
                                 CacheEvidence(
                                     layer="atomic_facts",
@@ -934,7 +941,11 @@ class BitmodProxy:
                                 # Drop the candidate and let confidence fall rather
                                 # than aborting — the request still gets an answer,
                                 # just a generated one.
-                                evidence.add(CacheEvidence(layer="serve_verify", confidence=-1.0, answer_text=""))
+                                evidence.add(
+                                    CacheEvidence(
+                                        layer="serve_verify", confidence=-cache_cfg.serve_verify_penalty, answer_text=""
+                                    )
+                                )
                                 demoted = True
                     except Exception:
                         logger.debug("Serve-time source verification failed", exc_info=True)
@@ -953,7 +964,13 @@ class BitmodProxy:
                             "DEMOTED",
                             {"best_layer": best.layer, "best_confidence": round(best.confidence, 3)},
                         )
-                        evidence.add(CacheEvidence(layer="promotion_verify", confidence=-0.5, answer_text=""))
+                        evidence.add(
+                            CacheEvidence(
+                                layer="promotion_verify",
+                                confidence=-cache_cfg.promotion_demotion_penalty,
+                                answer_text="",
+                            )
+                        )
                         demoted = True
                     else:
                         _step("promotion_verify", "PROMOTED", {"best_layer": best.layer})
@@ -1216,7 +1233,8 @@ class BitmodProxy:
         """Decompose an answer into atomic facts with quality scoring and deduplication."""
         if not hasattr(self._backend, "store_atomic_fact"):
             return
-        if len(answer_text) < 100:
+        cache_cfg = get_cache_config()
+        if len(answer_text) < cache_cfg.fact_min_answer_length:
             logger.debug("Skipping atomic fact decomposition: answer too short (%d chars)", len(answer_text))
             return
         try:
@@ -1224,7 +1242,7 @@ class BitmodProxy:
         except Exception:
             return
 
-        facts = facts[:10]  # cap at 10 facts per answer to prevent garbage flooding
+        facts = facts[: cache_cfg.fact_max_per_answer]  # cap to prevent garbage flooding
         stored_count = 0
         with self._backend.session() as session:
             for fact_dict in facts:
@@ -1244,7 +1262,7 @@ class BitmodProxy:
                             )
                             if existing:
                                 ex_fact, ex_sim = existing[0] if isinstance(existing[0], tuple) else (existing[0], 0.0)
-                                if ex_sim > 0.95:
+                                if ex_sim > cache_cfg.fact_dedup_threshold:
                                     # Duplicate — increment serve_count on existing fact instead
                                     try:
                                         session.execute(
@@ -1305,7 +1323,7 @@ class BitmodProxy:
         new_norm: str,
         evidence: PipelineEvidence,
     ) -> None:
-        """Store SimilarityLink entries for semantic near-misses (0.75-0.91).
+        """Store SimilarityLink entries for semantic near-misses.
 
         When we generate a new answer despite having semantic matches that
         weren't confident enough to serve, we record those relationships
@@ -1314,8 +1332,13 @@ class BitmodProxy:
         if not hasattr(self._backend, "store_similarity_link"):
             return
 
+        cache_cfg = get_cache_config()
         near_misses = [
-            e for e in evidence.evidences if e.layer == "semantic" and e.record_id and 0.75 <= e.similarity <= 0.91
+            e
+            for e in evidence.evidences
+            if e.layer == "semantic"
+            and e.record_id
+            and cache_cfg.link_learn_min <= e.similarity <= cache_cfg.link_learn_max
         ]
         if not near_misses:
             return
@@ -1356,7 +1379,7 @@ class BitmodProxy:
         if should_evict and hasattr(self._backend, "evict_similarity_links"):
             try:
                 with self._backend.session() as evict_session:
-                    evicted = self._backend.evict_similarity_links(evict_session, max_links=1_000_000)
+                    evicted = self._backend.evict_similarity_links(evict_session, max_links=cache_cfg.link_max_total)
                     if evicted > 0:
                         logger.info("Evicted %d similarity links (cap=1000000)", evicted)
             except Exception:

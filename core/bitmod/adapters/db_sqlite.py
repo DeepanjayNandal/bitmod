@@ -576,6 +576,7 @@ class SQLiteBackend(DatabaseBackend):
                     title=sec.section_title or "",
                     snippet=sec.text_content[:300],
                     score=round(score, 4),
+                    version_hash=sec.version_hash or "",
                 )
             )
             if len(results) >= limit:

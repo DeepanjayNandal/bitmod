@@ -169,6 +169,7 @@ class MongoDBBackend(DatabaseBackend):
                     title=doc.get("section_title", ""),
                     snippet=doc["text_content"][:300],
                     score=doc.get("score", 0),
+                    version_hash=doc.get("version_hash", ""),
                 )
             )
         return results

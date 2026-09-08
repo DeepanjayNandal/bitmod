@@ -672,10 +672,18 @@ class TestPostgreSQLBackend:
         mock_sa.orm = MagicMock()
         mock_sa.orm.Session = MagicMock()
         mock_sa.orm.sessionmaker = MagicMock()
+        # source_sections is declared JSONB (not JSON) so the GIN index and the
+        # @> containment query work, which means the dialect submodule has to be
+        # importable here too.
+        mock_sa.dialects = MagicMock()
+        mock_sa.dialects.postgresql = MagicMock()
+        mock_sa.dialects.postgresql.JSONB = MagicMock()
         mock_pgvector = MagicMock()
         modules = {
             "sqlalchemy": mock_sa,
             "sqlalchemy.orm": mock_sa.orm,
+            "sqlalchemy.dialects": mock_sa.dialects,
+            "sqlalchemy.dialects.postgresql": mock_sa.dialects.postgresql,
             "pgvector": mock_pgvector,
             "pgvector.sqlalchemy": mock_pgvector.sqlalchemy,
         }

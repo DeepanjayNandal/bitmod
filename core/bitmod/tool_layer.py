@@ -202,6 +202,7 @@ def _handle_search(args: dict, backend: DatabaseBackend, embedder=None) -> dict:
                     "title": r.title,
                     "snippet": r.snippet[:MAX_SNIPPET_LENGTH],
                     "score": r.score,
+                    "version_hash": r.version_hash,
                 }
                 for r in results
             ],

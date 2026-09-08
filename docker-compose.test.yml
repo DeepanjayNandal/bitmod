@@ -1,0 +1,53 @@
+# Test databases for running the suite against PostgreSQL and MySQL.
+#
+#   docker compose -f docker-compose.test.yml up -d
+#
+# Then run the suite against them:
+#
+#   BITMOD_TEST_POSTGRES=1 \
+#   DATABASE_URL=postgresql://bitmod:bitmod@localhost:5433/bitmod_test \
+#   BITMOD_TEST_MYSQL=1 \
+#   MYSQL_URL=mysql+pymysql://bitmod:bitmod@localhost:3307/bitmod_test \
+#   pytest tests/ -q
+#
+# Ports are offset (5433/3307) so these never collide with a local
+# postgres/mysql or with the services in docker-compose.yml.
+
+services:
+  test-postgres:
+    # pgvector image — the adapter runs CREATE EXTENSION vector + pg_trgm
+    # on initialize(), so a stock postgres image will not work.
+    image: pgvector/pgvector:pg16
+    container_name: bitmod-test-postgres
+    environment:
+      POSTGRES_USER: bitmod
+      POSTGRES_PASSWORD: bitmod
+      POSTGRES_DB: bitmod_test
+    ports:
+      - "5433:5432"
+    tmpfs:
+      # Ephemeral storage — test data should never survive a restart.
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bitmod -d bitmod_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  test-mysql:
+    image: mysql:8
+    container_name: bitmod-test-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_USER: bitmod
+      MYSQL_PASSWORD: bitmod
+      MYSQL_DATABASE: bitmod_test
+    ports:
+      - "3307:3306"
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -ubitmod -pbitmod --silent"]
+      interval: 3s
+      timeout: 5s
+      retries: 40

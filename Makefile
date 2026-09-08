@@ -56,6 +56,19 @@ typecheck: ## Run mypy type checker on core library
 test: ## Run pytest with coverage
 	pytest tests/ -v --cov=bitmod --cov-report=term-missing
 
+test-db-up: ## Start throwaway PostgreSQL + MySQL for backend tests
+	docker compose -f docker-compose.test.yml up -d --wait
+
+test-db-down: ## Stop and remove the test databases
+	docker compose -f docker-compose.test.yml down -v
+
+test-all-backends: test-db-up ## Run the suite against SQLite, PostgreSQL and MySQL
+	BITMOD_TEST_POSTGRES=1 \
+	DATABASE_URL=postgresql://bitmod:bitmod@localhost:5433/bitmod_test \
+	BITMOD_TEST_MYSQL=1 \
+	MYSQL_URL=mysql+pymysql://bitmod:bitmod@localhost:3307/bitmod_test \
+	pytest tests/test_backend_search_integration.py tests/test_source_verification.py -v
+
 # --- Build ---
 
 build: ## Build Python package

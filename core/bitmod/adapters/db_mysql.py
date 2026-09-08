@@ -298,7 +298,7 @@ class MySQLBackend(DatabaseBackend):
             )
 
         sql = text("""
-            SELECT id as section_id, citation, section_title, text_content,
+            SELECT id as section_id, citation, section_title, text_content, version_hash,
                 MATCH(text_content) AGAINST(:query IN NATURAL LANGUAGE MODE) as score
             FROM sections WHERE is_current = 1
                 AND MATCH(text_content) AGAINST(:query IN NATURAL LANGUAGE MODE)
@@ -312,6 +312,7 @@ class MySQLBackend(DatabaseBackend):
                 title=row.section_title or "",
                 snippet=row.text_content[:300],
                 score=float(row.score),
+                version_hash=row.version_hash or "",
             )
             for row in rows
         ]

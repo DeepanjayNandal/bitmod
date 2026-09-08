@@ -45,6 +45,7 @@ try:
         text,
         update,
     )
+    from sqlalchemy.dialects.postgresql import JSONB
     from sqlalchemy.orm import Session, sessionmaker
 except ImportError as e:
     raise ImportError(
@@ -125,7 +126,10 @@ class PostgreSQLBackend(DatabaseBackend):
             Column("question_normalized", Text, default=""),
             Column("filters", JSON, default={}),
             Column("answer_text", Text, default=""),
-            Column("source_sections", JSON, default=[]),
+            # JSONB, not JSON: the GIN index uses jsonb_path_ops and
+            # cache_invalidate_by_section queries with the @> containment
+            # operator. Neither exists for the plain json type.
+            Column("source_sections", JSONB, default=[]),
             Column("model_used", String, default=""),
             Column("generation_ms", Integer, default=0),
             Column("confidence", Float, nullable=True),
@@ -320,10 +324,10 @@ class PostgreSQLBackend(DatabaseBackend):
                 extra_where += " AND s.document_type = :document_type"
                 params["document_type"] = document_type
 
-            sql = text(f"""  # nosemgrep: avoid-sqlalchemy-text
+            sql = text(f"""
                 WITH text_scores AS (
                     SELECT s.id as section_id, s.citation,
-                        s.section_title, s.text_content,
+                        s.section_title, s.text_content, s.version_hash,
                         ts_rank(to_tsvector('english', s.text_content),
                             plainto_tsquery('english', :query)) as text_score
                     FROM sections s
@@ -333,11 +337,11 @@ class PostgreSQLBackend(DatabaseBackend):
                 ),
                 vector_scores AS (
                     SELECT c.section_id,
-                        1 - (c.embedding <=> :embedding::vector) as vec_score
+                        1 - (c.embedding <=> CAST(:embedding AS vector)) as vec_score
                     FROM chunks c
                     WHERE c.embedding IS NOT NULL
                 )
-                SELECT ts.section_id, ts.citation, ts.section_title, ts.text_content,
+                SELECT ts.section_id, ts.citation, ts.section_title, ts.text_content, ts.version_hash,
                     (COALESCE(ts.text_score, 0) * 0.4 + COALESCE(vs.vec_score, 0) * 0.6) as combined_score
                 FROM text_scores ts
                 LEFT JOIN vector_scores vs ON ts.section_id = vs.section_id
@@ -352,9 +356,9 @@ class PostgreSQLBackend(DatabaseBackend):
                 extra_where += " AND s.jurisdiction = :jurisdiction"
                 params["jurisdiction"] = jurisdiction
 
-            sql = text(f"""  # nosemgrep: avoid-sqlalchemy-text
+            sql = text(f"""
                 SELECT s.id as section_id, s.citation,
-                    s.section_title, s.text_content,
+                    s.section_title, s.text_content, s.version_hash,
                     ts_rank(to_tsvector('english', s.text_content),
                         plainto_tsquery('english', :query)) as combined_score
                 FROM sections s
@@ -373,6 +377,7 @@ class PostgreSQLBackend(DatabaseBackend):
                 title=row.section_title or "",
                 snippet=row.text_content[:300],
                 score=float(row.combined_score),
+                version_hash=row.version_hash or "",
             )
             for row in rows
         ]
@@ -440,7 +445,7 @@ class PostgreSQLBackend(DatabaseBackend):
         sql = text("""
             UPDATE answer_cache SET is_valid = false, invalidated_at = NOW(),
                 invalidation_reason = :reason
-            WHERE is_valid = true AND source_sections @> :filter::jsonb
+            WHERE is_valid = true AND source_sections @> CAST(:filter AS jsonb)
             RETURNING id
         """)
         result = session.execute(
@@ -744,9 +749,9 @@ class PostgreSQLBackend(DatabaseBackend):
         session.execute(
             text("""
             INSERT INTO cache_embeddings (cache_id, embedding)
-            VALUES (:cid, :emb::vector)
+            VALUES (:cid, CAST(:emb AS vector))
             ON CONFLICT (cache_id)
-            DO UPDATE SET embedding = :emb::vector
+            DO UPDATE SET embedding = CAST(:emb AS vector)
         """),
             {"cid": cache_id, "emb": str(embedding)},
         )

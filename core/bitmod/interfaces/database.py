@@ -126,6 +126,11 @@ class SearchResult:
     title: str
     snippet: str
     score: float
+    # Version hash of the source section, carried so cache writers can record it
+    # in source_sections for serve-time double_verify. Defaults to "" for
+    # backends that cannot supply it; an empty hash makes an entry unverifiable
+    # rather than stale (see cache_engine.double_verify).
+    version_hash: str = ""
 
 
 # ---------------------------------------------------------------------------

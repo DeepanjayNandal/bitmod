@@ -34,6 +34,7 @@ from bitmod.observability import (
     get_correlation_id,
 )
 from bitmod.pricing import estimate_cost, get_updated_at, is_stale
+from bitmod.proxy.debug import debug_enabled
 from bitmod.schemas import (
     ContextRequest,
     ContextResponse,
@@ -1208,9 +1209,10 @@ async def proxy_openai_completions(request: Request, _user: AuthUser = Depends(l
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
 
-    result = await proxy.handle_completion(body, api_key=api_key, namespace_id=namespace_id)
+    debug_sink: dict | None = {} if debug_enabled(request, authenticated=True) else None
+    result = await proxy.handle_completion(body, api_key=api_key, namespace_id=namespace_id, debug_sink=debug_sink)
     response = JSONResponse(content=result)
-    return _add_cache_headers(response, result)
+    return _add_cache_headers(response, result, debug_sink)
 
 
 @app.get("/v1/models", tags=["proxy"])
@@ -1248,9 +1250,10 @@ async def proxy_anthropic_messages(request: Request, _user: AuthUser = Depends(l
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
 
-    result = await proxy.handle_anthropic(body, api_key=api_key, namespace_id=namespace_id)
+    debug_sink: dict | None = {} if debug_enabled(request, authenticated=True) else None
+    result = await proxy.handle_anthropic(body, api_key=api_key, namespace_id=namespace_id, debug_sink=debug_sink)
     response = JSONResponse(content=result)
-    return _add_cache_headers(response, result)
+    return _add_cache_headers(response, result, debug_sink)
 
 
 # --- Gemini format: /v1beta/models/{model}:generateContent ---
@@ -1276,9 +1279,12 @@ async def proxy_gemini_generate(
     api_key = _extract_api_key(request)
     namespace_id = _extract_namespace_id(request, _user)
 
-    result = await proxy.handle_gemini(body, model=model_name, api_key=api_key, namespace_id=namespace_id)
+    debug_sink: dict | None = {} if debug_enabled(request, authenticated=True) else None
+    result = await proxy.handle_gemini(
+        body, model=model_name, api_key=api_key, namespace_id=namespace_id, debug_sink=debug_sink
+    )
     response = JSONResponse(content=result)
-    return _add_cache_headers(response, result)
+    return _add_cache_headers(response, result, debug_sink)
 
 
 @app.post("/v1beta/models/{model_name}:streamGenerateContent", tags=["proxy"])
@@ -2021,8 +2027,16 @@ def _check_ollama(base_url: str) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def _add_cache_headers(response: JSONResponse, result: dict) -> JSONResponse:
-    """Add X-Bitmod-* cache metadata headers to proxy responses."""
+def _add_cache_headers(response: JSONResponse, result: dict, debug: dict | None = None) -> JSONResponse:
+    """Add X-Bitmod-* cache metadata headers to proxy responses.
+
+    ``debug`` carries per-layer attribution from the pipeline and is only
+    populated when debug output is enabled — see bitmod.proxy.debug. It is
+    merged last so its values win: the layer it reports comes from the evidence
+    that was actually served, while x_bitmod_cache_layer below defaults to
+    "exact" whenever the trace has no HIT step, which is every serve decided on
+    accumulated confidence.
+    """
     cached = result.get("x_bitmod_cached", False)
     response.headers["X-Bitmod-Cache-Hit"] = str(cached).lower()
 
@@ -2034,6 +2048,9 @@ def _add_cache_headers(response: JSONResponse, result: dict) -> JSONResponse:
         response.headers["X-Bitmod-Cache-Layer"] = layer
         response.headers["X-Bitmod-Serve-Count"] = str(serve_count)
         response.headers["X-Bitmod-Saved"] = f"${saved:.4f}"
+
+    for name, value in (debug or {}).items():
+        response.headers[name] = value
 
     return response
 

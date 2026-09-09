@@ -16,6 +16,7 @@ from bitmod.interfaces.llm import LLMMessage
 
 if TYPE_CHECKING:
     from bitmod.proxy.base import BitmodProxy
+from bitmod.proxy.debug import cache_debug_headers
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +105,12 @@ def _build_gemini_error(message: str) -> dict:
 
 
 async def handle_gemini(
-    proxy: BitmodProxy, request_body: dict, model: str = "", api_key: str | None = None, namespace_id: str | None = None
+    proxy: BitmodProxy,
+    request_body: dict,
+    model: str = "",
+    api_key: str | None = None,
+    namespace_id: str | None = None,
+    debug_sink: dict | None = None,
 ) -> dict:
     """Handle a Gemini generateContent request."""
     model = model or proxy._default_model
@@ -130,6 +136,8 @@ async def handle_gemini(
 
     start_time = time.perf_counter()
     cache = await asyncio.to_thread(proxy._run_cache_pipeline, user_message, context_msgs, namespace_id)
+    if debug_sink is not None:
+        debug_sink.update(cache_debug_headers(cache))
 
     if cache.hit:
         logger.info("Proxy cache HIT (Gemini): %s in %dms", cache.cache_key[:16], cache.elapsed_ms)
@@ -230,7 +238,12 @@ async def handle_gemini(
 
 
 async def handle_gemini_stream(
-    proxy: BitmodProxy, request_body: dict, model: str = "", api_key: str | None = None, namespace_id: str | None = None
+    proxy: BitmodProxy,
+    request_body: dict,
+    model: str = "",
+    api_key: str | None = None,
+    namespace_id: str | None = None,
+    debug_sink: dict | None = None,
 ) -> AsyncIterator[str]:
     """Handle a Gemini streamGenerateContent request (NDJSON chunks)."""
     model = model or proxy._default_model
@@ -255,6 +268,8 @@ async def handle_gemini_stream(
 
     start_time = time.perf_counter()
     cache = await asyncio.to_thread(proxy._run_cache_pipeline, user_message, context_msgs, namespace_id)
+    if debug_sink is not None:
+        debug_sink.update(cache_debug_headers(cache))
 
     if cache.hit:
         # Serve cached answer as a single Gemini response chunk

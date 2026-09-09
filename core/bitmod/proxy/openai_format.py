@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from bitmod.proxy.base import BitmodProxy
+from bitmod.proxy.debug import cache_debug_headers
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +117,11 @@ def _build_stream_chunk(
 
 
 async def handle_completion(
-    proxy: BitmodProxy, request_body: dict, api_key: str | None = None, namespace_id: str | None = None
+    proxy: BitmodProxy,
+    request_body: dict,
+    api_key: str | None = None,
+    namespace_id: str | None = None,
+    debug_sink: dict | None = None,
 ) -> dict:
     """Handle a /v1/chat/completions request (non-streaming)."""
     messages = request_body.get("messages", [])
@@ -130,6 +135,8 @@ async def handle_completion(
 
     start_time = time.perf_counter()
     cache = await asyncio.to_thread(proxy._run_cache_pipeline, user_message, messages, namespace_id)
+    if debug_sink is not None:
+        debug_sink.update(cache_debug_headers(cache))
 
     if cache.hit:
         logger.info("Proxy cache HIT (OpenAI): %s in %dms", cache.cache_key[:16], cache.elapsed_ms)
@@ -222,7 +229,11 @@ async def handle_completion(
 
 
 async def handle_completion_stream(
-    proxy: BitmodProxy, request_body: dict, api_key: str | None = None, namespace_id: str | None = None
+    proxy: BitmodProxy,
+    request_body: dict,
+    api_key: str | None = None,
+    namespace_id: str | None = None,
+    debug_sink: dict | None = None,
 ) -> AsyncIterator[str]:
     """Handle a streaming /v1/chat/completions request (SSE)."""
     messages = request_body.get("messages", [])
@@ -240,6 +251,8 @@ async def handle_completion_stream(
 
     start_time = time.perf_counter()
     cache = await asyncio.to_thread(proxy._run_cache_pipeline, user_message, messages, namespace_id)
+    if debug_sink is not None:
+        debug_sink.update(cache_debug_headers(cache))
 
     if cache.hit:
         text = cache.answer_text

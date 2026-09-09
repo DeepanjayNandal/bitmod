@@ -437,6 +437,16 @@ class SQLiteBackend(DatabaseBackend):
         row = session.execute("SELECT * FROM sections WHERE citation = ? AND is_current = 1", (citation,)).fetchone()
         return self._row_to_section(row) if row else None
 
+    def get_section_version_hashes(self, session: Any, section_ids: list[str]) -> dict[str, str]:
+        if not section_ids:
+            return {}
+        placeholders = ",".join("?" for _ in section_ids)
+        rows = session.execute(
+            f"SELECT id, version_hash FROM sections WHERE id IN ({placeholders})",  # noqa: S608
+            tuple(section_ids),
+        ).fetchall()
+        return {r["id"]: r["version_hash"] for r in rows}
+
     def get_section_version_hash(self, session: Any, section_id: str) -> str | None:
         row = session.execute(
             "SELECT version_hash FROM sections WHERE id = ? AND is_current = 1", (section_id,)

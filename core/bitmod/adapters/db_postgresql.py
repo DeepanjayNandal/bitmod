@@ -294,6 +294,14 @@ class PostgreSQLBackend(DatabaseBackend):
         ).fetchone()
         return self._row_to_section(row) if row else None
 
+    def get_section_version_hashes(self, session: Any, section_ids: list[str]) -> dict[str, str]:
+        if not section_ids:
+            return {}
+        rows = session.execute(
+            select(self._sections.c.id, self._sections.c.version_hash).where(self._sections.c.id.in_(section_ids))
+        ).fetchall()
+        return {r.id: r.version_hash for r in rows}
+
     def get_section_version_hash(self, session: Any, section_id: str) -> str | None:
         row = session.execute(
             select(self._sections.c.version_hash).where(

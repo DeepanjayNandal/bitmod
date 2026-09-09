@@ -113,6 +113,12 @@ class MongoDBBackend(DatabaseBackend):
         doc = session.sections.find_one({"citation": citation, "is_current": True})
         return self._doc_to_section(doc) if doc else None
 
+    def get_section_version_hashes(self, session: Any, section_ids: list[str]) -> dict[str, str]:
+        if not section_ids:
+            return {}
+        docs = session.sections.find({"id": {"$in": section_ids}, "is_current": True}, {"id": 1, "version_hash": 1})
+        return {d["id"]: d["version_hash"] for d in docs}
+
     def get_section_version_hash(self, session: Any, section_id: str) -> str | None:
         doc = session.sections.find_one({"id": section_id, "is_current": True}, {"version_hash": 1})
         return doc["version_hash"] if doc else None

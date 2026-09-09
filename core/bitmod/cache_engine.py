@@ -433,14 +433,35 @@ def double_verify(
     the hash.
 
     ``hash_cache`` is an optional per-request memo of section_id -> current
-    hash. One lookup issues a query per source section, and a single pipeline
-    verifies several candidates that usually cite the same documents, so
-    sharing the memo across those calls collapses the repeated reads. Scope it
-    to one request: it is a snapshot, not a long-lived cache.
+    hash. Scope it to one request: it is a snapshot, not a long-lived cache.
+
+    Hashes are fetched in one batch per call, and the memo then serves any that
+    a later candidate reuses. The two work on different cases and neither
+    subsumes the other: candidates citing the same documents are collapsed by
+    the memo, and candidates citing entirely different ones — where the memo
+    never hits — are collapsed by the batch. Measured over four candidates with
+    ten sections each, the memo alone takes 40 queries to 10 when they overlap
+    and leaves it at 40 when they do not; batching holds it at one per call.
     """
     source_sections = cached.source_sections or []
     if not source_sections:
         return True
+
+    # Fetch every hash this call needs in one query, minus whatever the memo
+    # already holds from an earlier candidate.
+    wanted: set[str] = set()
+    for source in source_sections:
+        section_id = source.get("section_id")
+        if section_id and source.get("version_hash"):
+            wanted.add(str(section_id))
+    unknown = sorted(wanted - set(hash_cache)) if hash_cache is not None else sorted(wanted)
+    if unknown and hasattr(backend, "get_section_version_hashes"):
+        fetched = backend.get_section_version_hashes(session, unknown)
+        resolved: dict[str, str | None] = {sid: fetched.get(sid) for sid in unknown}
+        if hash_cache is None:
+            hash_cache = resolved
+        else:
+            hash_cache.update(resolved)
 
     for source in source_sections:
         section_id = source.get("section_id")

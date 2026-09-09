@@ -297,6 +297,16 @@ class DatabaseBackend(ABC):
         """Get a section by citation string."""
 
     @abstractmethod
+    def get_section_version_hashes(self, session: Any, section_ids: list[str]) -> dict[str, str]:
+        """Return {section_id: version_hash} for the ids that exist.
+
+        Batch form of get_section_version_hash. double_verify needs one hash per
+        source section, so verifying a handful of candidates issued a query per
+        section per candidate; a per-request memo collapses that only when the
+        candidates happen to cite the same documents.
+        """
+
+    @abstractmethod
     def get_section_version_hash(self, session: Any, section_id: str) -> str | None:
         """Get just the version_hash for a current section. Used by cache double-verify."""
 

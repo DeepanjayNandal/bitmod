@@ -50,9 +50,10 @@ from bitmod.schemas import (
     ProjectScanResponse,
 )
 from bitmod.security import ALLOWED_FILE_EXTENSIONS, get_rate_limiter
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, Security
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.security import APIKeyHeader
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -558,6 +559,63 @@ async def metrics_endpoint(request: Request):
     )
 
 
+# ---------------------------------------------------------------------------
+# Authentication
+#
+# Every route below authenticates through _authenticate, directly or via the
+# _auth_dependency wrapper. Both paths end up awaiting the dependency
+# require_auth_db builds, which is the part that was missing.
+#
+# Declared once so FastAPI registers the schemes in OpenAPI and /docs shows
+# which routes need credentials. They document the headers; _authenticate is
+# the only place that reads them, so the two cannot disagree about a value.
+# ---------------------------------------------------------------------------
+
+_AUTHORIZATION_HEADER = APIKeyHeader(name="Authorization", auto_error=False)
+_X_API_KEY_HEADER = APIKeyHeader(name="x-api-key", auto_error=False)
+
+
+async def _authenticate(request: Request, scopes: list[str] | None = None) -> AuthUser:
+    """Authenticate the current request, raising 401/403 if it fails.
+
+    _get_auth_dep opens the database and runs initialize(), so it cannot be
+    called at import time; building the dependency per request keeps that
+    deferred to the first request that needs it.
+
+    The dependency takes `request` as a required positional argument. Calling
+    it with only the two header keywords raises TypeError, which is what made
+    every endpoint using this pattern return 500.
+    """
+    auth_dep = _get_auth_dep(scopes=scopes)
+    return await auth_dep(
+        request,
+        authorization=request.headers.get("authorization"),
+        x_api_key=request.headers.get("x-api-key"),
+    )
+
+
+def _auth_dependency(scopes: list[str] | None = None):
+    """Build a FastAPI dependency enforcing `scopes`.
+
+    The factory cannot be handed to Depends behind a zero-argument lambda.
+    FastAPI would call the lambda, take the dependency callable it returns as
+    the resolved value, bind that function object to the parameter and never
+    invoke it — so no credentials were ever checked. It has to be given a
+    callable it will actually await, which is what this returns.
+    """
+
+    async def dependency(
+        request: Request,
+        authorization: str | None = Security(_AUTHORIZATION_HEADER),
+        x_api_key: str | None = Security(_X_API_KEY_HEADER),
+    ) -> AuthUser:
+        # authorization/x_api_key are declared for OpenAPI only; _authenticate
+        # reads the headers itself so there is a single source of truth.
+        return await _authenticate(request, scopes=scopes)
+
+    return dependency
+
+
 # Proxy to chat service
 @app.api_route("/v1/chat", methods=["GET", "POST"])
 @app.api_route("/v1/chat/{path:path}", methods=["GET", "POST"])
@@ -835,7 +893,7 @@ def _check_document_limit(backend, namespace_id: str | None = None) -> None:
 
 @app.post("/v1/ingest/text", tags=["ingest"])
 async def ingest_text_endpoint(
-    request: IngestTextRequest, _user: AuthUser = Depends(lambda: _get_auth_dep(scopes=["write"]))
+    request: IngestTextRequest, _user: AuthUser = Depends(_auth_dependency(scopes=["write"]))
 ):
     """Ingest raw text content into the data store. Requires write scope."""
     from bitmod.ingestion.chunker import ChunkConfig
@@ -891,7 +949,7 @@ async def ingest_text_endpoint(
 
 
 @app.post("/v1/ingest/file", tags=["ingest"])
-async def ingest_file_endpoint(request: Request, _user: AuthUser = Depends(lambda: _get_auth_dep(scopes=["write"]))):
+async def ingest_file_endpoint(request: Request, _user: AuthUser = Depends(_auth_dependency(scopes=["write"]))):
     """Ingest a file via multipart upload. Requires write scope."""
     import tempfile
 
@@ -1194,7 +1252,7 @@ def _extract_namespace_id(request: Request, user: AuthUser | None = None) -> str
 
 
 @app.post("/v1/chat/completions", tags=["proxy"])
-async def proxy_openai_completions(request: Request, _user: AuthUser = Depends(lambda: _get_auth_dep(scopes=["read"]))):
+async def proxy_openai_completions(request: Request, _user: AuthUser = Depends(_auth_dependency(scopes=["read"]))):
     """OpenAI-compatible /v1/chat/completions with Bitmod caching."""
     proxy = _get_proxy()
     try:
@@ -1235,7 +1293,7 @@ async def proxy_openai_models():
 
 
 @app.post("/v1/messages", tags=["proxy"])
-async def proxy_anthropic_messages(request: Request, _user: AuthUser = Depends(lambda: _get_auth_dep(scopes=["read"]))):
+async def proxy_anthropic_messages(request: Request, _user: AuthUser = Depends(_auth_dependency(scopes=["read"]))):
     """Anthropic-compatible /v1/messages with Bitmod caching."""
     proxy = _get_proxy()
     try:
@@ -1272,7 +1330,7 @@ async def proxy_anthropic_messages(request: Request, _user: AuthUser = Depends(l
 async def proxy_gemini_generate(
     request: Request,
     model_name: str,
-    _user: AuthUser = Depends(lambda: _get_auth_dep(scopes=["read"])),
+    _user: AuthUser = Depends(_auth_dependency(scopes=["read"])),
 ):
     """Gemini-compatible generateContent with Bitmod caching."""
     proxy = _get_proxy()
@@ -1300,7 +1358,7 @@ async def proxy_gemini_generate(
 async def proxy_gemini_stream(
     request: Request,
     model_name: str,
-    _user: AuthUser = Depends(lambda: _get_auth_dep(scopes=["read"])),
+    _user: AuthUser = Depends(_auth_dependency(scopes=["read"])),
 ):
     """Gemini-compatible streamGenerateContent with Bitmod caching."""
     proxy = _get_proxy()
@@ -1331,7 +1389,7 @@ async def proxy_gemini_stream(
 @app.post("/api/chat", tags=["proxy"])
 async def proxy_ollama_chat(
     request: Request,
-    _user: AuthUser = Depends(lambda: _get_auth_dep(scopes=["read"])),
+    _user: AuthUser = Depends(_auth_dependency(scopes=["read"])),
 ):
     """Ollama-native /api/chat with Bitmod caching."""
     proxy = _get_proxy()
@@ -1428,7 +1486,7 @@ async def proxy_ollama_tags():
 
 
 @app.post("/v1/reload", tags=["admin"])
-async def proxy_reload(request: Request, _user: AuthUser = Depends(lambda: _get_auth_dep(scopes=["admin"]))):
+async def proxy_reload(request: Request, _user: AuthUser = Depends(_auth_dependency(scopes=["admin"]))):
     """Proxy reload. Requires admin scope."""
     chat_url = config.gateway.chat_service_url
     try:
@@ -1444,7 +1502,7 @@ async def proxy_reload(request: Request, _user: AuthUser = Depends(lambda: _get_
 
 
 @app.get("/v1/ingest/status", tags=["ingest"])
-async def ingest_status(_user: AuthUser = Depends(lambda: _get_auth_dep(scopes=["read"]))):
+async def ingest_status(_user: AuthUser = Depends(_auth_dependency(scopes=["read"]))):
     """Return document ingestion statistics. Requires read scope."""
     backend = _get_ingest_backend()
     with backend.session() as session:
@@ -1454,7 +1512,7 @@ async def ingest_status(_user: AuthUser = Depends(lambda: _get_auth_dep(scopes=[
 
 # Cache stats endpoint
 @app.get("/v1/cache/stats", tags=["cache"])
-async def cache_stats(_user: AuthUser = Depends(lambda: _get_auth_dep(scopes=["read"]))):
+async def cache_stats(_user: AuthUser = Depends(_auth_dependency(scopes=["read"]))):
     from bitmod.cache_engine import get_cache_stats
 
     try:
@@ -1473,7 +1531,7 @@ async def cache_stats(_user: AuthUser = Depends(lambda: _get_auth_dep(scopes=["r
 
 # Admin metrics endpoint — serves all data the admin dashboard needs
 @app.get("/v1/admin/metrics", tags=["admin"])
-async def admin_metrics(_user: AuthUser = Depends(lambda: _get_auth_dep(scopes=["admin"]))):
+async def admin_metrics(_user: AuthUser = Depends(_auth_dependency(scopes=["admin"]))):
     from bitmod.cache_engine import get_cache_stats
 
     try:
@@ -1800,11 +1858,7 @@ async def create_api_key_endpoint(request: Request):
             content={"error": "API key management requires auth. Set BITMOD_AUTH_ENABLED=true."},
         )
 
-    auth_dep = _get_auth_dep(scopes=["admin"])
-    user = await auth_dep(
-        authorization=request.headers.get("authorization"),
-        x_api_key=request.headers.get("x-api-key"),
-    )
+    user = await _authenticate(request, scopes=["admin"])
     owner = user.subject
 
     try:
@@ -1855,11 +1909,7 @@ async def list_api_keys_endpoint(request: Request):
             content={"error": "API key management requires auth. Set BITMOD_AUTH_ENABLED=true."},
         )
 
-    auth_dep = _get_auth_dep(scopes=["admin"])
-    await auth_dep(
-        authorization=request.headers.get("authorization"),
-        x_api_key=request.headers.get("x-api-key"),
-    )
+    await _authenticate(request, scopes=["admin"])
     mgr = _get_key_manager()
     keys = mgr.list_keys()
     return {
@@ -1889,11 +1939,7 @@ async def revoke_api_key_endpoint(request: Request, key_id: str):
             content={"error": "API key management requires auth. Set BITMOD_AUTH_ENABLED=true."},
         )
 
-    auth_dep = _get_auth_dep(scopes=["admin"])
-    await auth_dep(
-        authorization=request.headers.get("authorization"),
-        x_api_key=request.headers.get("x-api-key"),
-    )
+    await _authenticate(request, scopes=["admin"])
     mgr = _get_key_manager()
     revoked = mgr.revoke_key(key_id)
     if not revoked:
@@ -2080,11 +2126,7 @@ async def usage_summary(request: Request, days: int = 30, tenant_id: str = "defa
         tenant_id: Tenant identifier (default "default")
     """
     if is_auth_enabled():
-        auth_dep = _get_auth_dep(scopes=["read"])
-        await auth_dep(
-            authorization=request.headers.get("authorization"),
-            x_api_key=request.headers.get("x-api-key"),
-        )
+        await _authenticate(request, scopes=["read"])
 
     from bitmod.usage import UsageTracker
 
@@ -2129,11 +2171,7 @@ async def usage_export(request: Request, days: int = 30, tenant_id: str = "defau
     Returns text/csv with daily cost breakdown.
     """
     if is_auth_enabled():
-        auth_dep = _get_auth_dep(scopes=["read"])
-        await auth_dep(
-            authorization=request.headers.get("authorization"),
-            x_api_key=request.headers.get("x-api-key"),
-        )
+        await _authenticate(request, scopes=["read"])
 
     from bitmod.usage import UsageTracker
 
@@ -2198,11 +2236,7 @@ async def create_namespace(request: Request):
         {"name": "my-tenant", "isolation": "strict", "public_fallback": true}
     """
     if is_auth_enabled():
-        auth_dep = _get_auth_dep(scopes=["admin"])
-        user = await auth_dep(
-            authorization=request.headers.get("authorization"),
-            x_api_key=request.headers.get("x-api-key"),
-        )
+        user = await _authenticate(request, scopes=["admin"])
         owner_key_id = user.subject
     else:
         owner_key_id = "system"
@@ -2244,11 +2278,7 @@ async def list_namespaces(request: Request):
     Requires auth with 'admin' scope.
     """
     if is_auth_enabled():
-        auth_dep = _get_auth_dep(scopes=["admin"])
-        user = await auth_dep(
-            authorization=request.headers.get("authorization"),
-            x_api_key=request.headers.get("x-api-key"),
-        )
+        user = await _authenticate(request, scopes=["admin"])
         owner_key_id = user.subject
     else:
         owner_key_id = None  # List all when no auth
@@ -2269,11 +2299,7 @@ async def get_namespace(request: Request, namespace_id: str):
     Requires auth with 'admin' scope.
     """
     if is_auth_enabled():
-        auth_dep = _get_auth_dep(scopes=["admin"])
-        await auth_dep(
-            authorization=request.headers.get("authorization"),
-            x_api_key=request.headers.get("x-api-key"),
-        )
+        await _authenticate(request, scopes=["admin"])
 
     mgr = _get_namespace_manager()
     ns = mgr.get(namespace_id)
@@ -2290,11 +2316,7 @@ async def delete_namespace(request: Request, namespace_id: str):
     Requires auth with 'admin' scope.
     """
     if is_auth_enabled():
-        auth_dep = _get_auth_dep(scopes=["admin"])
-        user = await auth_dep(
-            authorization=request.headers.get("authorization"),
-            x_api_key=request.headers.get("x-api-key"),
-        )
+        user = await _authenticate(request, scopes=["admin"])
         owner_key_id = user.subject
     else:
         owner_key_id = "system"
@@ -2314,11 +2336,7 @@ async def namespace_cache_stats(request: Request, namespace_id: str):
     Requires auth with 'admin' scope.
     """
     if is_auth_enabled():
-        auth_dep = _get_auth_dep(scopes=["admin"])
-        await auth_dep(
-            authorization=request.headers.get("authorization"),
-            x_api_key=request.headers.get("x-api-key"),
-        )
+        await _authenticate(request, scopes=["admin"])
 
     mgr = _get_namespace_manager()
     ns = mgr.get(namespace_id)
@@ -2375,7 +2393,7 @@ def _get_project_memory():
 async def create_project(
     request: Request,
     body: ProjectCreateRequest,
-    _user: AuthUser = Depends(lambda: _get_auth_dep(scopes=["write"])),
+    _user: AuthUser = Depends(_auth_dependency(scopes=["write"])),
 ):
     """Register a project directory for knowledge tracking."""
     # C2: Validate root_path against allowed base directories
@@ -2439,7 +2457,7 @@ async def create_project(
 async def list_projects(
     request: Request,
     active_only: bool = True,
-    _user: AuthUser = Depends(lambda: _get_auth_dep(scopes=["read"])),
+    _user: AuthUser = Depends(_auth_dependency(scopes=["read"])),
 ):
     """List registered projects."""
     backend = _get_ingest_backend()
@@ -2466,7 +2484,7 @@ async def list_projects(
 async def get_project(
     request: Request,
     project_id: str,
-    _user: AuthUser = Depends(lambda: _get_auth_dep(scopes=["read"])),
+    _user: AuthUser = Depends(_auth_dependency(scopes=["read"])),
 ):
     """Get a project by ID."""
     backend = _get_ingest_backend()
@@ -2492,7 +2510,7 @@ async def get_project(
 async def delete_project(
     request: Request,
     project_id: str,
-    _user: AuthUser = Depends(lambda: _get_auth_dep(scopes=["admin"])),
+    _user: AuthUser = Depends(_auth_dependency(scopes=["admin"])),
 ):
     """Delete a project and all its indexed data."""
     indexer = _get_project_indexer()
@@ -2511,7 +2529,7 @@ async def delete_project(
 async def scan_project(
     request: Request,
     project_id: str,
-    _user: AuthUser = Depends(lambda: _get_auth_dep(scopes=["write"])),
+    _user: AuthUser = Depends(_auth_dependency(scopes=["write"])),
 ):
     """Scan/re-scan a project directory and index changed files."""
     indexer = _get_project_indexer()
@@ -2541,7 +2559,7 @@ async def list_conversations(
     project_id: str | None = None,
     limit: int = 50,
     offset: int = 0,
-    _user: AuthUser = Depends(lambda: _get_auth_dep(scopes=["read"])),
+    _user: AuthUser = Depends(_auth_dependency(scopes=["read"])),
 ):
     """List conversation history, optionally filtered by project."""
     memory = _get_project_memory()
@@ -2568,7 +2586,7 @@ async def rate_conversation(
     request: Request,
     conversation_id: str,
     body: ConversationRateRequest,
-    _user: AuthUser = Depends(lambda: _get_auth_dep(scopes=["write"])),
+    _user: AuthUser = Depends(_auth_dependency(scopes=["write"])),
 ):
     """Rate a conversation (1-5) with optional feedback."""
     memory = _get_project_memory()
@@ -2591,7 +2609,7 @@ async def correct_conversation(
     request: Request,
     conversation_id: str,
     body: CorrectionRequest,
-    _user: AuthUser = Depends(lambda: _get_auth_dep(scopes=["write"])),
+    _user: AuthUser = Depends(_auth_dependency(scopes=["write"])),
 ):
     """Submit a correction for an AI response."""
     memory = _get_project_memory()
@@ -2629,7 +2647,7 @@ async def correct_conversation(
 async def assemble_context(
     request: Request,
     body: ContextRequest,
-    _user: AuthUser = Depends(lambda: _get_auth_dep(scopes=["read"])),
+    _user: AuthUser = Depends(_auth_dependency(scopes=["read"])),
 ):
     """Assemble project-aware context for a query.
 

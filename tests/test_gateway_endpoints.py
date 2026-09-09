@@ -243,9 +243,23 @@ class TestProxyValidation:
         assert error is None
 
     def test_ingest_text_valid_request(self, client):
-        """POST /v1/ingest/text with valid body succeeds or fails gracefully."""
+        """POST /v1/ingest/text with a valid body, in whichever auth state applies.
+
+        This asserted 200 unconditionally and passed, because no request was
+        ever authenticated — the route's dependency was bound but never
+        invoked. /v1/ingest/text requires write scope, so with auth enforced an
+        unauthenticated call is a 401 and the old assertion was documenting the
+        bypass.
+
+        It only passed in isolation by luck of ordering: _AUTH_ENABLED is read
+        once when bitmod.auth is imported, so which test module imports first
+        decided the answer. Branching on it explicitly keeps this meaningful in
+        both configurations instead of depending on collection order.
+        """
         if client is None:
             pytest.skip("client not available")
+        from bitmod.auth import is_auth_enabled
+
         response = client.post(
             "/v1/ingest/text",
             json={
@@ -256,4 +270,9 @@ class TestProxyValidation:
             },
             headers={"X-Requested-With": "XMLHttpRequest"},
         )
-        assert response.status_code == 200
+        if is_auth_enabled():
+            assert response.status_code == 401, (
+                "an unauthenticated write reached the ingest endpoint — the route requires write scope"
+            )
+        else:
+            assert response.status_code == 200

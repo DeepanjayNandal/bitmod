@@ -104,6 +104,16 @@ def _build_gemini_error(message: str) -> dict:
 # ---------------------------------------------------------------------------
 
 
+def _end_user_id(request_body: dict) -> str | None:
+    """Gemini's generateContent carries no end-user identifier.
+
+    History lives inline in `contents` and there is no per-user field, so the
+    fallback session key is scoped by namespace alone for this format. Callers
+    needing per-user separation should send X-Bitmod-Conversation-Id.
+    """
+    return None
+
+
 async def handle_gemini(
     proxy: BitmodProxy,
     request_body: dict,
@@ -111,6 +121,7 @@ async def handle_gemini(
     api_key: str | None = None,
     namespace_id: str | None = None,
     debug_sink: dict | None = None,
+    conversation_id: str | None = None,
 ) -> dict:
     """Handle a Gemini generateContent request."""
     model = model or proxy._default_model
@@ -135,7 +146,14 @@ async def handle_gemini(
         context_msgs.append({"role": role, "content": text})
 
     start_time = time.perf_counter()
-    cache = await asyncio.to_thread(proxy._run_cache_pipeline, user_message, context_msgs, namespace_id)
+    cache = await asyncio.to_thread(
+        proxy._run_cache_pipeline,
+        user_message,
+        context_msgs,
+        namespace_id,
+        conversation_id=conversation_id,
+        user_id=_end_user_id(request_body),
+    )
     if debug_sink is not None:
         debug_sink.update(cache_debug_headers(cache))
 
@@ -212,6 +230,8 @@ async def handle_gemini(
         answer_key,
         namespace_id=namespace_id,
         evidence=cache.evidence,
+        conversation_id=conversation_id,
+        user_id=_end_user_id(request_body),
     )
 
     _in_tokens = response.usage.get("input_tokens", 0)
@@ -244,6 +264,7 @@ async def handle_gemini_stream(
     api_key: str | None = None,
     namespace_id: str | None = None,
     debug_sink: dict | None = None,
+    conversation_id: str | None = None,
 ) -> AsyncIterator[str]:
     """Handle a Gemini streamGenerateContent request (NDJSON chunks)."""
     model = model or proxy._default_model
@@ -267,7 +288,14 @@ async def handle_gemini_stream(
         context_msgs.append({"role": c.get("role", "user"), "content": text})
 
     start_time = time.perf_counter()
-    cache = await asyncio.to_thread(proxy._run_cache_pipeline, user_message, context_msgs, namespace_id)
+    cache = await asyncio.to_thread(
+        proxy._run_cache_pipeline,
+        user_message,
+        context_msgs,
+        namespace_id,
+        conversation_id=conversation_id,
+        user_id=_end_user_id(request_body),
+    )
     if debug_sink is not None:
         debug_sink.update(cache_debug_headers(cache))
 
@@ -371,6 +399,8 @@ async def handle_gemini_stream(
                 answer_key,
                 namespace_id=namespace_id,
                 evidence=cache.evidence,
+                conversation_id=conversation_id,
+                user_id=_end_user_id(request_body),
             )
         except Exception:
             logger.exception("Failed to cache streamed Gemini response")

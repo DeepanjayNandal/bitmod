@@ -354,6 +354,8 @@ class BitmodProxy:
         user_message: str,
         messages_for_context: list[dict],
         namespace_id: str | None = None,
+        conversation_id: str | None = None,
+        user_id: str | None = None,
     ) -> _CacheResult:
         """Run the cohesive cache pipeline. Accumulates evidence from ALL layers.
 
@@ -432,7 +434,12 @@ class BitmodProxy:
         # it must exist before any of them run. The previous turn is still added
         # as evidence further down, but at zero confidence — supplying context to
         # the LLM without pushing a context-dependent query toward being served.
-        session_state = self._session_tracker.get_or_create(messages_for_context)
+        session_state = self._session_tracker.get_or_create(
+            messages_for_context,
+            conversation_id=conversation_id,
+            namespace_id=namespace_id,
+            user_id=user_id,
+        )
         match_query = user_message
         if session_state.turn_count > 0 and is_context_dependent(user_message, messages_for_context[:-1]):
             rewritten = resolve_against_history(user_message, session_state)
@@ -525,7 +532,12 @@ class BitmodProxy:
             )
             _step("exact_cache", "HIT", {"serve_count": cached.serve_count})
             # Record in session tracker
-            state = self._session_tracker.get_or_create(messages_for_context)
+            state = self._session_tracker.get_or_create(
+                messages_for_context,
+                conversation_id=conversation_id,
+                namespace_id=namespace_id,
+                user_id=user_id,
+            )
             self._session_tracker.record(state, user_message, cached.answer_text, cached.answer_key)
             self._audit.log_event(
                 "cache_served",
@@ -1174,6 +1186,8 @@ class BitmodProxy:
         namespace_id: str | None = None,
         evidence: PipelineEvidence | None = None,
         messages_for_context: list[dict] | None = None,
+        conversation_id: str | None = None,
+        user_id: str | None = None,
     ) -> None:
         """Cache a generated response, optionally scoped to a namespace.
 
@@ -1219,7 +1233,12 @@ class BitmodProxy:
         # Record in session tracker
         if messages_for_context:
             try:
-                state = self._session_tracker.get_or_create(messages_for_context)
+                state = self._session_tracker.get_or_create(
+                    messages_for_context,
+                    conversation_id=conversation_id,
+                    namespace_id=namespace_id,
+                    user_id=user_id,
+                )
                 self._session_tracker.record(state, user_message, answer_text, answer_key)
             except Exception:
                 logger.debug("Session tracking failed", exc_info=True)
@@ -1429,11 +1448,19 @@ class BitmodProxy:
         api_key: str | None = None,
         namespace_id: str | None = None,
         debug_sink: dict | None = None,
+        conversation_id: str | None = None,
     ) -> dict:
         """Handle a /v1/chat/completions request (non-streaming)."""
         from bitmod.proxy.openai_format import handle_completion
 
-        return await handle_completion(self, request_body, api_key, namespace_id=namespace_id, debug_sink=debug_sink)
+        return await handle_completion(
+            self,
+            request_body,
+            api_key,
+            namespace_id=namespace_id,
+            debug_sink=debug_sink,
+            conversation_id=conversation_id,
+        )
 
     async def handle_completion_stream(
         self,
@@ -1441,12 +1468,18 @@ class BitmodProxy:
         api_key: str | None = None,
         namespace_id: str | None = None,
         debug_sink: dict | None = None,
+        conversation_id: str | None = None,
     ) -> AsyncIterator[str]:
         """Handle a streaming /v1/chat/completions request (SSE)."""
         from bitmod.proxy.openai_format import handle_completion_stream
 
         async for chunk in handle_completion_stream(
-            self, request_body, api_key, namespace_id=namespace_id, debug_sink=debug_sink
+            self,
+            request_body,
+            api_key,
+            namespace_id=namespace_id,
+            debug_sink=debug_sink,
+            conversation_id=conversation_id,
         ):
             yield chunk
 
@@ -1456,11 +1489,19 @@ class BitmodProxy:
         api_key: str | None = None,
         namespace_id: str | None = None,
         debug_sink: dict | None = None,
+        conversation_id: str | None = None,
     ) -> dict:
         """Handle a /v1/messages request (Anthropic Claude SDK format)."""
         from bitmod.proxy.anthropic_format import handle_anthropic
 
-        return await handle_anthropic(self, request_body, api_key, namespace_id=namespace_id, debug_sink=debug_sink)
+        return await handle_anthropic(
+            self,
+            request_body,
+            api_key,
+            namespace_id=namespace_id,
+            debug_sink=debug_sink,
+            conversation_id=conversation_id,
+        )
 
     async def handle_anthropic_stream(
         self,
@@ -1468,12 +1509,18 @@ class BitmodProxy:
         api_key: str | None = None,
         namespace_id: str | None = None,
         debug_sink: dict | None = None,
+        conversation_id: str | None = None,
     ) -> AsyncIterator[str]:
         """Handle a streaming /v1/messages request (Anthropic SSE format)."""
         from bitmod.proxy.anthropic_format import handle_anthropic_stream
 
         async for chunk in handle_anthropic_stream(
-            self, request_body, api_key, namespace_id=namespace_id, debug_sink=debug_sink
+            self,
+            request_body,
+            api_key,
+            namespace_id=namespace_id,
+            debug_sink=debug_sink,
+            conversation_id=conversation_id,
         ):
             yield chunk
 
@@ -1484,11 +1531,20 @@ class BitmodProxy:
         api_key: str | None = None,
         namespace_id: str | None = None,
         debug_sink: dict | None = None,
+        conversation_id: str | None = None,
     ) -> dict:
         """Handle a Gemini generateContent request."""
         from bitmod.proxy.gemini_format import handle_gemini
 
-        return await handle_gemini(self, request_body, model, api_key, namespace_id=namespace_id, debug_sink=debug_sink)
+        return await handle_gemini(
+            self,
+            request_body,
+            model,
+            api_key,
+            namespace_id=namespace_id,
+            debug_sink=debug_sink,
+            conversation_id=conversation_id,
+        )
 
     async def handle_gemini_stream(
         self,
@@ -1497,12 +1553,19 @@ class BitmodProxy:
         api_key: str | None = None,
         namespace_id: str | None = None,
         debug_sink: dict | None = None,
+        conversation_id: str | None = None,
     ) -> AsyncIterator[str]:
         """Handle a Gemini streamGenerateContent request (NDJSON chunks)."""
         from bitmod.proxy.gemini_format import handle_gemini_stream
 
         async for chunk in handle_gemini_stream(
-            self, request_body, model, api_key, namespace_id=namespace_id, debug_sink=debug_sink
+            self,
+            request_body,
+            model,
+            api_key,
+            namespace_id=namespace_id,
+            debug_sink=debug_sink,
+            conversation_id=conversation_id,
         ):
             yield chunk
 

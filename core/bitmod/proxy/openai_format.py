@@ -116,12 +116,27 @@ def _build_stream_chunk(
 # ---------------------------------------------------------------------------
 
 
+def _end_user_id(request_body: dict) -> str | None:
+    """The end-user identifier OpenAI clients send for abuse monitoring.
+
+    Not a conversation id — one user may hold several conversations — but it
+    scopes the fallback session key so two users inside a namespace asking the
+    same opening question do not share session state.
+    """
+    for field in ("user", "safety_identifier"):
+        value = request_body.get(field)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
 async def handle_completion(
     proxy: BitmodProxy,
     request_body: dict,
     api_key: str | None = None,
     namespace_id: str | None = None,
     debug_sink: dict | None = None,
+    conversation_id: str | None = None,
 ) -> dict:
     """Handle a /v1/chat/completions request (non-streaming)."""
     messages = request_body.get("messages", [])
@@ -134,7 +149,14 @@ async def handle_completion(
         return _build_openai_response("Please provide a message.", model)
 
     start_time = time.perf_counter()
-    cache = await asyncio.to_thread(proxy._run_cache_pipeline, user_message, messages, namespace_id)
+    cache = await asyncio.to_thread(
+        proxy._run_cache_pipeline,
+        user_message,
+        messages,
+        namespace_id,
+        conversation_id=conversation_id,
+        user_id=_end_user_id(request_body),
+    )
     if debug_sink is not None:
         debug_sink.update(cache_debug_headers(cache))
 
@@ -198,6 +220,8 @@ async def handle_completion(
         answer_key,
         namespace_id=namespace_id,
         evidence=cache.evidence,
+        conversation_id=conversation_id,
+        user_id=_end_user_id(request_body),
     )
 
     _in_tokens = response.usage.get("input_tokens", 0)
@@ -234,6 +258,7 @@ async def handle_completion_stream(
     api_key: str | None = None,
     namespace_id: str | None = None,
     debug_sink: dict | None = None,
+    conversation_id: str | None = None,
 ) -> AsyncIterator[str]:
     """Handle a streaming /v1/chat/completions request (SSE)."""
     messages = request_body.get("messages", [])
@@ -250,7 +275,14 @@ async def handle_completion_stream(
         return
 
     start_time = time.perf_counter()
-    cache = await asyncio.to_thread(proxy._run_cache_pipeline, user_message, messages, namespace_id)
+    cache = await asyncio.to_thread(
+        proxy._run_cache_pipeline,
+        user_message,
+        messages,
+        namespace_id,
+        conversation_id=conversation_id,
+        user_id=_end_user_id(request_body),
+    )
     if debug_sink is not None:
         debug_sink.update(cache_debug_headers(cache))
 
@@ -302,6 +334,8 @@ async def handle_completion_stream(
                 answer_key,
                 namespace_id=namespace_id,
                 evidence=cache.evidence,
+                conversation_id=conversation_id,
+                user_id=_end_user_id(request_body),
             )
         except Exception:
             logger.exception("Failed to cache streamed proxy response")

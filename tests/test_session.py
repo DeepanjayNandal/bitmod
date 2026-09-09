@@ -178,15 +178,81 @@ class TestSessionTracker:
         s2_new = tracker.get_or_create([{"role": "user", "content": "msg-2"}])
         assert s2_new.turn_count == 0
 
-    def test_all_messages_contribute_to_session_id(self, tracker):
-        """Different conversation histories produce different session IDs."""
-        msgs_a = [
+    def test_session_id_is_stable_as_the_conversation_grows(self, tracker):
+        """The id must not change when a turn is appended.
+
+        This asserted the opposite — that two histories sharing an opening
+        message get different ids — and was named for it. That is the defect:
+        hashing every message meant each turn produced a new id, a fresh
+        SessionState with turn_count 0, and both consumers (query resolution
+        and session evidence) are gated on turn_count > 0. The layer could
+        never engage in a real conversation.
+        """
+        turn_one = [{"role": "user", "content": "first"}]
+        turn_two = [
             {"role": "user", "content": "first"},
             {"role": "assistant", "content": "reply"},
             {"role": "user", "content": "second"},
         ]
-        msgs_b = [
-            {"role": "user", "content": "first"},
-            {"role": "user", "content": "different-second"},
-        ]
-        assert tracker.get_or_create(msgs_a).session_id != tracker.get_or_create(msgs_b).session_id
+        assert tracker.get_or_create(turn_one).session_id == tracker.get_or_create(turn_two).session_id
+
+    def test_different_openings_are_different_sessions(self, tracker):
+        first = tracker.get_or_create([{"role": "user", "content": "about refunds"}])
+        second = tracker.get_or_create([{"role": "user", "content": "about shipping"}])
+        assert first.session_id != second.session_id
+
+    def test_namespaces_do_not_share_a_session(self, tracker):
+        """Two tenants asking the same opening question must stay separate.
+
+        Session state feeds query resolution and supplies context to the model,
+        so a collision here is a cross-tenant leak, not a cache miss.
+        """
+        messages = [{"role": "user", "content": "what is the refund policy"}]
+        assert (
+            tracker.get_or_create(messages, namespace_id="tenant-a").session_id
+            != tracker.get_or_create(messages, namespace_id="tenant-b").session_id
+        )
+
+    def test_users_within_one_namespace_do_not_share_a_session(self, tracker):
+        """Namespace separates tenants; nothing else separates users inside one."""
+        messages = [{"role": "user", "content": "what is the refund policy"}]
+        assert (
+            tracker.get_or_create(messages, namespace_id="t", user_id="alice").session_id
+            != tracker.get_or_create(messages, namespace_id="t", user_id="bob").session_id
+        )
+
+    def test_explicit_conversation_id_wins_over_the_opening_message(self, tracker):
+        """Two conversations opening identically are separable when the caller says so.
+
+        The fallback cannot tell them apart on its own — that is the accepted
+        limit of deriving identity from the opening message, and the reason
+        X-Bitmod-Conversation-Id exists.
+        """
+        messages = [{"role": "user", "content": "hello"}]
+        assert (
+            tracker.get_or_create(messages, conversation_id="conv-1").session_id
+            != tracker.get_or_create(messages, conversation_id="conv-2").session_id
+        )
+        # And the same id keeps returning the same session as turns are added.
+        grown = messages + [{"role": "assistant", "content": "hi"}, {"role": "user", "content": "and then?"}]
+        assert (
+            tracker.get_or_create(messages, conversation_id="conv-1").session_id
+            == tracker.get_or_create(grown, conversation_id="conv-1").session_id
+        )
+
+    def test_inconsistent_user_id_is_logged(self, tracker, caplog):
+        """Sending the identifier on some turns and not others breaks continuity loudly.
+
+        It is part of the fallback key, so dropping it mid-conversation changes
+        the key and resolution silently stops happening. A warning makes that a
+        five-minute diagnosis instead of a mystery.
+        """
+        import logging
+
+        messages = [{"role": "user", "content": "what is the refund policy"}]
+        tracker.get_or_create(messages, user_id="alice")
+        with caplog.at_level(logging.WARNING, logger="bitmod.session"):
+            tracker.get_or_create(messages)
+        assert any("inconsistent" in r.message.lower() for r in caplog.records), (
+            "dropping the user identifier mid-conversation should warn"
+        )

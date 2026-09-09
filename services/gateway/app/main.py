@@ -640,18 +640,23 @@ async def proxy_openai_completions(request: Request, _user: AuthUser = Depends(_
 
     api_key = _extract_api_key(request)
     namespace_id = _extract_namespace_id(request, _user)
+    conversation_id = _extract_conversation_id(request)
 
     if body.get("stream"):
         from starlette.responses import StreamingResponse
 
         return StreamingResponse(
-            proxy.handle_completion_stream(body, api_key=api_key, namespace_id=namespace_id),
+            proxy.handle_completion_stream(
+                body, api_key=api_key, namespace_id=namespace_id, conversation_id=conversation_id
+            ),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
 
     debug_sink: dict | None = {} if debug_enabled(request, authenticated=True) else None
-    result = await proxy.handle_completion(body, api_key=api_key, namespace_id=namespace_id, debug_sink=debug_sink)
+    result = await proxy.handle_completion(
+        body, api_key=api_key, namespace_id=namespace_id, debug_sink=debug_sink, conversation_id=conversation_id
+    )
     response = JSONResponse(content=result)
     return _add_cache_headers(response, result, debug_sink)
 
@@ -1253,6 +1258,24 @@ def _extract_api_key(request: Request) -> str | None:
     return None
 
 
+def _extract_conversation_id(request: Request) -> str | None:
+    """Read X-Bitmod-Conversation-Id, the caller's own conversation identifier.
+
+    None of the three request formats carries one. OpenAI's `user`, Anthropic's
+    metadata.user_id and Gemini's contents are user-level or inline history, so
+    a header is the only thing that works identically across all of them — and
+    unlike a body field it cannot be forwarded to a provider that rejects
+    unknown parameters.
+
+    Without it the session falls back to the opening message scoped by namespace
+    and end user, which is stable across turns but cannot tell two genuinely
+    separate conversations apart when a client opens both with the same
+    question.
+    """
+    value = request.headers.get("x-bitmod-conversation-id", "")
+    return value.strip() or None
+
+
 def _extract_namespace_id(request: Request, user: AuthUser | None = None) -> str | None:
     """Extract and resolve namespace from X-Bitmod-Namespace header.
 
@@ -1313,18 +1336,23 @@ async def proxy_anthropic_messages(request: Request, _user: AuthUser = Depends(_
 
     api_key = _extract_api_key(request)
     namespace_id = _extract_namespace_id(request, _user)
+    conversation_id = _extract_conversation_id(request)
 
     if body.get("stream"):
         from starlette.responses import StreamingResponse
 
         return StreamingResponse(
-            proxy.handle_anthropic_stream(body, api_key=api_key, namespace_id=namespace_id),
+            proxy.handle_anthropic_stream(
+                body, api_key=api_key, namespace_id=namespace_id, conversation_id=conversation_id
+            ),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
 
     debug_sink: dict | None = {} if debug_enabled(request, authenticated=True) else None
-    result = await proxy.handle_anthropic(body, api_key=api_key, namespace_id=namespace_id, debug_sink=debug_sink)
+    result = await proxy.handle_anthropic(
+        body, api_key=api_key, namespace_id=namespace_id, debug_sink=debug_sink, conversation_id=conversation_id
+    )
     response = JSONResponse(content=result)
     return _add_cache_headers(response, result, debug_sink)
 
@@ -1351,10 +1379,16 @@ async def proxy_gemini_generate(
 
     api_key = _extract_api_key(request)
     namespace_id = _extract_namespace_id(request, _user)
+    conversation_id = _extract_conversation_id(request)
 
     debug_sink: dict | None = {} if debug_enabled(request, authenticated=True) else None
     result = await proxy.handle_gemini(
-        body, model=model_name, api_key=api_key, namespace_id=namespace_id, debug_sink=debug_sink
+        body,
+        model=model_name,
+        api_key=api_key,
+        namespace_id=namespace_id,
+        debug_sink=debug_sink,
+        conversation_id=conversation_id,
     )
     response = JSONResponse(content=result)
     return _add_cache_headers(response, result, debug_sink)
@@ -1379,11 +1413,14 @@ async def proxy_gemini_stream(
 
     api_key = _extract_api_key(request)
     namespace_id = _extract_namespace_id(request, _user)
+    conversation_id = _extract_conversation_id(request)
 
     from starlette.responses import StreamingResponse
 
     return StreamingResponse(
-        proxy.handle_gemini_stream(body, model=model_name, api_key=api_key, namespace_id=namespace_id),
+        proxy.handle_gemini_stream(
+            body, model=model_name, api_key=api_key, namespace_id=namespace_id, conversation_id=conversation_id
+        ),
         media_type="application/x-ndjson",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
@@ -1423,12 +1460,15 @@ async def proxy_ollama_chat(
     }
 
     namespace_id = _extract_namespace_id(request, _user)
+    conversation_id = _extract_conversation_id(request)
 
     if body.get("stream", True):  # Ollama streams by default
         from starlette.responses import StreamingResponse
 
         async def _ollama_stream():
-            async for chunk in proxy.handle_completion_stream(openai_body, namespace_id=namespace_id):
+            async for chunk in proxy.handle_completion_stream(
+                openai_body, namespace_id=namespace_id, conversation_id=conversation_id
+            ):
                 # Convert OpenAI SSE to Ollama NDJSON format
                 if chunk.startswith("data: [DONE]"):
                     yield (
@@ -1458,7 +1498,7 @@ async def proxy_ollama_chat(
             media_type="application/x-ndjson",
         )
 
-    result = await proxy.handle_completion(openai_body, namespace_id=namespace_id)
+    result = await proxy.handle_completion(openai_body, namespace_id=namespace_id, conversation_id=conversation_id)
     # Convert OpenAI response to Ollama format
     content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
     return JSONResponse(

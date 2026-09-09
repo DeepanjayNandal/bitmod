@@ -169,12 +169,28 @@ def _anthropic_stream_text(text: str, model: str, msg_id: str) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
+def _end_user_id(request_body: dict) -> str | None:
+    """The end-user identifier from Anthropic's metadata block.
+
+    Not a conversation id, but it scopes the fallback session key so two users
+    inside a namespace asking the same opening question do not share session
+    state.
+    """
+    metadata = request_body.get("metadata")
+    if isinstance(metadata, dict):
+        value = metadata.get("user_id")
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
 async def handle_anthropic(
     proxy: BitmodProxy,
     request_body: dict,
     api_key: str | None = None,
     namespace_id: str | None = None,
     debug_sink: dict | None = None,
+    conversation_id: str | None = None,
 ) -> dict:
     """Handle a /v1/messages request (Anthropic Claude SDK format)."""
     messages = request_body.get("messages", [])
@@ -194,7 +210,14 @@ async def handle_anthropic(
     context_msgs.extend(messages)
 
     start_time = time.perf_counter()
-    cache = await asyncio.to_thread(proxy._run_cache_pipeline, user_message, context_msgs, namespace_id)
+    cache = await asyncio.to_thread(
+        proxy._run_cache_pipeline,
+        user_message,
+        context_msgs,
+        namespace_id,
+        conversation_id=conversation_id,
+        user_id=_end_user_id(request_body),
+    )
     if debug_sink is not None:
         debug_sink.update(cache_debug_headers(cache))
 
@@ -273,6 +296,8 @@ async def handle_anthropic(
         answer_key,
         namespace_id=namespace_id,
         evidence=cache.evidence,
+        conversation_id=conversation_id,
+        user_id=_end_user_id(request_body),
     )
 
     _in_tokens = response.usage.get("input_tokens", 0)
@@ -304,6 +329,7 @@ async def handle_anthropic_stream(
     api_key: str | None = None,
     namespace_id: str | None = None,
     debug_sink: dict | None = None,
+    conversation_id: str | None = None,
 ) -> AsyncIterator[str]:
     """Handle a streaming /v1/messages request (Anthropic SSE format)."""
     messages = request_body.get("messages", [])
@@ -326,7 +352,14 @@ async def handle_anthropic_stream(
     context_msgs.extend(messages)
 
     start_time = time.perf_counter()
-    cache = await asyncio.to_thread(proxy._run_cache_pipeline, user_message, context_msgs, namespace_id)
+    cache = await asyncio.to_thread(
+        proxy._run_cache_pipeline,
+        user_message,
+        context_msgs,
+        namespace_id,
+        conversation_id=conversation_id,
+        user_id=_end_user_id(request_body),
+    )
     if debug_sink is not None:
         debug_sink.update(cache_debug_headers(cache))
 
@@ -441,6 +474,8 @@ async def handle_anthropic_stream(
                 answer_key,
                 namespace_id=namespace_id,
                 evidence=cache.evidence,
+                conversation_id=conversation_id,
+                user_id=_end_user_id(request_body),
             )
         except Exception:
             logger.exception("Failed to cache streamed Anthropic response")

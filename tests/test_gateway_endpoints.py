@@ -229,7 +229,7 @@ class TestProxyValidation:
 
         called: dict = {}
 
-        def fake_pipeline(self, user_message, messages, namespace_id=None):
+        def fake_pipeline(self, user_message, messages, namespace_id=None, **kwargs):
             called["user_message"] = user_message
             raise RuntimeError("stop here — reaching this proves the route resolved correctly")
 

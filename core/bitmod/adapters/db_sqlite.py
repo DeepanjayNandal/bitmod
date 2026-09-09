@@ -480,18 +480,34 @@ class SQLiteBackend(DatabaseBackend):
 
         # --- BM25 branch (FTS5) ---
         try:
-            # Sanitize query for FTS5: wrap in quotes to force literal matching,
-            # escape embedded quotes to prevent FTS5 operator injection
+            # Quote each token separately and OR the results.
+            #
+            # Quoting is what stops FTS5 operators in user text (AND, OR, NOT,
+            # NEAR, *, :, ^, quotes) being parsed as query syntax — passing a
+            # raw question through is a syntax error at best and an injection at
+            # worst, so the quoting must stay. But quoting the *whole* query
+            # turns it into a single phrase, which only matches a document that
+            # repeats the question verbatim. Natural multi-word questions
+            # retrieved nothing at all, which left the BM25 half of this hybrid
+            # search contributing nothing and all recall coming from vectors.
+            #
+            # Per-token quoting keeps the escaping and drops the phrase
+            # constraint. OR rather than AND because a question carries words
+            # the document need not contain ("what", "how", "my"); BM25 ranking
+            # then orders by relevance. Recall from the match, precision from
+            # the ordering — the standard retrieval model, and what MySQL's
+            # natural-language mode was already doing.
             import re
 
-            safe_query = re.sub(r'["\*]', " ", query)  # strip FTS operators
-            safe_query = '"' + safe_query.strip() + '"'
-            fts_rows = session.execute(
-                "SELECT section_id, rank FROM sections_fts WHERE sections_fts MATCH ? ORDER BY rank LIMIT ?",
-                (safe_query, limit * 3),
-            ).fetchall()
-            for row in fts_rows:
-                fts_scores[row["section_id"]] = abs(row["rank"])
+            tokens = [t for t in re.split(r"\W+", query) if t]
+            if tokens:
+                safe_query = " OR ".join('"' + t.replace('"', '""') + '"' for t in tokens)
+                fts_rows = session.execute(
+                    "SELECT section_id, rank FROM sections_fts WHERE sections_fts MATCH ? ORDER BY rank LIMIT ?",
+                    (safe_query, limit * 3),
+                ).fetchall()
+                for row in fts_rows:
+                    fts_scores[row["section_id"]] = abs(row["rank"])
         except Exception:  # noqa: S110 — FTS syntax error graceful degradation
             pass
 

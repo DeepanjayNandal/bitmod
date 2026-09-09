@@ -7,6 +7,7 @@ trigram fuzzy search, and pgvector cosine similarity.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -51,6 +52,20 @@ except ImportError as e:
     raise ImportError(
         "PostgreSQL backend requires: pip install bitmod[postgresql]  (sqlalchemy psycopg2-binary pgvector)"
     ) from e
+
+
+def _or_tsquery(query: str) -> str:
+    """Rewrite a question into an OR query for websearch_to_tsquery.
+
+    plainto_tsquery ANDs every term, so a question only retrieved a document
+    that contained all of its words — including the ones a question carries and
+    a document does not ("what", "how", "my"). websearch_to_tsquery is
+    injection-safe on raw user input and treats a literal "or" as the operator,
+    so joining tokens with it gives OR semantics with ts_rank ordering: recall
+    from the match, precision from the ranking.
+    """
+    tokens = [t for t in re.split(r"\W+", query) if t]
+    return " or ".join(tokens) if tokens else query
 
 
 class PostgreSQLBackend(DatabaseBackend):
@@ -318,7 +333,7 @@ class PostgreSQLBackend(DatabaseBackend):
         if embedding:
             # Build optional jurisdiction/doc_type filters
             extra_where = ""
-            params: dict = {"query": query, "embedding": str(embedding), "limit": limit}
+            params: dict = {"tsquery": _or_tsquery(query), "embedding": str(embedding), "limit": limit}
             if jurisdiction:
                 extra_where += " AND s.jurisdiction = :jurisdiction"
                 params["jurisdiction"] = jurisdiction
@@ -331,10 +346,10 @@ class PostgreSQLBackend(DatabaseBackend):
                     SELECT s.id as section_id, s.citation,
                         s.section_title, s.text_content, s.version_hash,
                         ts_rank(to_tsvector('english', s.text_content),
-                            plainto_tsquery('english', :query)) as text_score
+                            websearch_to_tsquery('english', :tsquery)) as text_score
                     FROM sections s
                     WHERE s.is_current = true
-                        AND to_tsvector('english', s.text_content) @@ plainto_tsquery('english', :query)
+                        AND to_tsvector('english', s.text_content) @@ websearch_to_tsquery('english', :tsquery)
                         {extra_where}
                 ),
                 vector_scores AS (
@@ -353,7 +368,7 @@ class PostgreSQLBackend(DatabaseBackend):
             rows = session.execute(sql, params).fetchall()
         else:
             extra_where = ""
-            params = {"query": query, "limit": limit}
+            params = {"tsquery": _or_tsquery(query), "limit": limit}
             if jurisdiction:
                 extra_where += " AND s.jurisdiction = :jurisdiction"
                 params["jurisdiction"] = jurisdiction
@@ -362,10 +377,10 @@ class PostgreSQLBackend(DatabaseBackend):
                 SELECT s.id as section_id, s.citation,
                     s.section_title, s.text_content, s.version_hash,
                     ts_rank(to_tsvector('english', s.text_content),
-                        plainto_tsquery('english', :query)) as combined_score
+                        websearch_to_tsquery('english', :tsquery)) as combined_score
                 FROM sections s
                 WHERE s.is_current = true
-                    AND to_tsvector('english', s.text_content) @@ plainto_tsquery('english', :query)
+                    AND to_tsvector('english', s.text_content) @@ websearch_to_tsquery('english', :tsquery)
                     {extra_where}
                 ORDER BY combined_score DESC
                 LIMIT :limit

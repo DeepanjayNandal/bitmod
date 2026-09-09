@@ -756,7 +756,16 @@ async def proxy_search(request: Request):
 _ingest_backend = None
 _ingest_embedder = None
 _ingest_embedder_checked = False
-_init_lock = threading.Lock()
+# Reentrant on purpose. Three lazy initialisers guarded by this lock —
+# _get_proxy, _get_audit_logger and _get_key_manager — call
+# _get_ingest_backend() from inside their critical section, and that function
+# takes the same lock. With a plain Lock the thread deadlocks against itself.
+#
+# It only bites when the backend has not been built yet: _get_ingest_backend
+# returns before acquiring anything once _ingest_backend is set, so whichever
+# request touches the backend first is the one that hangs. Any earlier request
+# that initialised it hides the bug completely.
+_init_lock = threading.RLock()
 _audit_logger = None
 
 

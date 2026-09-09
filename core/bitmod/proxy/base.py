@@ -1413,54 +1413,86 @@ class BitmodProxy:
     # ------------------------------------------------------------------
 
     async def handle_completion(
-        self, request_body: dict, api_key: str | None = None, namespace_id: str | None = None
+        self,
+        request_body: dict,
+        api_key: str | None = None,
+        namespace_id: str | None = None,
+        debug_sink: dict | None = None,
     ) -> dict:
         """Handle a /v1/chat/completions request (non-streaming)."""
         from bitmod.proxy.openai_format import handle_completion
 
-        return await handle_completion(self, request_body, api_key, namespace_id=namespace_id)
+        return await handle_completion(self, request_body, api_key, namespace_id=namespace_id, debug_sink=debug_sink)
 
     async def handle_completion_stream(
-        self, request_body: dict, api_key: str | None = None, namespace_id: str | None = None
+        self,
+        request_body: dict,
+        api_key: str | None = None,
+        namespace_id: str | None = None,
+        debug_sink: dict | None = None,
     ) -> AsyncIterator[str]:
         """Handle a streaming /v1/chat/completions request (SSE)."""
         from bitmod.proxy.openai_format import handle_completion_stream
 
-        async for chunk in handle_completion_stream(self, request_body, api_key, namespace_id=namespace_id):
+        async for chunk in handle_completion_stream(
+            self, request_body, api_key, namespace_id=namespace_id, debug_sink=debug_sink
+        ):
             yield chunk
 
     async def handle_anthropic(
-        self, request_body: dict, api_key: str | None = None, namespace_id: str | None = None
+        self,
+        request_body: dict,
+        api_key: str | None = None,
+        namespace_id: str | None = None,
+        debug_sink: dict | None = None,
     ) -> dict:
         """Handle a /v1/messages request (Anthropic Claude SDK format)."""
         from bitmod.proxy.anthropic_format import handle_anthropic
 
-        return await handle_anthropic(self, request_body, api_key, namespace_id=namespace_id)
+        return await handle_anthropic(self, request_body, api_key, namespace_id=namespace_id, debug_sink=debug_sink)
 
     async def handle_anthropic_stream(
-        self, request_body: dict, api_key: str | None = None, namespace_id: str | None = None
+        self,
+        request_body: dict,
+        api_key: str | None = None,
+        namespace_id: str | None = None,
+        debug_sink: dict | None = None,
     ) -> AsyncIterator[str]:
         """Handle a streaming /v1/messages request (Anthropic SSE format)."""
         from bitmod.proxy.anthropic_format import handle_anthropic_stream
 
-        async for chunk in handle_anthropic_stream(self, request_body, api_key, namespace_id=namespace_id):
+        async for chunk in handle_anthropic_stream(
+            self, request_body, api_key, namespace_id=namespace_id, debug_sink=debug_sink
+        ):
             yield chunk
 
     async def handle_gemini(
-        self, request_body: dict, model: str = "", api_key: str | None = None, namespace_id: str | None = None
+        self,
+        request_body: dict,
+        model: str = "",
+        api_key: str | None = None,
+        namespace_id: str | None = None,
+        debug_sink: dict | None = None,
     ) -> dict:
         """Handle a Gemini generateContent request."""
         from bitmod.proxy.gemini_format import handle_gemini
 
-        return await handle_gemini(self, request_body, model, api_key, namespace_id=namespace_id)
+        return await handle_gemini(self, request_body, model, api_key, namespace_id=namespace_id, debug_sink=debug_sink)
 
     async def handle_gemini_stream(
-        self, request_body: dict, model: str = "", api_key: str | None = None, namespace_id: str | None = None
+        self,
+        request_body: dict,
+        model: str = "",
+        api_key: str | None = None,
+        namespace_id: str | None = None,
+        debug_sink: dict | None = None,
     ) -> AsyncIterator[str]:
         """Handle a Gemini streamGenerateContent request (NDJSON chunks)."""
         from bitmod.proxy.gemini_format import handle_gemini_stream
 
-        async for chunk in handle_gemini_stream(self, request_body, model, api_key, namespace_id=namespace_id):
+        async for chunk in handle_gemini_stream(
+            self, request_body, model, api_key, namespace_id=namespace_id, debug_sink=debug_sink
+        ):
             yield chunk
 
     async def handle_models(self) -> dict:

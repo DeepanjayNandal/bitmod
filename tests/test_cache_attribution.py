@@ -225,3 +225,78 @@ def test_header_values_are_single_line():
 
     for value in cache_debug_headers(_Result()).values():
         assert "\r" not in value and "\n" not in value
+
+
+# ---------------------------------------------------------------------------
+# debug_sink survives the trip through BitmodProxy
+#
+# The gateway does not call the format handlers directly — it calls the
+# BitmodProxy wrapper methods, which forward to them. debug_sink was added to
+# the handlers and to the routes but not to the wrappers in between, so the
+# gateway passed an argument the proxy did not accept.
+#
+# These call the wrappers the way the routes do, rather than inspecting their
+# signatures: a signature can accept a parameter and still drop it on the floor.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_handle_completion_fills_the_debug_sink(proxy):
+    _seed(proxy, QUESTION, "Five business days.")
+    sink: dict = {}
+
+    await proxy.handle_completion(
+        {"model": "stub", "messages": [{"role": "user", "content": QUESTION}]},
+        debug_sink=sink,
+    )
+
+    assert sink, "handle_completion accepted debug_sink but never populated it"
+
+
+@pytest.mark.asyncio
+async def test_handle_anthropic_fills_the_debug_sink(proxy):
+    _seed(proxy, QUESTION, "Five business days.")
+    sink: dict = {}
+
+    await proxy.handle_anthropic(
+        {"model": "stub", "messages": [{"role": "user", "content": QUESTION}]},
+        debug_sink=sink,
+    )
+
+    assert sink, "handle_anthropic accepted debug_sink but never populated it"
+
+
+@pytest.mark.asyncio
+async def test_handle_gemini_fills_the_debug_sink(proxy):
+    _seed(proxy, QUESTION, "Five business days.")
+    sink: dict = {}
+
+    await proxy.handle_gemini(
+        {"contents": [{"role": "user", "parts": [{"text": QUESTION}]}]},
+        model="stub",
+        debug_sink=sink,
+    )
+
+    assert sink, "handle_gemini accepted debug_sink but never populated it"
+
+
+@pytest.mark.asyncio
+async def test_streaming_wrappers_accept_debug_sink(proxy):
+    """The streaming wrappers were missed in the same way.
+
+    Attribution for a stream is decided before the first chunk is yielded, so
+    what matters here is that the argument is accepted and the generator runs;
+    what the sink ends up holding is covered by the non-streaming cases.
+    """
+    _seed(proxy, QUESTION, "Five business days.")
+    body = {"model": "stub", "messages": [{"role": "user", "content": QUESTION}]}
+
+    for call in (
+        proxy.handle_completion_stream(body, debug_sink={}),
+        proxy.handle_anthropic_stream(body, debug_sink={}),
+        proxy.handle_gemini_stream(
+            {"contents": [{"role": "user", "parts": [{"text": QUESTION}]}]}, model="stub", debug_sink={}
+        ),
+    ):
+        async for _ in call:
+            pass

@@ -242,3 +242,54 @@ def test_prefix_length_changes_which_candidates_are_retrieved():
     query = normalize_query_fuzzy("what is the refund pollicy")
     assert fuzzy_prefilter_terms(query, prefix_length=3) == ["pol", "ref"]
     assert fuzzy_prefilter_terms(query, prefix_length=7) == ["pollicy", "refund"]
+
+
+def test_pipeline_grades_fuzzy_confidence_by_similarity(seeded):
+    """The layer's confidence has to track how similar the match actually is.
+
+    The pipeline added a flat cache_cfg.fuzzy_confidence (0.40) for every fuzzy
+    hit, so a one-character typo and a match that scraped over the threshold
+    carried identical weight. The graduated curve already existed in
+    _similarity_to_confidence — it was simply never called.
+
+    Asserting on that function alone would pass without the fix, since the curve
+    was never the broken part. This drives the pipeline and reads the confidence
+    it actually attached.
+    """
+    from bitmod.cache_engine import _similarity_to_confidence
+    from bitmod.proxy import BitmodProxy
+    from bitmod.router import LLMRouter
+
+    proxy = BitmodProxy(backend=seeded, llm_router=LLMRouter(primary=None), default_model="test")
+
+    def fuzzy_evidence(query: str):
+        result = proxy._run_cache_pipeline(query, [{"role": "user", "content": query}])
+        return [e for e in (result.evidence.evidences or []) if e.layer == "fuzzy"]
+
+    near = fuzzy_evidence("what is the refund pollicy")
+    assert near, "expected the typo to produce fuzzy evidence"
+
+    for item in near:
+        assert item.confidence == pytest.approx(_similarity_to_confidence(item.similarity, "fuzzy")), (
+            f"fuzzy confidence {item.confidence} does not follow from similarity {item.similarity} — "
+            "the layer is still adding a flat constant"
+        )
+
+    flat = {round(e.confidence, 6) for e in near}
+    assert flat != {0.40}, "fuzzy is still contributing the flat 0.40 regardless of similarity"
+
+
+def test_fuzzy_match_carries_the_score_it_was_filtered_on(seeded):
+    """The adapters score every candidate and used to return bare records.
+
+    Without the score the pipeline cannot grade anything, which is why the flat
+    constant was there in the first place.
+    """
+    from bitmod.cache_engine import fuzzy_match
+
+    with seeded.session() as session:
+        matches = fuzzy_match(seeded, session, "what is the refnud policy", similarity_threshold=0.80)
+
+    assert matches, "expected the typo to match"
+    assert all(hasattr(m, "record") and hasattr(m, "similarity") for m in matches)
+    assert all(m.similarity >= 0.80 for m in matches), "returned a match below the threshold it was given"

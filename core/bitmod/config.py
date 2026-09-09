@@ -301,10 +301,14 @@ class CacheConfig:
     # --- Per-layer confidence contributions ---
     # What each layer is worth when it matches. Exact match is 1.0 by
     # definition — the key matched — so it is not configurable.
+    #
+    # Fuzzy has no entry here. Its contribution is a function of the measured
+    # similarity via _similarity_to_confidence, not a constant, so there is
+    # nothing for a single value to mean. BITMOD_CACHE_FUZZY_CONFIDENCE was
+    # removed rather than left inert.
     composable_confidence: float = field(
         default_factory=lambda: float(os.getenv("BITMOD_CACHE_COMPOSABLE_CONFIDENCE", "0.85"))
     )
-    fuzzy_confidence: float = field(default_factory=lambda: float(os.getenv("BITMOD_CACHE_FUZZY_CONFIDENCE", "0.40")))
 
     # --- Atomic facts (layer 8) ---
     fact_min_similarity: float = field(

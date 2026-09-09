@@ -195,7 +195,7 @@ class TestFuzzyMatchSafety:
             results = fuzzy_match(db, session, "federal minimum wage rate",
                                   similarity_threshold=0.5)  # Low threshold to ensure match
         if results:
-            assert results[0].answer_text == original_answer
+            assert results[0].record.answer_text == original_answer
 
     def test_fuzzy_does_not_bypass_filters(self, db):
         """Fuzzy match on a query with CA filter should not return TX-filtered answer."""
@@ -216,7 +216,7 @@ class TestFuzzyMatchSafety:
         # an authoritative answer — it's up to the caller to use it correctly.
         # The key test: the returned answer IS one of the stored answers, not invented.
         for r in results:
-            assert r.answer_text in [
+            assert r.record.answer_text in [
                 "California employment law answer",
                 "Texas employment law answer"
             ]
@@ -773,8 +773,8 @@ class TestFullMechanismSession:
                 fuzzy_assists += 1
                 # If it returns anything, it should be a stored answer (not invented)
                 for r in results:
-                    assert any(r.answer_text == a for _, _, a in facts), (
-                        f"Fuzzy returned answer not in facts: {r.answer_text[:30]}"
+                    assert any(r.record.answer_text == a for _, _, a in facts), (
+                        f"Fuzzy returned answer not in facts: {r.record.answer_text[:30]}"
                     )
 
             elif op == "composable":

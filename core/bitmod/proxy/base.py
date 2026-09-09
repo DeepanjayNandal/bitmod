@@ -697,15 +697,26 @@ class BitmodProxy:
             )
             if fuzzy_hits:
                 for fh in fuzzy_hits[:3]:
+                    # Graded by how similar the match actually is, the same way
+                    # the semantic layer is. This used to add a flat
+                    # cache_cfg.fuzzy_confidence, so a one-character typo and a
+                    # match that barely cleared the threshold contributed
+                    # identically and the layer carried no information beyond
+                    # "something matched".
                     evidence.add(
                         CacheEvidence(
                             layer="fuzzy",
-                            confidence=cache_cfg.fuzzy_confidence,
-                            answer_text=fh.answer_text,
-                            record_id=fh.id,
+                            confidence=_similarity_to_confidence(fh.similarity, "fuzzy"),
+                            answer_text=fh.record.answer_text,
+                            record_id=fh.record.id,
+                            similarity=fh.similarity,
                         )
                     )
-                _step("fuzzy_match", "EVIDENCE", {"count": len(fuzzy_hits[:3])})
+                _step(
+                    "fuzzy_match",
+                    "EVIDENCE",
+                    {"count": len(fuzzy_hits[:3]), "best_sim": round(fuzzy_hits[0].similarity, 3)},
+                )
             else:
                 _step("fuzzy_match", "MISS", {})
 

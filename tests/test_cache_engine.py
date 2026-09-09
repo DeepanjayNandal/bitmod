@@ -342,4 +342,8 @@ class TestFuzzyMatch:
             assert isinstance(results, list)
             # SQLite LIKE-based fuzzy should find our record
             assert len(results) >= 1
-            assert results[0].question_normalized == "employment law"
+            assert results[0].record.question_normalized == "employment law"
+            # The score the threshold was applied to is now carried on the
+            # match rather than discarded, so the fuzzy layer can grade its
+            # confidence by it instead of adding a flat constant.
+            assert 0.70 <= results[0].similarity <= 1.0

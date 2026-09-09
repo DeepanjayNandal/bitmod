@@ -604,6 +604,14 @@ def try_cache(
 # ---------------------------------------------------------------------------
 
 
+@dataclass
+class FuzzyMatch:
+    """A fuzzy cache match with its similarity score."""
+
+    record: AnswerCacheRecord
+    similarity: float
+
+
 def fuzzy_match(
     backend: DatabaseBackend,
     session,
@@ -612,7 +620,7 @@ def fuzzy_match(
     similarity_threshold: float | None = None,
     max_candidates: int | None = None,
     namespace_id: str | None = None,
-) -> list[AnswerCacheRecord]:
+) -> list[FuzzyMatch]:
     """Find similar cached queries when exact match misses.
 
     Uses ``normalize_query_fuzzy`` (sorted tokens) so word order doesn't
@@ -634,7 +642,20 @@ def fuzzy_match(
     )
     if namespace_id:
         results = [r for r in results if r.namespace_id == namespace_id]
-    return results
+
+    # The adapters score every candidate to apply the threshold and then return
+    # bare records, dropping the number. Callers need it to tell a typo apart
+    # from a loose token overlap, so it is recomputed here — one place, beside
+    # the definition of the measure, rather than at each call site.
+    #
+    # On PostgreSQL the filtering happens in SQL via GREATEST(similarity(),
+    # levenshtein()); this recompute is the Python equivalent of the same
+    # formula, so the two can differ in the last decimal. Ordering and
+    # threshold remain the database's; only the reported score is recomputed.
+    return [
+        FuzzyMatch(record=record, similarity=fuzzy_similarity(normalized, record.question_normalized or ""))
+        for record in results
+    ]
 
 
 # ---------------------------------------------------------------------------

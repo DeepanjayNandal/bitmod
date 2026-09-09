@@ -346,9 +346,9 @@ def _simulate_query(backend, query: str, filters: dict, user_id: str) -> QueryRe
             similarity_threshold=0.90, max_candidates=1,
         )
         if fuzzy_hits:
-            fuzzy_context = fuzzy_hits[0].answer_text
+            fuzzy_context = fuzzy_hits[0].record.answer_text
             _step("fuzzy_match", "HIT", {
-                "matched_key": fuzzy_hits[0].answer_key[:16],
+                "matched_key": fuzzy_hits[0].record.answer_key[:16],
             })
         else:
             _step("fuzzy_match", "MISS", {})

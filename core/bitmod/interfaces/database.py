@@ -375,6 +375,27 @@ class DatabaseBackend(ABC):
     ) -> list[AnswerCacheRecord]:
         """Find similar cached queries for fuzzy matching."""
 
+    @abstractmethod
+    def cache_get_embeddings(
+        self,
+        session: Any,
+        limit: int = 2000,
+        namespace_id: str | None = None,
+    ) -> list[tuple[str, Any]]:
+        """Return (cache_id, embedding) pairs for valid entries, newest first.
+
+        Declared here deliberately. This was previously reached through
+        ``hasattr`` and was therefore free to omit ``namespace_id`` — which one
+        backend effectively did, and callers "handled" by retrying without the
+        argument, turning a tenant boundary into an exception handler. A method
+        that carries a namespace belongs on the interface, where a backend that
+        cannot scope fails to instantiate rather than failing quietly at
+        runtime.
+
+        Implementations must filter to ``namespace_id`` when it is given, and
+        must not widen the result set when they cannot.
+        """
+
     # --- Content Blocks ---
 
     @abstractmethod

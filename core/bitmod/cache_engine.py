@@ -297,6 +297,57 @@ def _levenshtein_similarity(s1: str, s2: str) -> float:
     return 1.0 - _levenshtein_distance(s1, s2) / max_len
 
 
+def _get_embeddings_scoped(
+    backend: DatabaseBackend,
+    session,
+    max_scan: int,
+    namespace_id: str | None,
+) -> list | None:
+    """Read cached embeddings, scoped to a namespace, or refuse.
+
+    Returns ``None`` — distinct from an empty list — when a namespace was
+    requested and the backend cannot honour it. Callers must treat that as "no
+    matches", never as "search everything".
+
+    ``cache_get_embeddings`` is not part of the DatabaseBackend interface; it is
+    reached through ``hasattr``, so a backend can legitimately lack the
+    namespace_id or limit parameters. Retrying without namespace_id was the
+    previous behaviour and it searched every tenant: the guard downstream reads
+    ``if namespace_id and ...``, so passing None disabled the one check that
+    would have caught the leak. An exception handler quietly became a
+    cross-tenant read.
+
+    Failing closed is the only safe response. A cache miss costs one
+    generation; serving across a tenant boundary costs trust, and does so
+    silently.
+    """
+    try:
+        rows: list = backend.cache_get_embeddings(session, limit=max_scan, namespace_id=namespace_id)
+        return rows
+    except TypeError:
+        # A conforming backend cannot reach here — cache_get_embeddings is on
+        # the interface with this signature. This catches a duck-typed backend
+        # that predates it.
+        pass
+
+    if namespace_id is not None:
+        logger.warning(
+            "Backend cannot scope cache_get_embeddings to namespace %s — "
+            "returning no matches rather than searching every namespace",
+            namespace_id,
+        )
+        return None
+
+    # No namespace requested, so there is no boundary to cross. Keep older
+    # backends working, preferring the scan cap if they accept it.
+    try:
+        rows = backend.cache_get_embeddings(session, limit=max_scan)
+        return rows
+    except TypeError:
+        rows = backend.cache_get_embeddings(session)
+        return rows
+
+
 def fuzzy_similarity(query_normalized: str, candidate_normalized: str) -> float:
     """Similarity between two fuzzy-normalized queries, in [0.0, 1.0].
 
@@ -1000,11 +1051,11 @@ def semantic_cache_match(
     # but still acceptable for the brute-force scan.
     max_scan = cfg.max_scan_numpy if _HAS_NUMPY else cfg.max_scan_fallback
     # H2: Pass limit and namespace_id to backend to filter at the DB level
-    try:
-        cached_embeddings = backend.cache_get_embeddings(session, limit=max_scan, namespace_id=namespace_id)
-    except TypeError:
-        # Fallback for backends that don't yet accept limit/namespace_id
-        cached_embeddings = backend.cache_get_embeddings(session)
+    cached_embeddings = _get_embeddings_scoped(backend, session, max_scan, namespace_id)
+    if cached_embeddings is None:
+        # Backend cannot scope to the requested namespace — refuse rather than
+        # search every tenant. See _get_embeddings_scoped.
+        return None
     if not cached_embeddings:
         return None
     if len(cached_embeddings) > max_scan:
@@ -1024,6 +1075,18 @@ def semantic_cache_match(
         # Look up the actual cache record
         record = backend.cache_lookup_by_id(session, best_id) if hasattr(backend, "cache_lookup_by_id") else None
         if record:
+            # Defence in depth: re-check the namespace on the resolved record
+            # rather than trusting that the backend filtered. semantic_cache_search
+            # has always done this; this function did not, so it had nothing
+            # standing between a mis-scoped query and another tenant's answer.
+            if namespace_id is not None and record.namespace_id != namespace_id:
+                logger.warning(
+                    "Semantic match %s belongs to namespace %s, not %s — refusing to serve",
+                    record.id[:12],
+                    record.namespace_id,
+                    namespace_id,
+                )
+                return None
             # Decrypt answer_text if encryption is enabled
             record.answer_text = decrypt_if_needed(record.answer_text)
             logger.info("Semantic cache match: %.3f similarity for '%s'", best_sim, query[:50])
@@ -1236,7 +1299,10 @@ def semantic_cache_search(
     # Fallback: brute-force scan
     if not hasattr(backend, "cache_get_embeddings"):
         return []
-    cached = backend.cache_get_embeddings(session, limit=cfg.max_scan_numpy, namespace_id=namespace_id)
+    cached = _get_embeddings_scoped(backend, session, cfg.max_scan_numpy, namespace_id)
+    if cached is None:
+        # Backend cannot scope to the requested namespace — see the helper.
+        return []
     if not cached:
         return []
 

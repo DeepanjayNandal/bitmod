@@ -568,22 +568,19 @@ class BitmodProxy:
                         namespace_id=namespace_id,
                     )
                     self._embed_circuit.track_success()
-                except TypeError:
-                    # Backend may not accept namespace_id on cache_get_embeddings
-                    semantic_matches = semantic_cache_search(
-                        self._backend,
-                        session,
-                        match_query,
-                        filters,
-                        self._embedder,
-                        threshold=cache_cfg.search_threshold,
-                        max_results=cache_cfg.search_max_results,
-                    )
-                    self._embed_circuit.track_success()
                 except Exception:
+                    # No TypeError special case. A backend that cannot scope to
+                    # a namespace is handled inside semantic_cache_search, which
+                    # fails closed. Retrying here without namespace_id was the
+                    # cross-tenant bug: an exception handler quietly widened the
+                    # search instead of narrowing the result.
                     self._embed_circuit.track_failure()
                     semantic_matches = []
                 if not semantic_matches and _ns_fallback:
+                    # Deliberately unscoped: this namespace opted into public
+                    # fallback via get_namespace_fallback. Unlike the handler
+                    # above, dropping the namespace here is the configured
+                    # intent rather than an accident of error handling.
                     try:
                         semantic_matches = semantic_cache_search(
                             self._backend,
@@ -596,15 +593,7 @@ class BitmodProxy:
                             namespace_id=None,
                         )
                     except TypeError:
-                        semantic_matches = semantic_cache_search(
-                            self._backend,
-                            session,
-                            match_query,
-                            filters,
-                            self._embedder,
-                            threshold=cache_cfg.search_threshold,
-                            max_results=cache_cfg.search_max_results,
-                        )
+                        semantic_matches = []
                 # Verify BEFORE adding to evidence, not after. Layer ⑦ seeds its
                 # traversal from evidence.evidences, so a stale candidate that
                 # reaches the evidence list is still walked for links even if it

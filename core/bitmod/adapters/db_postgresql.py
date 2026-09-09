@@ -50,7 +50,7 @@ try:
     from sqlalchemy.orm import Session, sessionmaker
 except ImportError as e:
     raise ImportError(
-        "PostgreSQL backend requires: pip install bitmod[postgresql]  (sqlalchemy psycopg2-binary pgvector)"
+        "PostgreSQL backend requires: pip install bitmod[postgres]  (sqlalchemy psycopg2-binary pgvector)"
     ) from e
 
 

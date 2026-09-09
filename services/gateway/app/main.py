@@ -616,6 +616,46 @@ def _auth_dependency(scopes: list[str] | None = None):
     return dependency
 
 
+# --- OpenAI format: /v1/chat/completions ---
+#
+# Registered before the /v1/chat/{path:path} catch-all below. FastAPI matches
+# routes in registration order, so while this sat further down the file every
+# request to /v1/chat/completions was captured by the catch-all and forwarded
+# to the chat service — the OpenAI-compatible endpoint was never reachable.
+#
+# Only this exact path moves. The catch-all still wins for every other
+# /v1/chat/<something>, so nothing else changes.
+@app.post("/v1/chat/completions", tags=["proxy"])
+async def proxy_openai_completions(request: Request, _user: AuthUser = Depends(_auth_dependency(scopes=["read"]))):
+    """OpenAI-compatible /v1/chat/completions with Bitmod caching."""
+    proxy = _get_proxy()
+    try:
+        body = await request.json()
+    except (json.JSONDecodeError, ValueError):
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON body."})
+
+    validation_error = _validate_proxy_messages(body, format_type="openai")
+    if validation_error:
+        return JSONResponse(status_code=422, content={"error": validation_error})
+
+    api_key = _extract_api_key(request)
+    namespace_id = _extract_namespace_id(request, _user)
+
+    if body.get("stream"):
+        from starlette.responses import StreamingResponse
+
+        return StreamingResponse(
+            proxy.handle_completion_stream(body, api_key=api_key, namespace_id=namespace_id),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    debug_sink: dict | None = {} if debug_enabled(request, authenticated=True) else None
+    result = await proxy.handle_completion(body, api_key=api_key, namespace_id=namespace_id, debug_sink=debug_sink)
+    response = JSONResponse(content=result)
+    return _add_cache_headers(response, result, debug_sink)
+
+
 # Proxy to chat service
 @app.api_route("/v1/chat", methods=["GET", "POST"])
 @app.api_route("/v1/chat/{path:path}", methods=["GET", "POST"])
@@ -1246,40 +1286,6 @@ def _extract_namespace_id(request: Request, user: AuthUser | None = None) -> str
             raise HTTPException(status_code=403, detail="Access denied to this namespace")
 
     return ns_id
-
-
-# --- OpenAI format: /v1/chat/completions ---
-
-
-@app.post("/v1/chat/completions", tags=["proxy"])
-async def proxy_openai_completions(request: Request, _user: AuthUser = Depends(_auth_dependency(scopes=["read"]))):
-    """OpenAI-compatible /v1/chat/completions with Bitmod caching."""
-    proxy = _get_proxy()
-    try:
-        body = await request.json()
-    except (json.JSONDecodeError, ValueError):
-        return JSONResponse(status_code=400, content={"error": "Invalid JSON body."})
-
-    validation_error = _validate_proxy_messages(body, format_type="openai")
-    if validation_error:
-        return JSONResponse(status_code=422, content={"error": validation_error})
-
-    api_key = _extract_api_key(request)
-    namespace_id = _extract_namespace_id(request, _user)
-
-    if body.get("stream"):
-        from starlette.responses import StreamingResponse
-
-        return StreamingResponse(
-            proxy.handle_completion_stream(body, api_key=api_key, namespace_id=namespace_id),
-            media_type="text/event-stream",
-            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-        )
-
-    debug_sink: dict | None = {} if debug_enabled(request, authenticated=True) else None
-    result = await proxy.handle_completion(body, api_key=api_key, namespace_id=namespace_id, debug_sink=debug_sink)
-    response = JSONResponse(content=result)
-    return _add_cache_headers(response, result, debug_sink)
 
 
 @app.get("/v1/models", tags=["proxy"])

@@ -4,11 +4,10 @@ Tests health, proxy validation, rate limiting, and security middleware.
 Uses mocked backends — no external services needed.
 """
 
-import json
 import os
-import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch
 
+import pytest
 
 # ---------------------------------------------------------------------------
 # Environment setup — needed before the gateway app is imported.
@@ -203,24 +202,113 @@ class TestRateLimiting:
 # ---------------------------------------------------------------------------
 
 class TestProxyValidation:
-    def test_chat_completions_proxied_to_chat_service(self, client):
-        """POST to /v1/chat/completions is proxied via catch-all /v1/chat/{path} route.
+    def test_chat_completions_reaches_the_proxy_pipeline(self):
+        """POST /v1/chat/completions must reach _run_cache_pipeline.
 
-        The catch-all /v1/chat/{path:path} route intercepts before the dedicated
-        /v1/chat/completions handler, so the request is forwarded to the chat
-        service. When the chat service is unavailable, expect 502.
+        This test previously asserted the opposite, and documented it as
+        expected: the /v1/chat/{path:path} catch-all was registered first, so
+        FastAPI matched it and forwarded OpenAI-format requests to the chat
+        service. That is a limitation someone wrote down, not a design
+        decision — nothing else uses this path, and routing the main entry
+        point past the nine-layer pipeline makes the drop-in-replacement claim
+        describe something the code did not do.
+
+        Asserting on the response is not enough to catch this. The chat service
+        answers too, so both routes return a plausible 200 and the difference
+        is invisible from outside. The assertion has to be on which pipeline
+        ran, which is why this patches _run_cache_pipeline and checks it was
+        called.
         """
-        if client is None:
-            pytest.skip("client not available")
-        response = client.post(
-            "/v1/chat/completions",
-            json={"model": "gpt-4o"},
-            headers={"X-Requested-With": "XMLHttpRequest"},
+        pytest.importorskip("fastapi", reason="fastapi not installed")
+
+        import bitmod.auth as bitmod_auth
+        from bitmod.proxy.base import BitmodProxy
+        from fastapi.testclient import TestClient
+
+        from services.gateway.app import main as gw
+
+        called: dict = {}
+
+        def fake_pipeline(self, user_message, messages, namespace_id=None):
+            called["user_message"] = user_message
+            raise RuntimeError("stop here — reaching this proves the route resolved correctly")
+
+        # The dedicated route requires auth; the catch-all it used to fall
+        # through to did not. Auth is disabled here so this measures routing
+        # rather than credentials — the scope requirement has its own test.
+        with (
+            patch.object(bitmod_auth, "_AUTH_ENABLED", False),
+            patch.object(BitmodProxy, "_run_cache_pipeline", fake_pipeline),
+        ):
+            with TestClient(gw.app, raise_server_exceptions=False) as client:
+                client.post(
+                    "/v1/chat/completions",
+                    json={"model": "gpt-4o", "messages": [{"role": "user", "content": "hello"}]},
+                    headers={"X-Requested-With": "XMLHttpRequest"},
+                )
+
+        assert called.get("user_message") == "hello", (
+            "the request did not reach _run_cache_pipeline — it was captured by the "
+            "/v1/chat/{path:path} catch-all and forwarded to the chat service"
         )
-        # Request is proxied to the chat service; upstream may be down (502)
-        # or respond with an error (404). Either is acceptable for proxy behavior.
-        # Server errors (500) from our own gateway should not occur.
-        assert response.status_code in (404, 502)
+    def test_chat_completions_rejects_unauthenticated_requests(self):
+        """The catch-all it used to fall through to has no gateway auth at all.
+
+        /v1/chat/{path:path} carries no auth dependency, so while the OpenAI
+        endpoint was shadowed, SDK traffic reached the chat service without the
+        gateway ever authenticating it — protected only by the chat service's
+        own internal-token check. The dedicated route requires read scope, and
+        routing to it has to preserve that.
+
+        An earlier version of this asserted that the route declared a Depends
+        default. That was true the whole time the gateway authenticated nobody:
+        the dependency was a zero-argument lambda returning the real dependency,
+        which FastAPI bound without ever calling. Asserting on the declaration
+        cannot see that. Asserting on the response can.
+        """
+        pytest.importorskip("fastapi", reason="fastapi not installed")
+
+        import bitmod.auth as bitmod_auth
+        from fastapi.testclient import TestClient
+
+        from services.gateway.app import main as gw
+
+        with patch.object(bitmod_auth, "_AUTH_ENABLED", True):
+            with TestClient(gw.app, raise_server_exceptions=False) as client:
+                response = client.post(
+                    "/v1/chat/completions",
+                    json={"model": "gpt-4o", "messages": [{"role": "user", "content": "hello"}]},
+                    headers={"X-Requested-With": "XMLHttpRequest"},
+                )
+
+        assert response.status_code == 401, (
+            f"an unauthenticated request was served ({response.status_code}) — "
+            "the route's auth dependency is not being invoked"
+        )
+    def test_other_chat_paths_still_reach_the_chat_service(self):
+        """Only /v1/chat/completions moves. The catch-all keeps everything else.
+
+        Guards the narrowness of the fix: registering one exact-match route
+        ahead of the catch-all must not change which handler wins for any other
+        /v1/chat/<something>.
+        """
+        pytest.importorskip("fastapi", reason="fastapi not installed")
+        from services.gateway.app import main as gw
+
+        def resolved_handler(path: str) -> str:
+            scope = {"type": "http", "path": path, "method": "POST", "headers": [], "root_path": ""}
+            for route in gw.app.routes:
+                try:
+                    match, _ = route.matches(scope)
+                except Exception:  # noqa: S112 — non-HTTP routes do not match
+                    continue
+                if str(match).endswith("FULL"):
+                    return getattr(getattr(route, "endpoint", None), "__name__", "")
+            return ""
+
+        assert resolved_handler("/v1/chat/completions") == "proxy_openai_completions"
+        assert resolved_handler("/v1/chat/foo") == "proxy_chat"
+        assert resolved_handler("/v1/chat") == "proxy_chat"
 
     def test_validate_proxy_messages_rejects_missing_messages(self):
         """The _validate_proxy_messages function correctly rejects missing messages."""

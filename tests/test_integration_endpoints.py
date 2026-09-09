@@ -58,6 +58,21 @@ def gateway_process():
         stdout, stderr = proc.communicate(timeout=5)
         pytest.fail(f"Gateway did not start.\nstdout: {stdout.decode()}\nstderr: {stderr.decode()}")
 
+    # /health answers before anything expensive exists. The gateway builds its
+    # database backend, key manager and proxy lazily, on the first request that
+    # needs them, so whichever test gets there first pays for all of it —
+    # /v1/chat/completions now goes through the cache pipeline rather than
+    # straight to the chat service, which put that cost inside a 5s timeout.
+    # Spend it here, where a slow start is not a failure.
+    try:
+        httpx.post(
+            f"{GATEWAY_URL}/v1/chat/completions",
+            json={"messages": [{"role": "user", "content": "warmup"}], "model": "test"},
+            timeout=60,
+        )
+    except httpx.HTTPError:
+        pass  # warming is best-effort; the tests below assert their own outcomes
+
     yield proc
 
     proc.terminate()
@@ -93,7 +108,7 @@ class TestGatewayEndpoints:
         r = httpx.post(
             f"{GATEWAY_URL}/v1/chat/completions",
             json={"messages": [{"role": "user", "content": "hello"}], "model": "test"},
-            timeout=5,
+            timeout=30,
         )
         # Chat service may not be running in CI — accept any non-5xx except 502 (proxy error is expected)
         assert r.status_code < 500 or r.status_code == 502

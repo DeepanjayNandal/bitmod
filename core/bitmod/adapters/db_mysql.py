@@ -117,6 +117,15 @@ class MySQLBackend(DatabaseBackend):
             Column("invalidated_at", DateTime, nullable=True),
             Column("invalidation_reason", Text, nullable=True),
             Column("created_at", DateTime, default=lambda: datetime.now(timezone.utc)),
+            # These four existed only on SQLite. Their absence here was silent:
+            # store_answer wrote them, SQLAlchemy dropped them, and they read
+            # back as None — so namespace isolation, TTL expiry and both
+            # eviction strategies were inert on this backend while the code
+            # that used them looked correct.
+            Column("namespace_id", String(64), nullable=True),
+            Column("max_age_seconds", Integer, nullable=True),
+            Column("last_served_at", DateTime, nullable=True),
+            Column("estimated_cost", Float, default=0.0),
         )
 
         # --- Content blocks (multi-compression) ---
@@ -176,6 +185,7 @@ class MySQLBackend(DatabaseBackend):
                 "CREATE INDEX idx_chunks_section ON chunks(section_id)",
                 "CREATE INDEX idx_cache_key ON answer_cache(answer_key)",
                 "CREATE INDEX idx_cache_valid ON answer_cache(is_valid)",
+                "CREATE INDEX idx_cache_namespace ON answer_cache(namespace_id)",
                 "CREATE INDEX idx_blocks_section ON content_blocks(section_id)",
                 "CREATE INDEX idx_blocks_section_compression ON content_blocks(section_id, compression)",
                 "CREATE INDEX idx_tags_section ON section_tags(section_id)",
@@ -358,6 +368,10 @@ class MySQLBackend(DatabaseBackend):
                 model_used=record.model_used,
                 generation_ms=record.generation_ms,
                 confidence=record.confidence,
+                namespace_id=record.namespace_id,
+                max_age_seconds=record.max_age_seconds,
+                last_served_at=record.last_served_at,
+                estimated_cost=record.estimated_cost,
             )
         )
 
@@ -405,6 +419,8 @@ class MySQLBackend(DatabaseBackend):
             .where(self._cache.c.id == answer_id)
             .values(
                 serve_count=self._cache.c.serve_count + 1,
+                # LRU eviction sorts on this; SQLite set it and this backend did not.
+                last_served_at=datetime.now(timezone.utc),
             )
         )
 
@@ -891,6 +907,10 @@ class MySQLBackend(DatabaseBackend):
             confidence=row.confidence,
             is_valid=row.is_valid,
             serve_count=row.serve_count,
+            namespace_id=row.namespace_id,
+            max_age_seconds=row.max_age_seconds,
+            last_served_at=row.last_served_at,
+            estimated_cost=row.estimated_cost or 0.0,
         )
 
     def _row_to_block(self, row) -> ContentBlock:

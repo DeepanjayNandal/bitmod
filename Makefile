@@ -67,7 +67,7 @@ test-all-backends: test-db-up ## Run the suite against SQLite, PostgreSQL and My
 	DATABASE_URL=postgresql://bitmod:bitmod@localhost:5433/bitmod_test \
 	BITMOD_TEST_MYSQL=1 \
 	MYSQL_URL=mysql+pymysql://bitmod:bitmod@localhost:3307/bitmod_test \
-	pytest tests/test_backend_search_integration.py tests/test_source_verification.py tests/test_session_resolution.py tests/test_qualification_gate.py tests/test_fuzzy_matching.py tests/test_threshold_config.py tests/test_text_search.py tests/test_packaging.py tests/test_section_hash_batching.py -v
+	pytest tests/test_backend_search_integration.py tests/test_source_verification.py tests/test_session_resolution.py tests/test_qualification_gate.py tests/test_fuzzy_matching.py tests/test_threshold_config.py tests/test_text_search.py tests/test_packaging.py tests/test_section_hash_batching.py tests/test_namespace_persistence.py -v
 
 # --- Build ---
 

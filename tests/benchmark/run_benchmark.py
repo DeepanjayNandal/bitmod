@@ -33,6 +33,12 @@ BENCHMARK_DIR = Path(__file__).resolve().parent
 DATA_DIR = BENCHMARK_DIR / "data"
 RESULTS_DIR = BENCHMARK_DIR / "results"
 
+# The repo root, so `tests.benchmark.dataset` imports when this runs as a
+# script. Only core/ was added, and that happens further down inside main().
+_REPO_ROOT = str(BENCHMARK_DIR.parents[1])
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
 DATASETS = [
     {
         "name": "quora_question_pairs",
@@ -533,7 +539,7 @@ def parse_datasets(
 
 
 def ingest_knowledge(
-    bm: "Bitmod",
+    bm: Bitmod,
     knowledge: list[dict],
     max_items: int = 5000,
 ) -> int:
@@ -580,15 +586,15 @@ def ingest_knowledge(
 # ---------------------------------------------------------------------------
 
 
-def _seed_cache_for_query(bm: "Bitmod", query: BenchmarkQuery, knowledge: list[dict]) -> None:
+def _seed_cache_for_query(bm: Bitmod, query: BenchmarkQuery, knowledge: list[dict]) -> None:
     """For exact_duplicate queries, ensure the original is in the cache first."""
     if query.duplicate_of:
         # Simulate: store the original query's answer in cache so duplicates can hit
-        from bitmod.cache_engine import compute_answer_key, normalize_query, store_answer
+        from bitmod.cache_engine import compute_answer_key, normalize_for_key, store_answer
 
         backend = bm._get_backend()
         answer_key = compute_answer_key(query.duplicate_of, {})
-        normalized = normalize_query(query.duplicate_of)
+        normalized = normalize_for_key(query.duplicate_of)
 
         # Find a knowledge item that matches, or generate a stub
         answer_text = f"Answer for: {query.duplicate_of}"
@@ -630,9 +636,9 @@ def run_benchmark(
     if str(project_root) not in sys.path:
         sys.path.insert(0, str(project_root))
 
-    from bitmod.api import Bitmod
-
     import os
+
+    from bitmod.api import Bitmod
     os.environ["BITMOD_SQLITE_PATH"] = str(db_path)
     bm = Bitmod()
     # Ensure backend is initialized with full schema
@@ -677,7 +683,7 @@ def run_benchmark(
                 output_tokens=token_usage.get("output_tokens", 0) if not cache_hit else 0,
                 latency_ms=elapsed,
             ))
-        except Exception as e:
+        except Exception:
             elapsed = (time.perf_counter() - start) * 1000
             results.append(QueryResult(
                 query=query.text[:200],
@@ -710,30 +716,70 @@ def run_benchmark(
 
 
 def _send_query(client, query: BenchmarkQuery, pass_name: str) -> QueryResult:
-    """Send a single query to the proxy and return a QueryResult."""
+    """Send a single query through the nine-layer pipeline and record what served it.
+
+    Posts to /v1/chat/completions, not /v1/chat. The latter proxies to the chat
+    service, which has its own simpler cache path — _run_cache_pipeline, and
+    therefore layers 7, 8 and 9, is reached only through the OpenAI, Anthropic
+    and Gemini format endpoints. Measuring /v1/chat would have reported those
+    layers as contributing nothing because they were never invoked.
+
+    Attribution comes from the X-Bitmod-Cache-* response headers, which the
+    proxy emits when debug output is enabled. It was previously inferred from
+    the body: a single layer label that defaulted to "exact" whenever the trace
+    carried no HIT step, which is every serve decided on accumulated confidence.
+    """
     start = time.perf_counter()
     try:
         resp = client.post(
-            "/v1/chat",
-            json={"message": query.text[:1000]},
-            headers={"X-Requested-With": "XMLHttpRequest"},
+            "/v1/chat/completions",
+            json={
+                "model": "mock-model",
+                "messages": [{"role": "user", "content": query.text[:1000]}],
+            },
+            headers={
+                "X-Bitmod-Debug": "true",
+                # The CSRF middleware rejects a POST without this whenever auth
+                # is disabled, which is how the benchmark runs the gateway.
+                "X-Requested-With": "XMLHttpRequest",
+            },
         )
         elapsed = (time.perf_counter() - start) * 1000
 
         if resp.status_code == 200:
             data = resp.json()
-            cache_hit = data.get("cached", False)
-            cache_layer = data.get("cache_layer") or ("exact_cache" if cache_hit else "llm")
-            usage = data.get("token_usage", {})
+            headers = resp.headers
+            cache_hit = str(headers.get("x-bitmod-cache", "")).lower() == "hit"
+            if not cache_hit:
+                cache_hit = str(headers.get("x-bitmod-cache-hit", "")).lower() == "true"
+
+            layers = []
+            raw_layers = headers.get("x-bitmod-cache-layers", "")
+            for entry in raw_layers.split(",") if raw_layers else []:
+                name, _, _conf = entry.partition(":")
+                if name:
+                    layers.append(name)
+            served_by = headers.get("x-bitmod-cache-served-by", "")
+            if served_by and served_by not in layers:
+                layers.append(served_by)
+            if not layers:
+                layers = [served_by or ("llm" if not cache_hit else "unknown")]
+
+            try:
+                confidence = float(headers.get("x-bitmod-cache-confidence", "0") or 0)
+            except ValueError:
+                confidence = 0.0
+
+            usage = data.get("usage", {}) or {}
             return QueryResult(
                 query=query.text[:200],
                 query_type=f"{pass_name}:{query.query_type}",
-                decision="SERVE" if cache_hit else "GENERATE",
+                decision=headers.get("x-bitmod-cache-decision", "SERVE" if cache_hit else "GENERATE"),
                 cache_hit=cache_hit,
-                layers_contributed=[cache_layer],
-                total_confidence=1.0 if cache_hit else 0.0,
-                input_tokens=usage.get("input_tokens", 0),
-                output_tokens=usage.get("output_tokens", 0),
+                layers_contributed=layers,
+                total_confidence=confidence,
+                input_tokens=usage.get("prompt_tokens", 0),
+                output_tokens=usage.get("completion_tokens", 0),
                 latency_ms=elapsed,
             )
         else:
@@ -824,8 +870,9 @@ def run_benchmark_proxy(
 
     Requires the gateway to be running (bitmod serve or bitmod proxy).
     """
-    import httpx
     import random as _rnd
+
+    import httpx
 
     print(f"\n  [BENCHMARK] Multi-pass benchmark via {proxy_url}")
     print("    Testing ALL 9 cache layers across 3 passes:")
@@ -842,7 +889,7 @@ def run_benchmark_proxy(
         print(f"    Proxy healthy: {health.json()}")
     except Exception as e:
         print(f"    ERROR: Proxy not reachable at {proxy_url}: {e}")
-        print(f"    Start with: bitmod serve  OR  bitmod proxy")
+        print("    Start with: bitmod serve  OR  bitmod proxy")
         return []
 
     all_results: list[QueryResult] = []
@@ -924,7 +971,7 @@ def run_benchmark_proxy(
     total_hits = sum(1 for r in all_results if r.cache_hit)
     total = len(all_results)
     total_time = time.perf_counter() - t0
-    print(f"\n    ── SUMMARY ──")
+    print("\n    ── SUMMARY ──")
     print(f"    Total: {total_hits}/{total} hits ({total_hits / max(total, 1) * 100:.1f}%)")
     print(f"    Pass 1 (warmup):     {p1_hits / max(p1_total, 1) * 100:.1f}%")
     print(f"    Pass 2 (repeat+para): {p2_hits / max(p2_total, 1) * 100:.1f}%")
@@ -1119,6 +1166,116 @@ def save_report(report: dict) -> Path:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Quora four-pass run — the cross-check against run_inprocess_benchmark.py
+# ---------------------------------------------------------------------------
+
+
+def run_quora_passes(proxy_url: str, pairs: int, rps: float = 0.0) -> dict:
+    """Same corpus and same four passes as the in-process runner, over HTTP.
+
+    The two runners are meant to differ in transport and nothing else — same
+    dataset loader, same stubbed generation, same pass structure. If their
+    numbers disagree, the disagreement is attributable.
+    """
+    import httpx
+
+    from tests.benchmark.dataset import CONFIG, DATASET, SPLIT, fetch_pairs
+
+    # The gateway limits /v1/chat to 60 requests per minute, and that limit is
+    # hardcoded in its middleware rather than read from RateLimitConfig, so it
+    # cannot be turned off by configuration. Pacing the client is the honest way
+    # to stay under it: a run that trips the limiter measures the limiter.
+    min_interval = 1.0 / rps if rps > 0 else 0.0
+
+    duplicates, non_duplicates = fetch_pairs(pairs)
+    print(f"  got {len(duplicates)} duplicate, {len(non_duplicates)} non-duplicate pairs", flush=True)
+
+    client = httpx.Client(base_url=proxy_url, timeout=120.0)
+    try:
+        client.get("/health").raise_for_status()
+    except Exception as exc:
+        print(f"  ERROR: proxy not reachable at {proxy_url}: {exc}")
+        return {}
+
+    passes = [
+        ("1_cold", [a for a, _ in duplicates], False),
+        ("2_repeat", [a for a, _ in duplicates], True),
+        ("3_paraphrase", [b for _, b in duplicates], True),
+        ("4_unrelated", [b for _, b in non_duplicates], False),
+    ]
+
+    rows: list[dict] = []
+    last_sent = [0.0]
+    for name, queries, expected in passes:
+        print(f"  pass {name}: {len(queries)} queries", flush=True)
+        for index, text in enumerate(queries, 1):
+            if min_interval:
+                slack = min_interval - (time.perf_counter() - last_sent[0])
+                if slack > 0:
+                    time.sleep(slack)
+                last_sent[0] = time.perf_counter()
+            r = _send_query(client, BenchmarkQuery(text=text, query_type=name, source=DATASET), name)
+            rows.append(
+                {
+                    "pass": name,
+                    "query": text[:160],
+                    "hit": r.cache_hit,
+                    "expected_hit": expected,
+                    "served_by": r.layers_contributed[-1] if r.layers_contributed else "",
+                    "total_confidence": r.total_confidence,
+                    "contributions": [{"layer": lay, "confidence": 0.0} for lay in r.layers_contributed],
+                    "lookup_ms": r.latency_ms,
+                    "error": r.decision == "ERROR",
+                }
+            )
+            if index % 200 == 0:
+                print(f"    {index}/{len(queries)}", flush=True)
+
+    # A rejected request is not a cache miss. Counting it as one produces a
+    # plausible-looking hit rate from a run where the gateway answered almost
+    # nothing — the first attempt at this reported 0.0% across 2000 queries and
+    # the real story was 1940 responses of 429.
+    errors = [r for r in rows if r.get("error")]
+    if errors:
+        by_status: dict[str, int] = {}
+        for row in errors:
+            status = row["served_by"] or "error"
+            by_status[status] = by_status.get(status, 0) + 1
+        print()
+        print(f"  ABORTED: {len(errors)} of {len(rows)} requests failed — {by_status}")
+        print("  A failed request is not a cache miss, so no hit rate is reported.")
+        if any(k.endswith("429") for k in by_status):
+            print("  Rate limited. Re-run the gateway with BITMOD_RATE_LIMIT_ENABLED=false.")
+        return {}
+
+    by_pass: dict = {}
+    for row in rows:
+        entry = by_pass.setdefault(row["pass"], {"total": 0, "hits": 0})
+        entry["total"] += 1
+        entry["hits"] += 1 if row["hit"] else 0
+    for entry in by_pass.values():
+        entry["hit_rate"] = round(entry["hits"] / entry["total"], 4) if entry["total"] else 0.0
+
+    layer_counts: dict = {}
+    for row in rows:
+        for c in row["contributions"]:
+            layer_counts[c["layer"]] = layer_counts.get(c["layer"], 0) + 1
+
+    return {
+        "harness": "http (POST /v1/chat/completions through the gateway)",
+        "dataset": {"name": DATASET, "config": CONFIG, "split": SPLIT,
+                    "duplicate_pairs": len(duplicates), "non_duplicate_pairs": len(non_duplicates)},
+        "queries": len(rows),
+        "hits": sum(1 for r in rows if r["hit"]),
+        "hit_rate": round(sum(1 for r in rows if r["hit"]) / len(rows), 4) if rows else 0.0,
+        "by_pass": by_pass,
+        "false_positives": sum(1 for r in rows if r["expected_hit"] is False and r["hit"]),
+        "false_negatives": sum(1 for r in rows if r["expected_hit"] is True and not r["hit"]),
+        "layers_seen": layer_counts,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Bitmod cache benchmark with real datasets",
@@ -1132,9 +1289,38 @@ def main() -> None:
     parser.add_argument("--queries", type=int, default=10000, help="Max query count (default: 10000)")
     parser.add_argument("--skip-download", action="store_true", help="Skip download step")
     parser.add_argument("--db-path", type=str, default="", help="Database path (default: temp dir)")
+    parser.add_argument("--rps", type=float, default=0.0,
+                        help="cap requests per second; the gateway allows 60/min on /v1/chat")
+    parser.add_argument("--quora-pairs", type=int, default=0,
+                        help="Run the four-pass quora benchmark via --proxy (cross-check for the in-process runner)")
     parser.add_argument("--proxy", type=str, default="", help="Run via proxy HTTP endpoint (e.g., http://localhost:8000) — tests all 9 layers")
 
     args = parser.parse_args()
+
+    if args.quora_pairs:
+        if not args.proxy:
+            print("--quora-pairs requires --proxy http://host:port")
+            return
+        import json as _json
+        from datetime import datetime as _dt
+        from datetime import timezone as _tz
+        report = run_quora_passes(args.proxy, args.quora_pairs, rps=args.rps)
+        if report:
+            RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+            stamp = _dt.now(_tz.utc).strftime("%Y%m%d_%H%M%S")
+            out = RESULTS_DIR / f"http_{stamp}.json"
+            report["timestamp"] = _dt.now(_tz.utc).isoformat()
+            out.write_text(_json.dumps(report, indent=2))
+            print()
+            print(f"  overall hit rate : {report['hit_rate']:.1%}  ({report['hits']}/{report['queries']})")
+            for name in sorted(report["by_pass"]):
+                pdata = report["by_pass"][name]
+                print(f"    {name:<14} {pdata['hit_rate']:>7.1%}  ({pdata['hits']}/{pdata['total']})")
+            print(f"  false positives  : {report['false_positives']}")
+            print(f"  false negatives  : {report['false_negatives']}")
+            print(f"\n  report written to {out}")
+        return
+
 
     # If no specific phase selected, default to --all
     if not any([args.download, args.parse, args.ingest, args.run, args.all]):

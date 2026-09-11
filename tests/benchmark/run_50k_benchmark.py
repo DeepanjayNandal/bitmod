@@ -32,7 +32,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import random
 import re
 import sys
@@ -440,14 +439,14 @@ def main():
 
     print(f"\n  {'=' * 60}")
     print(f"  PHASE A: SEEDING — {len(seed_corpus):,} queries")
-    print(f"  Building cache, decomposing facts, learning similarity links")
-    print(f"  Expected hit rate: ~0% (cold start)")
+    print("  Building cache, decomposing facts, learning similarity links")
+    print("  Expected hit rate: ~0% (cold start)")
     print(f"  {'=' * 60}")
 
     seed_batch = [{"text": q, "type": "seed", "target_layers": "all"} for q in seed_corpus]
     seed_results, seed_report = run_phase(client, seed_batch, "seed", f"{len(seed_corpus):,}", args.progress)
 
-    print(f"\n  PHASE A COMPLETE:")
+    print("\n  PHASE A COMPLETE:")
     print(f"    Queries:   {seed_report.total:,}")
     print(f"    Hits:      {seed_report.hits:,} ({seed_report.hit_rate * 100:.1f}%)")
     print(f"    Errors:    {seed_report.errors:,}")
@@ -469,28 +468,28 @@ def main():
 
     print(f"\n  {'=' * 60}")
     print(f"  PHASE B: VALIDATION — {args.val_queries:,} queries")
-    print(f"  Randomized mix testing all 9 layers simultaneously:")
-    print(f"    20% exact repeats     → Layer 1 (exact match)")
-    print(f"    20% paraphrased       → Layer 2 (semantic) + Layer 4 (fuzzy)")
-    print(f"    10% comparisons       → Layer 3 (composable)")
-    print(f"    10% typo variants     → Layer 4 (fuzzy)")
-    print(f"    10% topic-adjacent    → Layer 5 (similarity links)")
-    print(f"    10% fact-seeking      → Layer 6 (atomic facts)")
-    print(f"    10% follow-ups        → Layer 7 (session cache)")
-    print(f"    10% brand new         → Layer 9 (Bayesian baseline)")
+    print("  Randomized mix testing all 9 layers simultaneously:")
+    print("    20% exact repeats     → Layer 1 (exact match)")
+    print("    20% paraphrased       → Layer 2 (semantic) + Layer 4 (fuzzy)")
+    print("    10% comparisons       → Layer 3 (composable)")
+    print("    10% typo variants     → Layer 4 (fuzzy)")
+    print("    10% topic-adjacent    → Layer 5 (similarity links)")
+    print("    10% fact-seeking      → Layer 6 (atomic facts)")
+    print("    10% follow-ups        → Layer 7 (session cache)")
+    print("    10% brand new         → Layer 9 (Bayesian baseline)")
     print(f"  {'=' * 60}")
 
     val_queries = generate_validation_queries(seeded_texts, total=args.val_queries)
     val_results, val_report = run_phase(client, val_queries, "validate", f"{len(val_queries):,}", args.progress)
 
-    print(f"\n  PHASE B COMPLETE:")
+    print("\n  PHASE B COMPLETE:")
     print(f"    Queries:   {val_report.total:,}")
     print(f"    Hits:      {val_report.hits:,} ({val_report.hit_rate * 100:.1f}%)")
     print(f"    Errors:    {val_report.errors:,}")
     print(f"    Duration:  {val_report.duration_s / 3600:.1f} hours")
     print(f"    Avg lat (cached):   {val_report.avg_latency_cached_ms:.0f}ms")
     print(f"    Avg lat (uncached): {val_report.avg_latency_uncached_ms:.0f}ms")
-    print(f"\n    By query type:")
+    print("\n    By query type:")
     for t, stats in sorted(val_report.by_type.items()):
         print(f"      {t:20s}  {stats['hits']:>5,}/{stats['total']:>5,}  ({stats['rate'] * 100:.1f}%)")
 
@@ -505,19 +504,19 @@ def main():
     total_queries = len(all_results)
 
     print(f"\n  {'=' * 60}")
-    print(f"  FINAL RESULTS")
+    print("  FINAL RESULTS")
     print(f"  {'=' * 60}")
     print(f"  Total queries:        {total_queries:,}")
     print(f"  Total hits:           {total_hits:,}")
     print(f"  Overall hit rate:     {total_hits / max(total_queries, 1) * 100:.1f}%")
-    print(f"")
+    print("")
     print(f"  Phase A (seed):       {seed_report.hit_rate * 100:.1f}% ({seed_report.hits:,}/{seed_report.total:,})")
     print(f"  Phase B (validate):   {val_report.hit_rate * 100:.1f}% ({val_report.hits:,}/{val_report.total:,})")
-    print(f"")
+    print("")
     print(f"  Without BitMod cost:  ${total_queries * 0.006:.2f}")
     print(f"  With BitMod cost:     ${(total_queries - total_hits) * 0.006:.2f}")
     print(f"  Savings:              ${total_hits * 0.006:.2f} ({total_hits / max(total_queries, 1) * 100:.1f}%)")
-    print(f"")
+    print("")
     print(f"  Completed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"  {'=' * 60}")
 

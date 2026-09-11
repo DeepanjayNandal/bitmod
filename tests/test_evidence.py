@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
-
 from bitmod.cache_engine import (
     CacheEvidence,
     PipelineEvidence,
     SemanticMatch,
+    _get_config,
     _similarity_to_confidence,
     decompose_answer,
 )
@@ -66,22 +64,50 @@ class TestPipelineEvidence:
         pe.add(CacheEvidence(layer="exact", confidence=0.85, answer_text="a"))
         assert pe.total_confidence == pytest.approx(0.85)
 
-    def test_bayesian_stacking(self):
-        """0.85 + 0.50 -> 1 - (0.15 * 0.50) = 0.925."""
+    def test_combining_is_damped_because_the_layers_are_not_independent(self):
+        """Noisy-OR treats agreement between layers as separate evidence.
+
+        It is not. Semantic and fuzzy similarity are computed from the same two
+        strings, so most of what combining adds is one signal counted twice.
+        Measured against labelled pairs, claimed minus observed was +0.011 where
+        a single layer contributed, +0.144 at two and +0.386 at three — the
+        error appears only where the assumption is used.
+
+        The gain over the strongest single piece of evidence is therefore damped
+        rather than taken whole. The raw product remains the ceiling.
+        """
         pe = PipelineEvidence()
         pe.add(CacheEvidence(layer="exact", confidence=0.85, answer_text="a"))
         pe.add(CacheEvidence(layer="semantic", confidence=0.50, answer_text="b"))
-        expected = 1.0 - (0.15 * 0.50)
-        assert pe.total_confidence == pytest.approx(expected)
 
-    def test_triple_stacking(self):
-        """Three evidence pieces stack correctly."""
+        undamped = 1.0 - (0.15 * 0.50)
+        damping = _get_config().accumulation_damping
+        assert pe.total_confidence == pytest.approx(0.85 + (undamped - 0.85) * damping)
+        assert 0.85 <= pe.total_confidence < undamped, "combining must add something, but less than noisy-OR claims"
+
+    def test_triple_stacking_damps_further_from_the_best_single_piece(self):
         pe = PipelineEvidence()
         pe.add(CacheEvidence(layer="exact", confidence=0.80, answer_text="a"))
         pe.add(CacheEvidence(layer="semantic", confidence=0.60, answer_text="b"))
         pe.add(CacheEvidence(layer="fuzzy", confidence=0.40, answer_text="c"))
-        expected = 1.0 - (0.20 * 0.40 * 0.60)
-        assert pe.total_confidence == pytest.approx(expected)
+
+        undamped = 1.0 - (0.20 * 0.40 * 0.60)
+        damping = _get_config().accumulation_damping
+        assert pe.total_confidence == pytest.approx(0.80 + (undamped - 0.80) * damping)
+
+    def test_a_single_layer_is_untouched(self):
+        """Nothing was combined, so there is nothing to correct.
+
+        Measured at +0.011 claimed against observed, i.e. already calibrated.
+        An exact match still means certainty.
+        """
+        pe = PipelineEvidence()
+        pe.add(CacheEvidence(layer="exact", confidence=1.0, answer_text="a"))
+        assert pe.total_confidence == pytest.approx(1.0)
+
+        pe = PipelineEvidence()
+        pe.add(CacheEvidence(layer="semantic", confidence=0.73, answer_text="a"))
+        assert pe.total_confidence == pytest.approx(0.73)
 
     def test_zero_confidence_no_effect(self):
         """Evidence with 0.0 confidence does not change total."""
@@ -155,27 +181,59 @@ class TestContextForLlm:
 class TestSimilarityToConfidence:
     """Verify the non-linear similarity-to-confidence mapping curves."""
 
-    def test_semantic_high(self):
-        """>=0.98 maps to 0.99."""
-        assert _similarity_to_confidence(0.98, "semantic") == pytest.approx(0.99)
-        assert _similarity_to_confidence(1.00, "semantic") == pytest.approx(0.99)
+    def test_semantic_confidence_is_a_probability_not_a_hand_drawn_curve(self):
+        """The mapping is fitted against labelled pairs, so pin its shape, not its points.
 
-    def test_semantic_good(self):
-        """0.92 maps to 0.85."""
-        assert _similarity_to_confidence(0.92, "semantic") == pytest.approx(0.85)
+        These asserted the piecewise curve written in the first commit — 0.92
+        maps to 0.85, below 0.75 maps to 0.0 — which was never checked against
+        data. Its slope inverted: flattest between 0.92 and 0.98, exactly where
+        serve decisions are made, so a lone semantic match needed cosine 0.980
+        to serve at all.
 
-    def test_semantic_moderate(self):
-        """0.85 maps to 0.55."""
-        assert _similarity_to_confidence(0.85, "semantic") == pytest.approx(0.55)
+        Asserting the fitted constants here would just move the unchecked
+        numbers into the test. What must hold is that it is monotone, bounded,
+        and never claims certainty — the labels do not support certainty, since
+        even at cosine 1.0 some pairs are not the same question.
+        """
+        curve = [_similarity_to_confidence(c / 100, "semantic") for c in range(50, 101)]
+        assert curve == sorted(curve), "confidence must not fall as similarity rises"
+        assert all(0.0 <= c <= 1.0 for c in curve)
+        assert curve[-1] < 1.0, "no similarity should mean certainty"
 
-    def test_semantic_low(self):
-        """0.75 maps to 0.25."""
-        assert _similarity_to_confidence(0.75, "semantic") == pytest.approx(0.25)
+        # Shape alone does not constrain enough. A curve of 0.9 x cosine is
+        # monotone, bounded and never reaches 1.0, yet scores a barely-related
+        # question at 0.450 where the fitted curve gives 0.009. These two bands
+        # are what the task requires of any curve, wide enough to survive a
+        # refit and tight enough that such a curve fails.
+        assert _similarity_to_confidence(0.50, "semantic") < 0.10, (
+            "a question this dissimilar is not the same question"
+        )
+        assert _similarity_to_confidence(0.95, "semantic") > 0.60, (
+            "a near-identical question must score high enough to serve when a second layer agrees"
+        )
 
-    def test_semantic_below_threshold(self):
-        """Below 0.75 returns 0.0."""
-        assert _similarity_to_confidence(0.70, "semantic") == 0.0
-        assert _similarity_to_confidence(0.50, "semantic") == 0.0
+    def test_semantic_confidence_is_not_zero_below_the_search_threshold(self):
+        """A hard zero is a claim of certainty in the other direction.
+
+        The old curve returned exactly 0.0 below cosine 0.75. Measured, 8.7% of
+        the queries it scored that way were genuine duplicates, which is why its
+        held-out log loss was 1.87 against the fitted curve's 0.51.
+        """
+        assert _similarity_to_confidence(0.70, "semantic") > 0.0
+        assert _similarity_to_confidence(0.70, "semantic") < _similarity_to_confidence(0.85, "semantic")
+
+    def test_the_hand_drawn_curve_is_still_reachable(self):
+        """Calibration is a property of the embedder, so it can be turned off."""
+        from bitmod.cache_engine import configure
+        from bitmod.config import CacheConfig
+
+        original = _get_config()
+        try:
+            configure(CacheConfig(calibrated_confidence=False))
+            assert _similarity_to_confidence(0.92, "semantic") == pytest.approx(0.85)
+            assert _similarity_to_confidence(0.70, "semantic") == 0.0
+        finally:
+            configure(original)
 
     def test_fuzzy_high(self):
         """>=0.95 maps to 0.80."""

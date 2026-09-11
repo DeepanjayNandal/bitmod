@@ -1320,6 +1320,21 @@ class PipelineEvidence:
         # Subtract negative evidence
         neg_total = sum(abs(e.confidence) for e in negative)
 
+        # Noisy-OR assumes the layers are independent evidence. They are not:
+        # semantic and fuzzy similarity read the same two strings, so most of
+        # what combining adds is one signal counted twice.
+        #
+        # Measured, claimed minus observed: +0.011 where a single layer
+        # contributed and no combining happened, +0.144 at two layers, +0.386 at
+        # three. The error lives in the combination, not in the layers, so only
+        # the combination is corrected — the gain over the strongest single
+        # piece of evidence is damped, and one layer alone passes through
+        # untouched. An exact match still means 1.0.
+        cfg = _get_config()
+        if getattr(cfg, "calibrated_confidence", True) and len(positive) > 1:
+            best = max(e.confidence for e in positive)
+            pos_total = best + (pos_total - best) * cfg.accumulation_damping
+
         self.total_confidence = max(0.0, min(1.0, pos_total - neg_total))
 
     def best_single_answer(self) -> CacheEvidence | None:
@@ -1351,13 +1366,27 @@ class SemanticMatch:
     similarity: float
 
 
+def _logistic(x: float, a: float, b: float) -> float:
+    """Overflow-free sigmoid: exp only ever sees a non-positive argument."""
+    z = a * x + b
+    if z >= 0:
+        return 1.0 / (1.0 + math.exp(-z))
+    exp_z = math.exp(z)
+    return exp_z / (1.0 + exp_z)
+
+
 def _similarity_to_confidence(similarity: float, layer: str = "semantic") -> float:
     """Map raw similarity score to confidence value using non-linear curve.
 
     Always returns a value clamped to [0.0, 1.0].
     """
     if layer == "semantic":
-        if similarity >= 0.98:
+        cfg = _get_config()
+        if getattr(cfg, "calibrated_confidence", True):
+            # Fitted, not drawn. P(same question | cosine), from
+            # tests/benchmark/fit_confidence_curve.py.
+            result = _logistic(similarity, cfg.semantic_confidence_a, cfg.semantic_confidence_b)
+        elif similarity >= 0.98:
             result = 0.99
         elif similarity >= 0.92:
             result = 0.85 + (similarity - 0.92) * 1.5

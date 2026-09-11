@@ -271,6 +271,63 @@ class CacheConfig:
     composable_threshold: float = field(
         default_factory=lambda: float(os.getenv("BITMOD_CACHE_COMPOSABLE_THRESHOLD", "0.80"))
     )
+    # --- Calibration, fitted rather than chosen ---
+    #
+    # Confidence is P(this cached answer is right for this query), fitted
+    # against labelled pairs by tests/benchmark/fit_confidence_curve.py. Two
+    # curves, because two different things are being mapped.
+    #
+    # semantic_*: cosine similarity -> probability. Replaces a hand-drawn
+    #   piecewise curve from the first commit whose slope inverted — flattest
+    #   between 0.92 and 0.98, exactly where serve decisions are made — so a
+    #   lone semantic match needed cosine 0.980 to serve. Held-out Brier
+    #   0.1707 against 0.1852, log loss 0.5117 against 1.8745.
+    #
+    # accumulation_*: accumulated confidence -> probability. The layers combine
+    #   as noisy-OR, which assumes they are conditionally independent. They are
+    #   not — semantic and fuzzy read the same two strings — so the total
+    #   overstates, and measurably: where one layer contributed, claimed minus
+    #   observed was +0.011; at two layers, +0.144. Held-out log loss 0.4268
+    #   against 1.1569.
+    #
+    # Both are properties of nomic-embed-text and of the corpus they were fitted
+    # on. Re-run the fitters before changing embedder, and do not hand-edit.
+    semantic_confidence_a: float = field(
+        default_factory=lambda: float(os.getenv("BITMOD_CACHE_SEMANTIC_CONF_A", "14.643"))
+    )
+    semantic_confidence_b: float = field(
+        default_factory=lambda: float(os.getenv("BITMOD_CACHE_SEMANTIC_CONF_B", "-12.002"))
+    )
+    # How much of what combining adds survives. Noisy-OR treats the layers as
+    # independent evidence and they are not — semantic and fuzzy read the same
+    # two strings, so most of the gain over the single best piece is one signal
+    # counted twice. Applied to that gain alone, so a single contributing layer
+    # is untouched and an exact match still means 1.0.
+    #
+    # 0.5 is the midpoint between treating the layers as independent (1.0) and
+    # as fully redundant (0.0). It is NOT a fitted value. Fits on the available
+    # data gave 0.00 on the quora passes, 1.00 on the conversational ones and
+    # 0.77 combined — all artefacts of pass design, since every benchmark pass
+    # is entirely positive or entirely negative and the fit just recovers that
+    # base rate.
+    #
+    # Measured at serve_threshold 0.85 across 4,600 queries:
+    #
+    #     damping 1.00   paraphrase 51.6%   37 wrong   8.0 per 1000
+    #     damping 0.50   paraphrase 40.4%    8 wrong   1.7 per 1000
+    #     damping 0.25   paraphrase 33.0%    7 wrong   1.5 per 1000
+    #
+    # Full weight has the most recall and five times the wrong answers. 0.25
+    # gives up a further 7 points of recall to remove one. This is a
+    # conservatism control, not a calibration; fitting it properly would need a
+    # labelled corpus with mixed-outcome passes at a realistic base rate.
+    accumulation_damping: float = field(
+        default_factory=lambda: float(os.getenv("BITMOD_CACHE_ACCUMULATION_DAMPING", "0.50"))
+    )
+    calibrated_confidence: bool = field(
+        default_factory=lambda: os.getenv("BITMOD_CACHE_CALIBRATED", "true").lower() in ("true", "1", "yes")
+    )
+
     # Refuse a candidate when the two questions name different things —
     # "Sigma-Aldrich" against "Sigma Designs", "taffy in Austria" against "in
     # China". Similarity cannot separate those: the sentences really are alike.
@@ -289,7 +346,16 @@ class CacheConfig:
     embedding_normalisation: str = field(
         default_factory=lambda: os.getenv("BITMOD_CACHE_EMBEDDING_NORMALISATION", "key")
     )
-    search_threshold: float = field(default_factory=lambda: float(os.getenv("BITMOD_CACHE_SEARCH_THRESHOLD", "0.75")))
+    # 0.60, not 0.75. The old value was doing ceiling work: the queries that
+    # produced no evidence at all sat at median cosine 0.702 with a maximum of
+    # 0.749, so the retrieval cutoff — not the serve threshold — was what made
+    # them unreachable.
+    #
+    # Measured at serve_threshold 0.85: dropping to 0.60 takes zero-evidence
+    # duplicates from 43 to 18 and adds six correct serves for no additional
+    # wrong ones. A single match this weak scores 0.148 and can never serve
+    # alone; it earns its place by combining.
+    search_threshold: float = field(default_factory=lambda: float(os.getenv("BITMOD_CACHE_SEARCH_THRESHOLD", "0.60")))
     max_entries: int = field(default_factory=lambda: int(os.getenv("BITMOD_CACHE_MAX_ENTRIES", "100000")))
     eviction_interval: int = field(default_factory=lambda: int(os.getenv("BITMOD_CACHE_EVICTION_INTERVAL", "100")))
     max_answer_length: int = field(default_factory=lambda: int(os.getenv("BITMOD_CACHE_MAX_ANSWER_LENGTH", "100000")))
@@ -314,7 +380,26 @@ class CacheConfig:
     # --- Serve decision ---
     # Accumulated confidence at or above this serves from cache. The single
     # most behaviour-changing value in the pipeline.
-    serve_threshold: float = field(default_factory=lambda: float(os.getenv("BITMOD_CACHE_SERVE_THRESHOLD", "0.95")))
+    # 0.85, chosen from the error rate it produces rather than by feel. With
+    # confidence calibrated, this threshold *is* the error budget: serve when
+    # P(this answer is right) is at least this.
+    #
+    # Measured on 500 labelled duplicate and 500 hard-negative pairs, against
+    # the pre-calibration system at 0.95 (recall 20.6%, 23 wrong per 1000):
+    #
+    #     0.80   recall 43.0%   34 wrong/1000
+    #     0.85   recall 31.0%   16 wrong/1000   <- beats the old system on both
+    #     0.90   recall 16.8%    6 wrong/1000
+    #
+    # 0.95 no longer means what it did. The calibrated curve caps a single
+    # semantic match at 0.9335 and an accumulated total at 0.8772, so keeping
+    # 0.95 would serve almost nothing — 15 of 500 duplicates when measured.
+    # That is why the curve and this number cannot be changed separately.
+    #
+    # The measurement set is half hard negatives by construction, which is far
+    # more adversarial than real traffic, so the per-1000 figures are an upper
+    # bound on the production error rate rather than a forecast of it.
+    serve_threshold: float = field(default_factory=lambda: float(os.getenv("BITMOD_CACHE_SERVE_THRESHOLD", "0.85")))
 
     # --- Per-layer confidence contributions ---
     # What each layer is worth when it matches. Exact match is 1.0 by
@@ -330,7 +415,12 @@ class CacheConfig:
 
     # --- Atomic facts (layer 8) ---
     fact_min_similarity: float = field(
-        default_factory=lambda: float(os.getenv("BITMOD_CACHE_FACT_MIN_SIMILARITY", "0.80"))
+        # 0.65, not the 0.80 the semantic layer uses. This compares a question
+        # against a declarative sentence, which scores lower by construction.
+        # Measured on 401 question/own-fact pairs: 0.80 admitted 12.2% of the
+        # facts that answer the question, 0.65 admits 60.1% at 95.3% precision —
+        # the precision the semantic layer already runs at.
+        default_factory=lambda: float(os.getenv("BITMOD_CACHE_FACT_MIN_SIMILARITY", "0.65"))
     )
     fact_confidence_weight: float = field(
         default_factory=lambda: float(os.getenv("BITMOD_CACHE_FACT_CONFIDENCE_WEIGHT", "0.40"))

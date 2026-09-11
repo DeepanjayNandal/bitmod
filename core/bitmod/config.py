@@ -287,8 +287,8 @@ class CacheConfig:
     #   as noisy-OR, which assumes they are conditionally independent. They are
     #   not — semantic and fuzzy read the same two strings — so the total
     #   overstates, and measurably: where one layer contributed, claimed minus
-    #   observed was +0.011; at two layers, +0.144. Held-out log loss 0.4268
-    #   against 1.1569.
+    #   observed was -0.006; at two layers, +0.126. Held-out log loss 0.4540
+    #   against 1.6082. Both from tests/benchmark/results/accumulation_fit.json.
     #
     # Both are properties of nomic-embed-text and of the corpus they were fitted
     # on. Re-run the fitters before changing embedder, and do not hand-edit.

@@ -69,9 +69,10 @@ class TestPipelineEvidence:
 
         It is not. Semantic and fuzzy similarity are computed from the same two
         strings, so most of what combining adds is one signal counted twice.
-        Measured against labelled pairs, claimed minus observed was +0.011 where
-        a single layer contributed, +0.144 at two and +0.386 at three — the
+        Measured against labelled pairs, claimed minus observed was -0.006 where
+        a single layer contributed, +0.126 at two and +0.386 at three — the
         error appears only where the assumption is used.
+        (tests/benchmark/results/accumulation_fit.json, and see ADR-004.)
 
         The gain over the strongest single piece of evidence is therefore damped
         rather than taken whole. The raw product remains the ceiling.
@@ -98,7 +99,7 @@ class TestPipelineEvidence:
     def test_a_single_layer_is_untouched(self):
         """Nothing was combined, so there is nothing to correct.
 
-        Measured at +0.011 claimed against observed, i.e. already calibrated.
+        Measured at -0.006 claimed against observed, i.e. already calibrated.
         An exact match still means certainty.
         """
         pe = PipelineEvidence()

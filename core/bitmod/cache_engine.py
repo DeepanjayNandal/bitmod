@@ -1324,9 +1324,11 @@ class PipelineEvidence:
         # semantic and fuzzy similarity read the same two strings, so most of
         # what combining adds is one signal counted twice.
         #
-        # Measured, claimed minus observed: +0.011 where a single layer
-        # contributed and no combining happened, +0.144 at two layers, +0.386 at
-        # three. The error lives in the combination, not in the layers, so only
+        # Measured, claimed minus observed: -0.006 where a single layer
+        # contributed and no combining happened, +0.126 at two layers, +0.386 at
+        # three, on n=503, 138 and 5 respectively
+        # (tests/benchmark/results/accumulation_fit.json, and see ADR-004).
+        # The error lives in the combination, not in the layers, so only
         # the combination is corrected — the gain over the strongest single
         # piece of evidence is damped, and one layer alone passes through
         # untouched. An exact match still means 1.0.

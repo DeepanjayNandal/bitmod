@@ -422,7 +422,7 @@ class Bitmod:
         """
         from bitmod.cache_engine import (
             compute_answer_key,
-            normalize_query,
+            normalize_for_key,
             store_answer,
             try_cache,
         )
@@ -506,7 +506,7 @@ class Bitmod:
 
         # Step 4: Store in cache
         answer_key = compute_answer_key(question, filters)
-        normalized = normalize_query(question)
+        normalized = normalize_for_key(question)
 
         with backend.session() as session:
             store_answer(
@@ -565,7 +565,7 @@ class Bitmod:
 
         from bitmod.cache_engine import (
             compute_answer_key,
-            normalize_query,
+            normalize_for_key,
             store_answer,
             try_cache,
         )
@@ -656,7 +656,7 @@ class Bitmod:
 
         # Step 4: Store in cache (sync DB in thread)
         answer_key = compute_answer_key(question, filters)
-        normalized = normalize_query(question)
+        normalized = normalize_for_key(question)
 
         def _store():
             with backend.session() as session:

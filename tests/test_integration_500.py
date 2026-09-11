@@ -29,7 +29,7 @@ import pytest
 
 from bitmod.adapters.db_sqlite import SQLiteBackend
 from bitmod.cache_engine import (
-    compute_answer_key, normalize_query, store_answer, try_cache,
+    compute_answer_key, normalize_for_key, store_answer, try_cache,
     fuzzy_match, try_composable_cache,
 )
 from bitmod.intent import detect_intent, IntentRegistry, IntentAction
@@ -259,7 +259,7 @@ def _simulate_query(backend, query: str, filters: dict, user_id: str) -> QueryRe
         ))
 
     # 1. Normalization
-    norm = normalize_query(query)
+    norm = normalize_for_key(query)
     answer_key = compute_answer_key(query, filters)
     _step("normalization", "DONE", {
         "raw_length": len(query),
@@ -679,7 +679,7 @@ class TestIntegration500Users:
         with seeded_backend.session() as s:
             store_answer(
                 backend=seeded_backend, session=s, answer_key=answer_key,
-                question_raw=query, question_normalized=normalize_query(query),
+                question_raw=query, question_normalized=normalize_for_key(query),
                 filters={}, answer_text="Original answer about regulations",
                 source_sections=[{"section_id": section_id, "version_hash": version_hash}],
                 model_used="test", generation_ms=100,
@@ -714,7 +714,7 @@ class TestIntegration500Users:
         with seeded_backend.session() as s:
             store_answer(
                 backend=seeded_backend, session=s, answer_key=answer_key,
-                question_raw=query, question_normalized=normalize_query(query),
+                question_raw=query, question_normalized=normalize_for_key(query),
                 filters={}, answer_text="Updated answer after re-ingestion",
                 source_sections=[{"section_id": section_id, "version_hash": new_hash}],
                 model_used="test", generation_ms=80,
@@ -848,7 +848,7 @@ class TestPostgreSQLParity:
         # Fuzzy search with a slight variation
         with seeded_backend.session() as s:
             results = seeded_backend.cache_fuzzy_match(
-                s, normalize_query("employment regulation"),
+                s, normalize_for_key("employment regulation"),
                 filters, threshold=0.5, max_results=5,
             )
         assert len(results) > 0, "PostgreSQL trigram fuzzy match should find results"
@@ -863,7 +863,7 @@ class TestPostgreSQLParity:
         with seeded_backend.session() as s:
             store_answer(
                 backend=seeded_backend, session=s, answer_key=answer_key,
-                question_raw=query, question_normalized=normalize_query(query),
+                question_raw=query, question_normalized=normalize_for_key(query),
                 filters={}, answer_text="JSONB test answer",
                 source_sections=[{"section_id": section_id}],
                 model_used="test", generation_ms=50,

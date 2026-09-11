@@ -23,7 +23,7 @@ from bitmod.adapters import get_backend, get_llm, make_llm
 from bitmod.cache_engine import (
     compute_answer_key,
     fuzzy_match,
-    normalize_query,
+    normalize_for_key,
     semantic_cache_match,
     store_answer,
     try_cache,
@@ -391,7 +391,7 @@ async def chat(request: ChatRequest, raw_request: Request = None):
     project_id = request.project_id
 
     # --- Sanitization & Normalization ---
-    norm_query = normalize_query(message)
+    norm_query = normalize_for_key(message)
     answer_key = compute_answer_key(message, filters, project_id=project_id)
     _step(
         "normalization",
@@ -732,7 +732,7 @@ async def chat(request: ChatRequest, raw_request: Request = None):
                     session=sub_session,
                     answer_key=sub_key,
                     question_raw=sq["query"],
-                    question_normalized=normalize_query(sq["query"]),
+                    question_normalized=normalize_for_key(sq["query"]),
                     filters=sq["filters"],
                     answer_text=sub_answer,
                     source_sections=sub_sources,
@@ -1037,7 +1037,7 @@ async def chat(request: ChatRequest, raw_request: Request = None):
         query_embedding = None
         if embedder:
             try:
-                query_embedding = embedder.embed(norm_query)
+                query_embedding = embedder.embed(message)
             except Exception:
                 logger.debug("Query embedding failed for cache store, storing without embedding", exc_info=True)
 
@@ -1651,7 +1651,7 @@ async def _stream_generate(
     query_embedding = None
     if embedder:
         try:
-            query_embedding = embedder.embed(normalize_query(message))
+            query_embedding = embedder.embed(message)
         except Exception:
             logger.debug("Query embedding failed for stream cache store, storing without embedding", exc_info=True)
 
@@ -1666,7 +1666,7 @@ async def _stream_generate(
                 session=session,
                 answer_key=answer_key,
                 question_raw=message,
-                question_normalized=normalize_query(message),
+                question_normalized=normalize_for_key(message),
                 filters=filters,
                 answer_text=answer_text,
                 source_sections=sources_collected,

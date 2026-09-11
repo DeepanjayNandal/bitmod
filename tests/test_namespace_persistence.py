@@ -20,7 +20,7 @@ import tempfile
 
 import pytest
 from bitmod.adapters.db_sqlite import SQLiteBackend
-from bitmod.cache_engine import compute_answer_key, normalize_query, store_answer
+from bitmod.cache_engine import compute_answer_key, normalize_for_key, store_answer
 
 USE_POSTGRES = os.getenv("BITMOD_TEST_POSTGRES", "0") == "1"
 USE_MYSQL = os.getenv("BITMOD_TEST_MYSQL", "0") == "1"
@@ -94,7 +94,7 @@ def test_namespace_survives_a_storage_round_trip(backend):
             session=session,
             answer_key=key,
             question_raw=QUESTION,
-            question_normalized=normalize_query(QUESTION),
+            question_normalized=normalize_for_key(QUESTION),
             filters={},
             answer_text="scoped answer",
             source_sections=[],
@@ -127,7 +127,7 @@ def test_ttl_and_eviction_fields_survive_a_storage_round_trip(backend):
             session=session,
             answer_key=key,
             question_raw="ttl probe",
-            question_normalized=normalize_query("ttl probe"),
+            question_normalized=normalize_for_key("ttl probe"),
             filters={},
             answer_text="a",
             source_sections=[],
@@ -156,7 +156,7 @@ def test_serving_records_last_served_at(backend):
             session=session,
             answer_key=key,
             question_raw="lru probe",
-            question_normalized=normalize_query("lru probe"),
+            question_normalized=normalize_for_key("lru probe"),
             filters={},
             answer_text="a",
             source_sections=[],

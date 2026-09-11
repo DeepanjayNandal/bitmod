@@ -23,38 +23,12 @@ from bitmod.proxy import (
 )
 from bitmod.interfaces.llm import LLMMessage, LLMProvider, LLMResponse, ToolDefinition
 from bitmod.router import LLMRouter
+from tests.mock_llm import MockLLM  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
 # Mock LLM provider
 # ---------------------------------------------------------------------------
-
-class MockLLM(LLMProvider):
-    def __init__(self):
-        self.call_count = 0
-        self.last_messages = None
-
-    async def generate(self, messages, model="", tools=None,
-                       temperature=0.0, max_tokens=4096):
-        self.call_count += 1
-        self.last_messages = messages
-        user_text = ""
-        for m in reversed(messages):
-            if m.role == "user":
-                user_text = m.content
-                break
-        return LLMResponse(
-            content=f"Mock answer to: {user_text}",
-            model="mock-model",
-            usage={"input_tokens": 10, "output_tokens": 20},
-        )
-
-    async def stream(self, messages, model="", temperature=0.0, max_tokens=4096):
-        self.call_count += 1
-        self.last_messages = messages
-        for word in ["Hello", " from", " mock", " LLM"]:
-            yield word
-
 
 def _run(coro):
     """Run an async function synchronously."""

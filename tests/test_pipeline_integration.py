@@ -19,7 +19,7 @@ import pytest
 from bitmod.adapters.db_sqlite import SQLiteBackend
 from bitmod.cache_engine import (
     compute_answer_key, decompose_query, double_verify, fuzzy_match,
-    invalidate_by_section, normalize_query, semantic_cache_match,
+    invalidate_by_section, normalize_for_key, semantic_cache_match,
     store_answer, try_cache, try_composable_cache,
 )
 from bitmod.intent import (
@@ -318,7 +318,7 @@ class TestStage5ExactCache:
         with populated_db.session() as session:
             store_answer(
                 populated_db, session, answer_key=key,
-                question_raw=query, question_normalized=normalize_query(query),
+                question_raw=query, question_normalized=normalize_for_key(query),
                 filters={}, answer_text="Cloud computing delivers services over the Internet.",
                 source_sections=[{"section_id": "doc-tech-sec-1", "version_hash": actual_hash}],
                 model_used="test", generation_ms=1500,
@@ -347,7 +347,7 @@ class TestStage5ExactCache:
         with populated_db.session() as session:
             store_answer(
                 populated_db, session, answer_key=key,
-                question_raw=query, question_normalized=normalize_query(query),
+                question_raw=query, question_normalized=normalize_for_key(query),
                 filters={}, answer_text="FLSA answer.",
                 source_sections=[{"section_id": "doc-legal-sec-1", "version_hash": "WRONG_HASH"}],
                 model_used="test", generation_ms=500,
@@ -367,7 +367,7 @@ class TestStage5ExactCache:
         with populated_db.session() as session:
             store_answer(
                 populated_db, session, answer_key=key,
-                question_raw=query, question_normalized=normalize_query(query),
+                question_raw=query, question_normalized=normalize_for_key(query),
                 filters={}, answer_text="Employment law answer.",
                 source_sections=[], model_used="test", generation_ms=gen_ms,
             )
@@ -406,7 +406,7 @@ class TestStage6SemanticCache:
         with populated_db.session() as session:
             store_answer(
                 populated_db, session, answer_key=key,
-                question_raw=query, question_normalized=normalize_query(query),
+                question_raw=query, question_normalized=normalize_for_key(query),
                 filters={}, answer_text="Cloud answer.",
                 source_sections=[], model_used="test", generation_ms=1000,
                 query_embedding=fake_embedding,
@@ -480,7 +480,7 @@ class TestStage7ComposableCache:
                     populated_db, session,
                     answer_key=sq.answer_key,
                     question_raw=sq.query,
-                    question_normalized=normalize_query(sq.query),
+                    question_normalized=normalize_for_key(sq.query),
                     filters=sq.filters,
                     answer_text=f"Answer for {sq.filters.get('jurisdiction', '?')}.",
                     source_sections=[], model_used="test", generation_ms=1000,
@@ -506,7 +506,7 @@ class TestStage7ComposableCache:
                 populated_db, session,
                 answer_key=sq.answer_key,
                 question_raw=sq.query,
-                question_normalized=normalize_query(sq.query),
+                question_normalized=normalize_for_key(sq.query),
                 filters=sq.filters,
                 answer_text=f"Answer for {sq.filters.get('jurisdiction', '?')}.",
                 source_sections=[], model_used="test", generation_ms=1000,
@@ -532,7 +532,7 @@ class TestStage7ComposableCache:
                 populated_db, session,
                 answer_key=sq.answer_key,
                 question_raw=sq.query,
-                question_normalized=normalize_query(sq.query),
+                question_normalized=normalize_for_key(sq.query),
                 filters=sq.filters,
                 answer_text="CA answer.",
                 source_sections=[], model_used="test", generation_ms=2000,
@@ -680,7 +680,7 @@ class TestStage10CascadeInvalidation:
         with populated_db.session() as session:
             store_answer(
                 populated_db, session, answer_key=key,
-                question_raw=query, question_normalized=normalize_query(query),
+                question_raw=query, question_normalized=normalize_for_key(query),
                 filters={}, answer_text="FLSA is about labor standards.",
                 source_sections=[{
                     "section_id": "doc-legal-sec-1",
@@ -822,7 +822,7 @@ class TestStage13TemporalQueries:
         with db.session() as session:
             store_answer(
                 db, session, answer_key=key,
-                question_raw=query, question_normalized=normalize_query(query),
+                question_raw=query, question_normalized=normalize_for_key(query),
                 filters=filters, answer_text="Historical data from 2020.",
                 source_sections=[{"section_id": "nonexistent", "version_hash": "stale"}],
                 model_used="test", generation_ms=500,
@@ -857,7 +857,7 @@ class TestSavingsSummary:
             with populated_db.session() as session:
                 store_answer(
                     populated_db, session, answer_key=key,
-                    question_raw=q, question_normalized=normalize_query(q),
+                    question_raw=q, question_normalized=normalize_for_key(q),
                     filters=f, answer_text=f"Answer for: {q}",
                     source_sections=[], model_used="test", generation_ms=gen_ms,
                 )
@@ -869,7 +869,7 @@ class TestSavingsSummary:
             with populated_db.session() as session:
                 store_answer(
                     populated_db, session, answer_key=sq.answer_key,
-                    question_raw=sq.query, question_normalized=normalize_query(sq.query),
+                    question_raw=sq.query, question_normalized=normalize_for_key(sq.query),
                     filters=sq.filters, answer_text=f"Answer for {sq.filters}",
                     source_sections=[], model_used="test", generation_ms=gen_ms,
                 )

@@ -30,7 +30,7 @@ import pytest
 from bitmod.adapters.db_sqlite import SQLiteBackend
 from bitmod.cache_engine import (
     compute_answer_key, decompose_query, double_verify, fuzzy_match,
-    invalidate_by_section, normalize_query, store_answer, try_cache,
+    invalidate_by_section, normalize_for_key, store_answer, try_cache,
     try_composable_cache, get_cache_stats,
 )
 from bitmod.intent import (
@@ -134,7 +134,7 @@ def _store(db, query, filters, answer, source_sections=None, model="test"):
     with db.session() as session:
         store_answer(
             db, session, answer_key=key,
-            question_raw=query, question_normalized=normalize_query(query),
+            question_raw=query, question_normalized=normalize_for_key(query),
             filters=filters, answer_text=answer,
             source_sections=source_sections or [],
             model_used=model, generation_ms=2000,
@@ -203,7 +203,15 @@ class TestWorkflowSession:
         log(3, q3, "miss (different jurisdiction)", "miss", True)
 
         # --- Turn 4: Rephrase of turn 1 (should hit — same normalized key) ---
-        q4 = "California employment law requirements?"  # same after normalization
+        # Dropping the leading "What are" no longer produces the same key.
+        # That collapsing is what also merged "How do X work" with "Where do X
+        # work", so it went with it; a rephrasing like this is the semantic
+        # layer's job, and try_cache below is an exact-key lookup only.
+        q4 = "California employment law requirements?"
+        assert _lookup(db, q4, f1) is None
+
+        # The same question asked identically still hits.
+        q4 = "What are California employment law requirements?"
         result = _lookup(db, q4, f1)
         assert result is not None
         assert "CA requires meal breaks" in result
@@ -463,7 +471,7 @@ class TestFilterIsolation:
         with db.session() as session:
             store_answer(
                 db, session, answer_key=key_2020,
-                question_raw=q, question_normalized=normalize_query(q),
+                question_raw=q, question_normalized=normalize_for_key(q),
                 filters={"temporal_scope": "2020"}, answer_text="In 2020, federal minimum was $7.25/hr.",
                 source_sections=[], model_used="test", generation_ms=1000,
             )
@@ -941,7 +949,7 @@ class TestLongSessionAccuracy:
         # Phase 1: Seed all 30 facts into cache (simulating first-time LLM generation)
         for q, f, a in domains:
             _store(db, q, f, a)
-            facts[(normalize_query(q), json.dumps(f, sort_keys=True))] = a
+            facts[(normalize_for_key(q), json.dumps(f, sort_keys=True))] = a
 
         # Phase 2: 100 turns — random mix of repeats and novel queries
         quartile_results = {1: [], 2: [], 3: [], 4: []}

@@ -16,6 +16,7 @@ from typing import Any
 
 from bitmod.audit import AuditLogger
 from bitmod.cache_engine import (
+    CacheEmbedder,
     CacheEvidence,
     PipelineEvidence,
     _similarity_to_confidence,
@@ -24,7 +25,7 @@ from bitmod.cache_engine import (
     double_verify,
     estimate_generation_cost,
     fuzzy_match,
-    normalize_query,
+    normalize_for_key,
     semantic_cache_search,
     store_answer,
     try_cache,
@@ -34,6 +35,7 @@ from bitmod.cache_engine import _get_config as get_cache_config
 from bitmod.cache_qualify import is_context_dependent, qualify_cache_hit
 from bitmod.config import PromotionConfig
 from bitmod.crypto import decrypt_if_needed, is_encrypted
+from bitmod.entity_guard import conflicts as entity_conflicts
 from bitmod.intent import IntentRegistry, detect_intent
 from bitmod.interfaces.database import AtomicFact, DatabaseBackend, SimilarityLink
 from bitmod.interfaces.llm import LLMMessage
@@ -264,7 +266,7 @@ class BitmodProxy:
     ):
         self._backend = backend
         self._llm = llm_router  # Default/fallback router from server config
-        self._embedder = embedder
+        self._embedder = embedder  # wrapped by the property setter below
         self._default_model = default_model
         self._ollama_url = ollama_url
         self._intent_registry = IntentRegistry()
@@ -348,6 +350,24 @@ class BitmodProxy:
     # ------------------------------------------------------------------
     # Core cache pipeline (shared by all formats)
     # ------------------------------------------------------------------
+
+    @property
+    def _embedder(self):
+        """The cache's embedder, always wrapped so preprocessing cannot diverge.
+
+        A property rather than a plain attribute because tests and benchmarks
+        assign it directly after construction. Wrapping in __init__ alone would
+        leave those paths embedding raw text against a store built from
+        normalised text — the asymmetry this exists to prevent.
+        """
+        return self.__embedder
+
+    @_embedder.setter
+    def _embedder(self, provider) -> None:
+        if provider is None or isinstance(provider, CacheEmbedder):
+            self.__embedder = provider
+        else:
+            self.__embedder = CacheEmbedder(provider)
 
     def _run_cache_pipeline(
         self,
@@ -467,7 +487,7 @@ class BitmodProxy:
             q = qualify_cache_hit(query=user_message, cached_answer=answer_text, history=hist)
             return q.serve, {"reason": q.reason, "check": q.check}
 
-        norm = normalize_query(match_query)
+        norm = normalize_for_key(match_query)
         answer_key = compute_answer_key(match_query, filters, namespace_id=namespace_id)
         _step(
             "normalization",
@@ -566,6 +586,10 @@ class BitmodProxy:
         _step("exact_cache", "MISS", {})
 
         # --- ④ Semantic Similarity — embedding cosine search (threshold from config) ---
+        # Filled by the search with the best similarity it saw, whether or not
+        # that cleared the threshold. Without it a near miss and an empty cache
+        # are the same observation from outside.
+        semantic_stats: dict = {}
         if self._embedder and self._embed_circuit.can_execute():
             with self._backend.session() as session:
                 try:
@@ -578,6 +602,7 @@ class BitmodProxy:
                         threshold=cache_cfg.search_threshold,
                         max_results=cache_cfg.search_max_results,
                         namespace_id=namespace_id,
+                        stats=semantic_stats,
                     )
                     self._embed_circuit.track_success()
                 except Exception:
@@ -603,6 +628,7 @@ class BitmodProxy:
                             threshold=cache_cfg.search_threshold,
                             max_results=cache_cfg.search_max_results,
                             namespace_id=None,
+                            stats=semantic_stats,
                         )
                     except TypeError:
                         semantic_matches = []
@@ -611,9 +637,21 @@ class BitmodProxy:
                 # reaches the evidence list is still walked for links even if it
                 # is never served itself.
                 unverified = 0
+                entity_vetoed = 0
                 for match in semantic_matches:
                     if not double_verify(self._backend, session, match.record, hash_cache=verify_cache):
                         unverified += 1
+                        continue
+                    # Two questions built from one template with a name swapped
+                    # are genuinely similar, so no threshold can separate them —
+                    # the similarity is high and correct. What differs is what
+                    # they name. Dropped here rather than at serve time so a
+                    # candidate about a different subject contributes no
+                    # confidence and seeds no link traversal.
+                    if cache_cfg.entity_guard_enabled and entity_conflicts(
+                        match_query, match.record.question_raw or ""
+                    ):
+                        entity_vetoed += 1
                         continue
                     conf = _similarity_to_confidence(match.similarity, "semantic")
                     evidence.add(
@@ -631,7 +669,15 @@ class BitmodProxy:
                     {
                         "matches": len(semantic_matches),
                         "dropped_unverified": unverified,
+                        "dropped_entity_conflict": entity_vetoed,
                         "total_confidence": round(evidence.total_confidence, 3),
+                        # Reported whether or not anything cleared the
+                        # threshold: a 0.84 against a 0.85 floor and an empty
+                        # cache both yield zero matches and call for opposite
+                        # responses.
+                        "candidates_scored": semantic_stats.get("candidates_scored", 0),
+                        "best_sim_seen": round(semantic_stats.get("best_similarity_seen", 0.0), 3),
+                        "threshold": cache_cfg.search_threshold,
                     },
                 )
         else:
@@ -833,7 +879,7 @@ class BitmodProxy:
         # --- ⑧ Atomic Fact Search — embedding search over extracted facts ---
         if self._embedder and self._embed_circuit.can_execute() and hasattr(self._backend, "search_atomic_facts"):
             try:
-                query_emb = self._embedder.embed(norm)
+                query_emb = self._embedder.embed(match_query)
                 if query_emb:
                     with self._backend.session() as session:
                         fact_matches = self._backend.search_atomic_facts(
@@ -844,12 +890,20 @@ class BitmodProxy:
                         )
                     fact_count = 0
                     best_fact_sim = 0.0
+                    # Tracked separately from the accepted best. Reporting only
+                    # what cleared the threshold means the number reads 0
+                    # exactly when everything was rejected, which is when it is
+                    # worth knowing — a layer that found a 0.79 against a 0.80
+                    # floor and one that found nothing at all are indis-
+                    # tinguishable from the outside otherwise.
+                    best_fact_sim_seen = 0.0
                     for item in fact_matches:
                         # search_atomic_facts may return AtomicFact or (AtomicFact, sim)
                         if isinstance(item, tuple):
                             fact, sim = item
                         else:
                             fact, sim = item, cache_cfg.fact_assumed_similarity
+                        best_fact_sim_seen = max(best_fact_sim_seen, sim)
                         if sim >= cache_cfg.fact_min_similarity:
                             best_fact_sim = max(best_fact_sim, sim)
                             # Weight by quality_score, scaled by the configured fact weight
@@ -870,7 +924,13 @@ class BitmodProxy:
                     _step(
                         "atomic_facts",
                         "SEARCH",
-                        {"matches": fact_count, "best_sim": round(best_fact_sim, 3)},
+                        {
+                            "candidates": len(fact_matches),
+                            "matches": fact_count,
+                            "best_sim_seen": round(best_fact_sim_seen, 3),
+                            "best_sim_accepted": round(best_fact_sim, 3),
+                            "threshold": cache_cfg.fact_min_similarity,
+                        },
                     )
                 else:
                     _step("atomic_facts", "SKIP", {"reason": "no_embedding"})
@@ -1199,7 +1259,7 @@ class BitmodProxy:
         query_embedding = None
         if self._embedder:
             try:
-                query_embedding = self._embedder.embed(norm)
+                query_embedding = self._embedder.embed(user_message)
             except Exception:  # noqa: S110 — embedding failure is non-fatal
                 pass
 

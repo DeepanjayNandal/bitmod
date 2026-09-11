@@ -154,7 +154,75 @@ def _strip_comparison_terms(text: str, entities: list[tuple[str, str, str]]) -> 
 # Query Normalization
 # ---------------------------------------------------------------------------
 
+# Words dropped when building a cache key. Deliberately short.
+#
+# The previous list held seventy words and stripped, among others, every
+# interrogative, both negations, the modals, the tense auxiliaries and the
+# possessive determiners. Dropping those makes questions that differ only in
+# what they ask collapse onto one key, and an exact-key match serves at
+# confidence 1.0 — short-circuiting every layer, gate and threshold. Measured
+# on 500 labelled non-duplicate pairs, 1.6% collided this way and every one was
+# served; they were 32% of all false positives and no threshold could reach
+# them.
+#
+# Collapsed before the fix, all of them served the wrong answer with certainty:
+#
+#     "How do scientists work?"        == "Where do scientists work?"
+#     "Is this covered by warranty?"   == "Is this not covered by warranty?"
+#     "Can I cancel my order"          == "Should I cancel my order"
+#     "What happened before 1990"      == "What happened after 1990"
+#     "What is my account balance"     == "What is your account balance"
+#
+# What remains are words that do not change what is being asked: articles,
+# prepositions whose meaning survives because word order is preserved, and
+# demonstratives. Anything that can flip an answer stays in the key.
 STOPWORDS = frozenset(
+    [
+        # articles
+        "a",
+        "an",
+        "the",
+        # prepositions — order is preserved, so "from A to B" still differs
+        # from "from B to A"
+        "to",
+        "of",
+        "in",
+        "for",
+        "on",
+        "with",
+        "at",
+        "by",
+        "from",
+        "as",
+        "into",
+        "about",
+        "between",
+        "through",
+        # demonstratives and filler
+        "this",
+        "that",
+        "these",
+        "those",
+        "so",
+        # "it" is deliberately absent. Lowercasing makes the pronoun and the
+        # industry the same token, so dropping it merged "How can I find an IT
+        # job in Japan?" with "How can I find job in Japan?". A word that can
+        # change the answer stays in the key; the qualification gate still
+        # treats the pronoun as non-substantive via FUNCTION_WORDS.
+    ]
+)
+
+
+# The aggressive list, for the two jobs that want words removed rather than
+# preserved: fuzzy token overlap and the qualification gate's subject count.
+#
+# These want the opposite of a cache key. A key keeps "not", "was" and "where"
+# because they change the answer. Token-overlap similarity wants them gone —
+# every English question shares "what is the", so leaving them in inflates the
+# score of every comparison and the measure stops discriminating. Measured: a
+# typo case that should fail at 0.85 rose from 0.846 to 0.905 when these were
+# retained, and the prefilter began emitting terms like "wha".
+FUNCTION_WORDS = frozenset(
     [
         "a",
         "an",
@@ -232,18 +300,16 @@ STOPWORDS = frozenset(
 )
 
 
-def normalize_query(query: str) -> str:
-    """Normalize a query for cache key generation and embeddings.
+def normalize_for_key(query: str) -> str:
+    """Reduce a query to what decides which cache entry it belongs to.
 
-    Lowercase, remove punctuation, strip stopwords — but PRESERVE word order.
-    This ensures that phrase meaning is retained for exact cache keys and
-    embedding inputs. For order-independent fuzzy matching, use
-    ``normalize_query_fuzzy`` instead.
+    Lowercase, drop punctuation, drop words that cannot change the answer,
+    preserve word order. Aggressive on purpose: this defines what counts as
+    the same question. For order-independent fuzzy matching use
+    ``normalize_query_fuzzy``.
 
-    .. note::
-        Changed in v0.9: word order is now preserved. Existing caches will
-        miss on first query after upgrade and be re-cached with the new key
-        format. This is acceptable — no data is lost.
+    Do not hand the result to an embedding model. See
+    ``normalize_for_embedding`` for why.
     """
     text = query.lower().strip()
     text = re.sub(r"[^\w\s]", " ", text)
@@ -252,16 +318,66 @@ def normalize_query(query: str) -> str:
     return " ".join(tokens)
 
 
+class CacheEmbedder:
+    """An embedding provider that owns its own text preprocessing.
+
+    Both sides of a cosine comparison must be preprocessed the same way. While
+    that was left to callers it was got wrong: the atomic-fact layer embedded a
+    key-normalised question against facts stored as raw sentences. Measured
+    over 25 question/fact pairs, the mismatch cost 0.20 of median similarity —
+    0.472 against 0.676 — which put every fact under the layer's threshold and
+    made a working layer look dead.
+
+    Callers pass raw text. There is no argument to get wrong and no way for two
+    sides of a comparison to disagree.
+
+    Which preprocessing wins is an empirical property of the embedding model,
+    not a principle, so it is configured rather than assumed. Measured on
+    nomic-embed-text against surface-confusable negatives, dropping function
+    words separates duplicates from near-misses better than passing the
+    sentence through: AUC 0.831 against 0.759. On conversational rephrasings
+    with unrelated negatives the order reverses by a point, so the default
+    follows the harder case — a cache's costly mistake is serving a near-miss,
+    not missing a rephrasing.
+    """
+
+    def __init__(self, provider: object, normalise: object | None = None):
+        self._provider = provider
+        self._normalise = normalise or _configured_normaliser()
+
+    def embed(self, text: str) -> list[float]:
+        return self._provider.embed(self._normalise(text))  # type: ignore[attr-defined,no-any-return]
+
+    def embed_batch(self, texts: list[str]) -> list[list[float]]:
+        prepared = [self._normalise(t) for t in texts]
+        provider = self._provider
+        if hasattr(provider, "embed_batch"):
+            return provider.embed_batch(prepared)  # type: ignore[attr-defined,no-any-return]
+        return [provider.embed(t) for t in prepared]  # type: ignore[attr-defined]
+
+    def dimensions(self) -> int:
+        provider = self._provider
+        return provider.dimensions() if hasattr(provider, "dimensions") else 768  # type: ignore[attr-defined,no-any-return]
+
+
+def _configured_normaliser():
+    """The preprocessing applied to everything this cache embeds."""
+    choice = getattr(_get_config(), "embedding_normalisation", "key")
+    if choice == "raw":
+        return lambda text: " ".join(text.split())
+    return normalize_for_key
+
+
 def normalize_query_fuzzy(query: str) -> str:
     """Normalize a query for fuzzy (order-independent) matching.
 
-    Same as ``normalize_query`` but tokens are sorted alphabetically so that
+    Same as ``normalize_for_key`` but tokens are sorted alphabetically so that
     different word orderings of the same query collapse to the same string.
     """
     text = query.lower().strip()
     text = re.sub(r"[^\w\s]", " ", text)
     tokens = text.split()
-    tokens = [t for t in tokens if t not in STOPWORDS]
+    tokens = [t for t in tokens if t not in FUNCTION_WORDS]
     tokens.sort()
     return " ".join(tokens)
 
@@ -426,7 +542,7 @@ def compute_answer_key(
     When namespace_id or project_id is set, it becomes part of the key so that
     the same query in different scopes produces different cache keys.
     """
-    normalized = normalize_query(query)
+    normalized = normalize_for_key(query)
     parts = [normalized]
 
     if filters:
@@ -1060,7 +1176,7 @@ def semantic_cache_match(
         return None
 
     try:
-        query_emb = embedder.embed(normalize_query(query))
+        query_emb = embedder.embed(query)
     except Exception:
         return None
 
@@ -1275,6 +1391,7 @@ def semantic_cache_search(
     max_results: int | None = None,
     namespace_id: str | None = None,
     vector_index: object | None = None,
+    stats: dict | None = None,
 ) -> list[SemanticMatch]:
     """Return ALL semantic matches above threshold, sorted by similarity descending.
 
@@ -1285,15 +1402,22 @@ def semantic_cache_search(
     When *vector_index* (a ``VectorIndex`` instance) is provided, it is used
     for the similarity search instead of the brute-force scan — O(1) matrix
     multiply vs O(N) row-by-row comparison.
+
+    *stats*, when given, is filled with the best similarity seen regardless of
+    whether it cleared the threshold, plus how many candidates were scored.
+    Returning only what passed makes a near miss and an empty cache look the
+    same from outside, and they call for opposite responses.
     """
+    if stats is not None:
+        stats.setdefault("candidates_scored", 0)
+        stats.setdefault("best_similarity_seen", 0.0)
     cfg = _get_config()
     if threshold is None:
         threshold = cfg.search_threshold
     if max_results is None:
         max_results = cfg.search_max_results
-    norm = normalize_query(query)
     try:
-        query_embedding = embedder.embed(norm)
+        query_embedding = embedder.embed(query)
     except Exception:
         return []
 
@@ -1304,6 +1428,9 @@ def semantic_cache_search(
     if vector_index is not None and hasattr(vector_index, "search") and hasattr(vector_index, "count"):
         if vector_index.count() > 0:
             raw_matches = vector_index.search(query_embedding, k=max_results * 2)
+            if stats is not None and raw_matches:
+                stats["candidates_scored"] = len(raw_matches)
+                stats["best_similarity_seen"] = max(sim for _, sim in raw_matches)
             matches_vi = [(cid, sim) for cid, sim in raw_matches if sim >= threshold][:max_results]
             results: list[SemanticMatch] = []
             for cache_id, sim in matches_vi:
@@ -1338,6 +1465,10 @@ def semantic_cache_search(
             continue
 
         sim = _cosine_similarity(query_embedding, emb)
+        if stats is not None:
+            stats["candidates_scored"] += 1
+            if sim > stats["best_similarity_seen"]:
+                stats["best_similarity_seen"] = sim
         if sim >= threshold:
             matches.append((cache_id, sim))
 

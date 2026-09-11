@@ -15,7 +15,7 @@ from bitmod.cache_engine import (
     get_cache_stats,
     invalidate_by_section,
     is_temporal_query,
-    normalize_query,
+    normalize_for_key,
     store_answer,
     try_cache,
 )
@@ -170,7 +170,7 @@ class TestTemporalQueries:
         with backend.session() as session:
             store_answer(
                 backend, session, answer_key=answer_key,
-                question_raw=query, question_normalized=normalize_query(query),
+                question_raw=query, question_normalized=normalize_for_key(query),
                 filters=filters, answer_text="Historical data.",
                 source_sections=[{"section_id": "ghost-section", "version_hash": "ghost"}],
                 model_used="test", generation_ms=50,

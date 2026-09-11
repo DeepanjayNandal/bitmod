@@ -34,7 +34,7 @@ from bitmod.interfaces.database import (
 )
 from bitmod.tool_layer import ALL_TOOLS, execute_tool
 from bitmod.cache_engine import (
-    compute_answer_key, normalize_query, try_cache, store_answer,
+    compute_answer_key, normalize_for_key, try_cache, store_answer,
     fuzzy_match, semantic_cache_match,
 )
 from bitmod.intent import detect_intent, IntentRegistry
@@ -410,7 +410,7 @@ class TestLiveOllamaIntegration:
         ]
 
         # Also store query embedding for semantic cache
-        norm_query = normalize_query(query)
+        norm_query = normalize_for_key(query)
         query_emb_for_cache = embedder.embed(norm_query)
 
         with seeded_backend.session() as session:
@@ -556,7 +556,7 @@ class TestLiveOllamaIntegration:
             with seeded_backend.session() as session:
                 store_answer(
                     backend=seeded_backend, session=session, answer_key=answer_key,
-                    question_raw=q, question_normalized=normalize_query(q),
+                    question_raw=q, question_normalized=normalize_for_key(q),
                     filters={}, answer_text=response.content,
                     source_sections=[], model_used=response.model,
                     generation_ms=500,
@@ -602,7 +602,7 @@ class TestLiveOllamaIntegration:
         with seeded_backend.session() as session:
             store_answer(
                 backend=seeded_backend, session=session, answer_key=answer_key,
-                question_raw=query, question_normalized=normalize_query(query),
+                question_raw=query, question_normalized=normalize_for_key(query),
                 filters={}, answer_text=response.content,
                 source_sections=[], model_used=response.model,
                 generation_ms=int(llm_time_ms),

@@ -27,7 +27,7 @@ from bitmod.adapters.db_sqlite import SQLiteBackend
 from bitmod.blocks import BlockGenerator, _extract_headline, _extract_structured, _extract_entities
 from bitmod.cache_engine import (
     compute_answer_key, decompose_query, double_verify, fuzzy_match,
-    normalize_query, store_answer, try_cache, try_composable_cache,
+    normalize_for_key, store_answer, try_cache, try_composable_cache,
 )
 from bitmod.intent import (
     DetectedIntent, IntentAction, IntentDepth, IntentFormat, IntentMode,
@@ -51,7 +51,7 @@ def _store(db, query, filters, answer, source_sections=None):
     with db.session() as session:
         store_answer(
             db, session, answer_key=key,
-            question_raw=query, question_normalized=normalize_query(query),
+            question_raw=query, question_normalized=normalize_for_key(query),
             filters=filters, answer_text=answer,
             source_sections=source_sections or [],
             model_used="test", generation_ms=2000,
@@ -83,7 +83,7 @@ class TestNormalizationSafety:
             k2 = compute_answer_key(q2)
             assert k1 != k2, (
                 f"COLLISION: '{q1}' and '{q2}' produce same key!\n"
-                f"  normalized: '{normalize_query(q1)}' vs '{normalize_query(q2)}'"
+                f"  normalized: '{normalize_for_key(q1)}' vs '{normalize_for_key(q2)}'"
             )
 
     def test_normalization_correctly_collapses_rephrases(self):
@@ -109,23 +109,23 @@ class TestNormalizationSafety:
         q2 = "California employment law"
         assert compute_answer_key(q1) != compute_answer_key(q2)
 
-    def test_negation_lost_in_normalization(self):
-        """'not' is a stopword — 'is legal' and 'is not legal' normalize the same.
-        This is a KNOWN limitation. The LLM handles nuance; cache serves the
-        answer for whichever version was asked first. This test documents the
-        behavior so we know filters are the safeguard."""
+    def test_negation_survives_normalization(self):
+        """A question and its negation must not share a cache entry.
+
+        This asserted the opposite and called it a known limitation, on the
+        grounds that "filters are the safeguard". They are not, on the path
+        that matters: the proxy passes filters={} for a single-turn query, so
+        nothing differentiated the two. "Is overtime legal?" and "Is overtime
+        not legal?" collapsed to one key and the first one asked decided the
+        answer served to both — at confidence 1.0, past every layer and gate,
+        because an exact-key match returns immediately.
+        """
         q1 = "Is overtime legal?"
         q2 = "Is overtime not legal?"
-        # Both normalize to the same key (stopwords removed)
-        n1 = normalize_query(q1)
-        n2 = normalize_query(q2)
-        # "not" is a stopword, so they DO collapse
-        assert n1 == n2, "Expected normalization to collapse (known limitation)"
-        # The safeguard: different contexts should use different filters
-        # A system using context-aware filters would differentiate these
-        k1 = compute_answer_key(q1, {"context": "legality"})
-        k2 = compute_answer_key(q2, {"context": "illegality"})
-        assert k1 != k2, "Filters must differentiate negation"
+        assert normalize_for_key(q1) != normalize_for_key(q2)
+        assert compute_answer_key(q1, {}) != compute_answer_key(q2, {}), (
+            "a question and its negation share a cache entry"
+        )
 
     def test_similar_words_dont_collide(self):
         """Words that share stems but mean different things must not collide."""
@@ -136,7 +136,7 @@ class TestNormalizationSafety:
             ("machine learning", "machine manufacturing"),
         ]
         for q1, q2 in pairs:
-            assert normalize_query(q1) != normalize_query(q2), (
+            assert normalize_for_key(q1) != normalize_for_key(q2), (
                 f"Should not collide: '{q1}' vs '{q2}'"
             )
 

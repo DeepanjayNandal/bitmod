@@ -25,7 +25,7 @@ import pytest
 from bitmod.adapters.db_sqlite import SQLiteBackend
 from bitmod.cache_engine import (
     compute_answer_key,
-    normalize_query,
+    normalize_for_key,
     semantic_cache_match,
     semantic_cache_search,
     store_answer,
@@ -103,7 +103,7 @@ def two_tenants(backend):
                 session=session,
                 answer_key=compute_answer_key(QUESTION, {}, namespace_id=tenant),
                 question_raw=QUESTION,
-                question_normalized=normalize_query(QUESTION),
+                question_normalized=normalize_for_key(QUESTION),
                 filters={},
                 answer_text=answer,
                 source_sections=[],

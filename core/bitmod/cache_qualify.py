@@ -158,10 +158,10 @@ def substantive_words(query: str) -> list[str]:
     Drops stopwords and elaboration markers. What remains is what the query
     contributes on its own, independent of any previous turn.
     """
-    from bitmod.cache_engine import STOPWORDS
+    from bitmod.cache_engine import FUNCTION_WORDS
 
     tokens = "".join(c if c.isalnum() or c.isspace() else " " for c in query.lower()).split()
-    return [t for t in tokens if t not in STOPWORDS and t not in ELABORATION_WORDS]
+    return [t for t in tokens if t not in FUNCTION_WORDS and t not in ELABORATION_WORDS]
 
 
 def is_context_dependent(query: str, history: list | None = None) -> bool:

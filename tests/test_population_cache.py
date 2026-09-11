@@ -23,7 +23,7 @@ import pytest
 from bitmod.adapters.db_sqlite import SQLiteBackend
 from bitmod.cache_engine import (
     compute_answer_key, decompose_query, fuzzy_match,
-    normalize_query, store_answer, try_cache, try_composable_cache,
+    normalize_for_key, store_answer, try_cache, try_composable_cache,
 )
 from bitmod.blocks import BlockGenerator
 from bitmod.interfaces.database import (
@@ -268,7 +268,7 @@ def run_simulation(
     all_queries = [q for session in all_sessions for q in session]
 
     for query in all_queries:
-        query_counter[normalize_query(query)] += 1
+        query_counter[normalize_for_key(query)] += 1
 
         # 1. Try exact cache
         with db.session() as session:
@@ -296,7 +296,7 @@ def run_simulation(
         with db.session() as session:
             store_answer(
                 db, session, answer_key=key,
-                question_raw=query, question_normalized=normalize_query(query),
+                question_raw=query, question_normalized=normalize_for_key(query),
                 filters={}, answer_text=f"Generated answer for: {query}",
                 source_sections=[], model_used="test", generation_ms=avg_gen_ms,
             )
@@ -424,8 +424,8 @@ class TestPopulationScaling:
         for i in range(200):
             session_queries = generate_user_session(i, 5)
             for query in session_queries:
-                normalized = normalize_query(query)
-                is_head = any(normalize_query(h) == normalized for h in HEAD_QUERIES)
+                normalized = normalize_for_key(query)
+                is_head = any(normalize_for_key(h) == normalized for h in HEAD_QUERIES)
 
                 with seeded_db.session() as session:
                     cached = try_cache(seeded_db, session, query)
@@ -504,7 +504,7 @@ class TestPopulationScaling:
 
         for i in range(1000):
             for q in generate_user_session(i, 5):
-                counter[normalize_query(q)] += 1
+                counter[normalize_for_key(q)] += 1
 
         freqs = sorted(counter.values(), reverse=True)
         total = sum(freqs)
@@ -549,7 +549,7 @@ class TestCacheLayerContributions:
                     key = compute_answer_key(query)
                     store_answer(
                         db1, session, answer_key=key,
-                        question_raw=query, question_normalized=normalize_query(query),
+                        question_raw=query, question_normalized=normalize_for_key(query),
                         filters={}, answer_text=f"Answer: {query}",
                         source_sections=[], model_used="test", generation_ms=2000,
                     )
@@ -571,7 +571,7 @@ class TestCacheLayerContributions:
                 key = compute_answer_key(query)
                 store_answer(
                     db2, session, answer_key=key,
-                    question_raw=query, question_normalized=normalize_query(query),
+                    question_raw=query, question_normalized=normalize_for_key(query),
                     filters={}, answer_text=f"Answer: {query}",
                     source_sections=[], model_used="test", generation_ms=2000,
                 )
@@ -594,7 +594,7 @@ class TestCacheLayerContributions:
                 key = compute_answer_key(query)
                 store_answer(
                     db3, session, answer_key=key,
-                    question_raw=query, question_normalized=normalize_query(query),
+                    question_raw=query, question_normalized=normalize_for_key(query),
                     filters={}, answer_text=f"Answer: {query}",
                     source_sections=[], model_used="test", generation_ms=2000,
                 )

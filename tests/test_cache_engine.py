@@ -10,7 +10,7 @@ from bitmod.cache_engine import (
     get_cache_stats,
     invalidate_by_section,
     is_temporal_query,
-    normalize_query,
+    normalize_for_key,
     store_answer,
     try_cache,
     try_composable_cache,
@@ -20,30 +20,31 @@ from bitmod.interfaces.database import AnswerCacheRecord
 
 class TestNormalizeQuery:
     def test_normalize_query(self):
-        """Stopword removal, punctuation stripping, order preserved."""
-        result = normalize_query("What is the employment law?")
-        # "what", "is", "the" are stopwords; "?" stripped; order preserved
-        assert "employment" in result
-        assert "law" in result
-        assert "what" not in result
-        assert "is" not in result
-        assert "the" not in result
-        # word order is preserved (not sorted)
-        assert result == "employment law"
+        """Empty words removed, punctuation stripped, order preserved.
+
+        "what" and "is" are kept. They used to be stripped, which made
+        "How do scientists work?" and "Where do scientists work?" the same key
+        and served one answer for both at confidence 1.0. Only words that
+        cannot change the answer are dropped now.
+        """
+        result = normalize_for_key("What is the employment law?")
+        assert result == "what is employment law"
+        assert "the" not in result.split()  # article: carries nothing
+        assert "what" in result.split()  # interrogative: decides the question
 
     def test_normalize_removes_punctuation(self):
-        result = normalize_query("Hello, world! How are you?")
+        result = normalize_for_key("Hello, world! How are you?")
         assert "," not in result
         assert "!" not in result
         assert "?" not in result
 
     def test_normalize_case_insensitive(self):
-        r1 = normalize_query("Employment Law")
-        r2 = normalize_query("employment law")
+        r1 = normalize_for_key("Employment Law")
+        r2 = normalize_for_key("employment law")
         assert r1 == r2
 
     def test_normalize_strips_short_tokens(self):
-        result = normalize_query("I am a big fan")
+        result = normalize_for_key("I am a big fan")
         # "I", "a" are single-char and removed; "am" is a stopword
         assert "big" in result
         assert "fan" in result
@@ -167,7 +168,7 @@ class TestTryCache:
                 backend, session,
                 answer_key=answer_key,
                 question_raw=query,
-                question_normalized=normalize_query(query),
+                question_normalized=normalize_for_key(query),
                 filters=filters,
                 answer_text="Employment law answer.",
                 source_sections=[
@@ -199,7 +200,7 @@ class TestTryCache:
                 backend, session,
                 answer_key=answer_key,
                 question_raw=query,
-                question_normalized=normalize_query(query),
+                question_normalized=normalize_for_key(query),
                 filters=filters,
                 answer_text="Historical answer.",
                 source_sections=[

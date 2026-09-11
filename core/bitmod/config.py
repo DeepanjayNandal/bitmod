@@ -271,6 +271,24 @@ class CacheConfig:
     composable_threshold: float = field(
         default_factory=lambda: float(os.getenv("BITMOD_CACHE_COMPOSABLE_THRESHOLD", "0.80"))
     )
+    # Refuse a candidate when the two questions name different things —
+    # "Sigma-Aldrich" against "Sigma Designs", "taffy in Austria" against "in
+    # China". Similarity cannot separate those: the sentences really are alike.
+    # Measured on 130 hand-classified serves: 5 of 23 wrong serves refused, 1
+    # correct serve lost in 107. Switchable so the cost can be re-measured
+    # against a different corpus rather than assumed to hold.
+    entity_guard_enabled: bool = field(
+        default_factory=lambda: os.getenv("BITMOD_CACHE_ENTITY_GUARD", "true").lower() in ("true", "1", "yes")
+    )
+
+    # Preprocessing applied to every text this cache embeds — "key" drops
+    # function words, "raw" passes the sentence through. Which one separates
+    # better is a property of the embedding model, measured, not assumed: on
+    # nomic-embed-text against surface-confusable negatives "key" gives
+    # AUC 0.831 versus 0.759. Re-measure before changing embedder.
+    embedding_normalisation: str = field(
+        default_factory=lambda: os.getenv("BITMOD_CACHE_EMBEDDING_NORMALISATION", "key")
+    )
     search_threshold: float = field(default_factory=lambda: float(os.getenv("BITMOD_CACHE_SEARCH_THRESHOLD", "0.75")))
     max_entries: int = field(default_factory=lambda: int(os.getenv("BITMOD_CACHE_MAX_ENTRIES", "100000")))
     eviction_interval: int = field(default_factory=lambda: int(os.getenv("BITMOD_CACHE_EVICTION_INTERVAL", "100")))

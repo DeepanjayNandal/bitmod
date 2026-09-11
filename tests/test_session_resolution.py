@@ -21,7 +21,7 @@ import tempfile
 
 import pytest
 from bitmod.adapters.db_sqlite import SQLiteBackend
-from bitmod.cache_engine import compute_answer_key, normalize_query, store_answer
+from bitmod.cache_engine import compute_answer_key, normalize_for_key, store_answer
 from bitmod.interfaces.llm import LLMProvider, LLMResponse
 from bitmod.proxy import BitmodProxy
 from bitmod.router import LLMRouter
@@ -103,7 +103,7 @@ def _seed_cached_answer(backend, question: str, answer: str) -> None:
             session=session,
             answer_key=compute_answer_key(question, {}),
             question_raw=question,
-            question_normalized=normalize_query(question),
+            question_normalized=normalize_for_key(question),
             filters={},
             answer_text=answer,
             source_sections=[],

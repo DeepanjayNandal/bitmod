@@ -2526,9 +2526,9 @@ def cmd_cache(args: argparse.Namespace) -> int:
         results = []
         with backend.session() as session:
             if hasattr(backend, "cache_fuzzy_match"):
-                from bitmod.cache_engine import normalize_query
+                from bitmod.cache_engine import normalize_for_key
 
-                normalized = normalize_query(query)
+                normalized = normalize_for_key(query)
                 records = backend.cache_fuzzy_match(session, normalized, filters={}, threshold=0.5, max_results=10)
                 for r in records:
                     results.append(

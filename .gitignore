@@ -58,7 +58,11 @@ tests/stress/*.jsonl
 !tests/benchmark/results/inprocess_damp100_at085.json
 !tests/benchmark/results/threshold_sweep.json
 !tests/benchmark/results/inprocess_conversations150.json
-!tests/benchmark/results/inprocess_conversations150_rows.json.gz
+# Its row dump is deliberately NOT tracked. The 150-conversation run is a
+# stability data point and that claim lives in its report; nothing is expected to
+# re-derive from its rows. One row dump in the repo, and it is the baseline's.
+!tests/benchmark/results/inprocess_baseline_damp050.json
+!tests/benchmark/results/inprocess_baseline_damp050_rows.json.gz
 
 # Backup sessions (generated at runtime)
 bitmod_backup/

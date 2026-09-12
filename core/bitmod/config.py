@@ -281,7 +281,10 @@ class CacheConfig:
     #   piecewise curve from the first commit whose slope inverted — flattest
     #   between 0.92 and 0.98, exactly where serve decisions are made — so a
     #   lone semantic match needed cosine 0.980 to serve. Held-out Brier
-    #   0.1707 against 0.1852, log loss 0.5117 against 1.8745.
+    #   0.1707 against 0.1852, log loss 0.5117 against 1.8745. From the
+    #   "raw labels" fit in tests/benchmark/results/confidence_curve_fit.json,
+    #   which is the variant that file records as adopted; its "noise-adjusted"
+    #   fit is a different curve (a 17.4426, b -14.6017) and is not what ships.
     #
     # accumulation_*: accumulated confidence -> probability. The layers combine
     #   as noisy-OR, which assumes they are conditionally independent. They are

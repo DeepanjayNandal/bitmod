@@ -81,6 +81,7 @@ tests/stress/*.jsonl
 !tests/benchmark/results/inprocess_baseline_session_fields_rows.json.gz
 !tests/benchmark/results/disagreement_classification.json
 !tests/benchmark/results/gate_candidate_classification.json
+!tests/benchmark/results/semantic_scoping_classification.json
 
 # Backup sessions (generated at runtime)
 bitmod_backup/

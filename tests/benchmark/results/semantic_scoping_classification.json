@@ -1,0 +1,1161 @@
+{
+  "what_this_is": "Blind hand classification of every cross-conversation serve produced by the semantic layer on the 4,600-query baseline. A cross-conversation serve is one where the served answer is owned only by conversations other than the one asking. This measures what scoping semantic retrieval on conversation would catch, against what it would cost.",
+  "THE_COMPARISON_IS_THE_FINDING": "Two candidate fixes for the same defect, measured on the same corpus with the same protocol, criterion and annotator, are two orders of magnitude apart. Scoping the semantic layer catches 10 collisions per correct serve lost. Widening the qualification gate - all four arms in gate_candidate_classification.json - caught between 0.09 and 0.29 per correct serve lost. THE DEFECT IS IN THE RETRIEVAL LAYER, NOT THE GATE. Item 15's four arms were the wrong place to fix it, and this is the evidence rather than an argument.",
+  "result": {
+    "classified": 99,
+    "caught_collisions": 90,
+    "lost_correct_serves": 9,
+    "ratio_caught_per_lost": 10.0,
+    "generic_followup_excluded": 86,
+    "including_generic_followup": {
+      "total": 185,
+      "caught": 176,
+      "lost": 9,
+      "ratio": 19.56,
+      "note": "The generic follow-up is 86 serves of one Van Halen answer to 32 different conversations. Counted wrong by inspection, not classified: no criterion makes it the right answer to 32 conversations' follow-ups. Reported separately so the free catches cannot flatter the ratio. DECIDE ON 10:1, not 19.6:1."
+    },
+    "gate_candidates_for_comparison": {
+      "a_reorder": 0.09,
+      "b1_pronouns": 0.17,
+      "b2_pron_quant": 0.29,
+      "c_loose_regex": 0.19,
+      "source": "tests/benchmark/results/gate_candidate_classification.json"
+    }
+  },
+  "per_pass": [
+    {
+      "pass": "6_conversation",
+      "classified": 45,
+      "caught_collisions": 43,
+      "lost_correct_serves": 2,
+      "ratio_caught_per_lost": 21.5
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "classified": 43,
+      "caught_collisions": 41,
+      "lost_correct_serves": 2,
+      "ratio_caught_per_lost": 20.5
+    },
+    {
+      "pass": "8_rewrites",
+      "classified": 11,
+      "caught_collisions": 6,
+      "lost_correct_serves": 5,
+      "ratio_caught_per_lost": 1.2
+    }
+  ],
+  "THE_EXCEPTION_HAS_A_SIGNATURE": "All nine lost rows are cases where TWO CONVERSATIONS COVER THE SAME SUBJECT - Morbid Angel, Chet Atkins, Sean Combs, Oingo Boingo, Rubin Carter, Paul Gascoigne. The answer crossed conversations and was still right because the topic did not cross. Three of the nine are the Puff Daddy / Sean Combs cluster that the ownership map already detects as multi-owned (9 of 666 answer texts, 1.35%). So 'legitimate cross-conversation answer' is not an arbitrary category - it has a signature, and the same map that measures ownership can see it. That is the difference between a hard problem and a narrow one. Do not design against it yet; record that it is detectable.",
+  "OPEN_DESIGN_CONSTRAINT": "Cost is not evenly distributed. 6_conversation and 7_conversation_repeat are near-pure collision at 21.5:1 and 20.5:1. 8_rewrites is 1.2:1 - six caught against five lost, and five of the nine lost rows sit there. The reason is structural: a rewrite is a self-contained question, so another conversation's answer can legitimately answer it, which is exactly what cannot happen for an anaphoric follow-up. A design that scopes semantic unconditionally takes pass 8's real cross-conversation benefit with it. This is an open constraint, not a solved one.",
+  "criterion": "A served answer is substantively CORRECT if a user who asked that query would be correctly and sufficiently answered by it: it conveys the same substantive claim as at least one expected answer (wording may differ freely), or it independently answers the query's actual question correctly. It is WRONG if it answers a different question; names a different entity, jurisdiction, product or subject; contradicts an expected answer; or addresses a related-but-distinct topic such that the user would be misinformed. BORDERLINE RESOLVES TO WRONG. Stated in full before any row was read; identical to the criterion in disagreement_classification.json and gate_candidate_classification.json.",
+  "annotation": {
+    "annotators": 1,
+    "who": "single annotator, the assistant; no second pass, no adjudication",
+    "blind_protocol": "Rows were shuffled and classified on query, served text and expected answers only, blind to pass and to cross/own status. Pass membership was held in a separate file and not opened until every verdict was fixed.",
+    "known_leak_and_its_direction": "8_rewrites queries are self-contained rewrites rather than anaphoric questions, so some rows were identifiable as pass 8 by grammar alone. That is the pass where scoping looks worst, and 5 of its 11 rows were classified correct. Any bias from the leak therefore runs toward FINDING correct serves in the pass where the fix looks weakest - the conservative direction. A leak reported with its direction is usable; without one it is not."
+  },
+  "method": {
+    "source_rows": "tests/benchmark/results/inprocess_baseline_session_fields_rows.json.gz",
+    "census_not_sample": "all 99 non-generic cross-conversation semantic serves were classified",
+    "shuffle_seed": 20260914,
+    "ownership_definition": "An answer text is owned by the conversations whose expected_answers contain it. Ownership is built from expected_answers and NEVER from served_text. Building it from what was served would define the collision away: a poisoned entry's text would become 'owned' by the conversation it was served to, and every collision would score as same-conversation. Ground truth has to come from the corpus, not from the system under test. Same class of error as reusing a sample drawn for another question - caught before it happened rather than after.",
+    "ownership_floor": "9 of 666 distinct answer texts are owned by more than one conversation (1.35%), affecting 33 of 952 conversation-pass serves. Those score as same-conversation whichever conversation served them, so the 19.6% cross-conversation rate is a floor; the ceiling is 23.1%. All nine are the Sean Combs / Puff Daddy cluster."
+  },
+  "provenance": {
+    "commit": "72ecdac8727c3a2cbbeaa0727bbf04950053cd13",
+    "tree_sha256": "e3b0c44298fc1c14",
+    "dirty": false,
+    "untracked_files": 0
+  },
+  "classifications": [
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-7",
+      "turn_index": 6,
+      "query": "Where did he go to school?",
+      "served": "At age 12 David M. Shoup was enrolled in Covington High School, a competitive high school with an advanced curriculum.",
+      "expected": [
+        "Ralph Waldo Emerson's formal schooling began at the Boston Latin School in 1812, when he was nine."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-80",
+      "turn_index": 4,
+      "query": "How many records did they sell under that label?",
+      "served": "As of 2017, The Corrs has sold 9 million copies of In Blue worldwide.",
+      "expected": [
+        "3 Albums"
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-59",
+      "turn_index": 3,
+      "query": "Did he win any awards?",
+      "served": "In 1998, Sean Combs started a clothing line, Sean John. It was nominated for the Council of Fashion Designers of America award and won in 2004.",
+      "expected": [
+        "In 2006, Rex Ryan received Assistant Coach of the Year awards from Pro Football Weekly and the Pro Football Writers Association."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-99",
+      "turn_index": 3,
+      "query": "Was this album considered a success?",
+      "served": "No Way Out 2 was never released.",
+      "expected": [
+        "Twelve Reasons to Die by Ghostface Killah was met with critical acclaim upon its release."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-71",
+      "turn_index": 7,
+      "query": "Did anybody leave the band?",
+      "served": "After the Babylon LP, Alan Jackman parted ways with the band and was replaced for a concert tour by Paul Read.",
+      "expected": [
+        "In late 1992, second guitarist Richard Brunelle was kicked out of the band due to alleged substance abuse; instead of replacing him, Morbid Angel moved on as a three-piece."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-96",
+      "turn_index": 3,
+      "query": "Why did he do this?",
+      "served": "Josh White transcended the typical racial and social barriers of the time who associated blues with a rural, while performing in nightclubs and theaters during the 1930s and 1940s.",
+      "expected": [
+        "Michael Bloomberg cited Obama's policies on climate change."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-24",
+      "turn_index": 7,
+      "query": "What else did she do?",
+      "served": "During that era, a single taken from 1988's OU812, When It's Love, reached the Top Five, peaking at No. 5. In addition, Van Halen was nominated for two Grammy Awards.",
+      "expected": [
+        "Billie Jean King is an advocate for gender equality and has long been a pioneer for equality and social justice."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-87",
+      "turn_index": 4,
+      "query": "When was it released?",
+      "served": "MMM is the debut mixtape by Puff Daddy, originally released on November 4, 2015.",
+      "expected": [
+        "Love Somebody by Reba McEntire was released on April 14, 2015"
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-31",
+      "turn_index": 9,
+      "query": "How did it do on the charts?",
+      "served": "Restless debuted at No. 3 on the Top Country Albums chart and at No. 20 on the Billboard 200 chart, with first-week sales of over 40,000 copies.",
+      "expected": [
+        "Dead Man's Party featured Oingo Boingo's highest-charting song on the Billboard Hot 100, Weird Science, which was written for the John Hughes film of the same name."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-28",
+      "turn_index": 1,
+      "query": "When was he born?",
+      "served": "David Monroe Shoup was born on 30 December 1904 in Battle Ground, Indiana.",
+      "expected": [
+        "In 231 or 232 A.H., Hasan al-Askari was born in Medina."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-12",
+      "turn_index": 6,
+      "query": "What happened after this?",
+      "served": "In late 2006, the department store Macy's removed Sean John jackets from their shelves when they discovered that the clothing was made using raccoon dog fur.",
+      "expected": [
+        "In October 2007, Sean Combs agreed to help develop the C\u00eeroc vodka brand for a 50 percent share of the profits."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-31",
+      "turn_index": 8,
+      "query": "Did they release any albums during this period?",
+      "served": "After Gary Cherone, Eddie Van Halen recovered from his hip surgery in November 1999, and no official statements were made by Van Halen and no music was released.",
+      "expected": [
+        "The first release with the new line-up was Dead Man's Party in 1985."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-65",
+      "turn_index": 2,
+      "query": "what was their third album?",
+      "served": "Voices of Babylon is the third studio album by the British band The Outfield, released during the spring of 1989 and which spawned an eponymous single.",
+      "expected": [
+        "The Corrs' third album was In Blue"
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-72",
+      "turn_index": 8,
+      "query": "Are they still making music?",
+      "served": "In a February 2019 interview with Metal Wani, Tucker stated that Morbid Angel plans to begin working on a new album this year.",
+      "expected": [
+        "Morbid Angel is still active in the present"
+      ],
+      "verdict": "correct"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-12",
+      "turn_index": 6,
+      "query": "What happened after this?",
+      "served": "In late 2006, the department store Macy's removed Sean John jackets from their shelves when they discovered that the clothing was made using raccoon dog fur.",
+      "expected": [
+        "In October 2007, Sean Combs agreed to help develop the C\u00eeroc vodka brand for a 50 percent share of the profits."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-7",
+      "turn_index": 7,
+      "query": "Where did he go to college?",
+      "served": "At age 12 David M. Shoup was enrolled in Covington High School, a competitive high school with an advanced curriculum.",
+      "expected": [
+        "In October 1817, at age 14, Ralph Waldo Emerson went to Harvard College and was appointed freshman messenger for the president."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-56",
+      "turn_index": 2,
+      "query": "Did he win any awards?",
+      "served": "In 1998, Sean Combs started a clothing line, Sean John. It was nominated for the Council of Fashion Designers of America award and won in 2004.",
+      "expected": [
+        "Paul Gascoigne received an award for BBC Sports Personality of the Year in 1990."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-81",
+      "turn_index": 5,
+      "query": "what is the most important fact in this article?",
+      "served": "Once again Hanson continued to help fight poverty in Africa by continuing their 1-mile walks before the shows.",
+      "expected": [
+        "Augustine of Hippo called the use of means to avoid the birth of a child an \u2018evil work:\u2019 a reference to either abortion or contraception or both.\u201c"
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-68",
+      "turn_index": 7,
+      "query": "How many copies did this album sell?",
+      "served": "As of 2017, The Corrs has sold 9 million copies of In Blue worldwide.",
+      "expected": [
+        "REO Speedwagon's Hi Infidelity sold over 10 million copies."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-70",
+      "turn_index": 6,
+      "query": "what other awards did she receive",
+      "served": "Yui Horie won the award for Best Supporting Voice Actress in the 4th Seiyu Awards.",
+      "expected": [
+        "Alia Bhatt won two Best Actress awards at the ceremony for playing a Bihari migrant in the crime drama Udta Punjab and a spy in the thriller Raazi"
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-64",
+      "turn_index": 2,
+      "query": "Was this album a success?",
+      "served": "No Way Out 2 was never released.",
+      "expected": [
+        "The Corrs' Forgiven, Not Forgotten album sold well in Ireland, Australia, Japan, Norway and Spain. Major success in the US and the UK, however, was not immediately forthcoming."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-38",
+      "turn_index": 5,
+      "query": "What did he say?",
+      "served": "Josh White said, In 1933, I wrote and recorded a song called 'Low Cotton,' about the plight of Negro cotton pickers down South.",
+      "expected": [
+        "As the fifth of March turned to the sixth, Kwame Nkrumah stood before tens of thousands of supporters and proclaimed, Ghana will be free forever.\u201c"
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "8_rewrites",
+      "conversation_id": "bench-conv-12",
+      "turn_index": 3,
+      "query": "Did Sean Combs receive any awards?",
+      "served": "In 1998, Sean Combs started a clothing line, Sean John. It was nominated for the Council of Fashion Designers of America award and won in 2004.",
+      "expected": [
+        "It was nominated for the Council of Fashion Designers of America award for Menswear Designer of the Year in 2000, and won in 2004."
+      ],
+      "verdict": "correct"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-42",
+      "turn_index": 1,
+      "query": "when was he born?",
+      "served": "David Monroe Shoup was born on 30 December 1904 in Battle Ground, Indiana.",
+      "expected": [
+        "Bobby Fischer was born at Michael Reese Hospital in Chicago, Illinois, on March 9, 1943."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-34",
+      "turn_index": 3,
+      "query": "Did he record any song with them?",
+      "served": "Chet Atkins produced albums such as Chet Atkins' Gallopin' Guitar, Stringin' Along with Chet Atkins, A Session with Chet Atkins, and many more.",
+      "expected": [
+        "Chet Atkins released numerous albums with RCA Records including Stringin' Along with Chet Atkins, Chet Atkins in Three Dimensions, Finger Style Guitar, and many more."
+      ],
+      "verdict": "correct"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-18",
+      "turn_index": 7,
+      "query": "What did he do for this?",
+      "served": "Josh White transcended the typical racial and social barriers of the time who associated blues with a rural, while performing in nightclubs and theaters during the 1930s and 1940s.",
+      "expected": [
+        "Two months after his father had been taken away from the family, Josh White left home with Blind Man Arnold, a black street singer."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-32",
+      "turn_index": 1,
+      "query": "Did they release any albums?",
+      "served": "After Gary Cherone, Eddie Van Halen recovered from his hip surgery in November 1999, and no official statements were made by Van Halen and no music was released.",
+      "expected": [
+        "Oingo Boing also released the albums Only a Lad, Nothing to Fear, and Good for Your Soul."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-102",
+      "turn_index": 7,
+      "query": "What was their third album",
+      "served": "Voices of Babylon is the third studio album by the British band The Outfield, released during the spring of 1989 and which spawned an eponymous single.",
+      "expected": [
+        "Serebro's 3rd studio album '925' was supposed to be released on iTunes Russia on 15 October 2015 but due to their studio harddrive being stolen, the album release was cancelled."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "8_rewrites",
+      "conversation_id": "bench-conv-72",
+      "turn_index": 8,
+      "query": "Are Morbid Angel still making music?",
+      "served": "In a February 2019 interview with Metal Wani, Tucker stated that Morbid Angel plans to begin working on a new album this year.",
+      "expected": [
+        "Morbid Angel is still active in the present"
+      ],
+      "verdict": "correct"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-12",
+      "turn_index": 3,
+      "query": "Did he receive any other awards?",
+      "served": "David M. Shoup also was awarded the Purple Heart for the combat wounds he suffered during the course of the campaign.",
+      "expected": [
+        "It was nominated for the Council of Fashion Designers of America award for Menswear Designer of the Year in 2000, and won in 2004."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-42",
+      "turn_index": 2,
+      "query": "Who were his parents?",
+      "served": "Ralph Waldo Emerson was born in Boston, Massachusetts, on May 25, 1803, a son of Ruth Haskins and the Rev. William Emerson, a Unitarian minister.",
+      "expected": [
+        "Bobby Fischer's birth certificate listed his father as Hans-Gerhardt Fischer, also known as Gerardo Liebscher, a German biophysicist. His mother, Regina Wender Fischer, was a US citizen, born in Switzerland."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-12",
+      "turn_index": 1,
+      "query": "What is Sean John?",
+      "served": "Sean John Combs, also known by the stage names Puff Daddy, P. Diddy,Puffy, or Diddy, is an American rapper, singer, record producer, entrepreneur, record executive, and actor.",
+      "expected": [
+        "In 1998, Sean Combs started a clothing line, Sean John."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-94",
+      "turn_index": 2,
+      "query": "How well did the album do?",
+      "served": "Off with Their Heads had generally good reviews. Allmusic gave it a 4 out of 5.",
+      "expected": [
+        "Bleed American was a critical and commercial success, helping Jimmy Eat World gain mainstream popularity. As well as its platinum certification in the United States"
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-24",
+      "turn_index": 7,
+      "query": "What else did she do?",
+      "served": "During that era, a single taken from 1988's OU812, When It's Love, reached the Top Five, peaking at No. 5. In addition, Van Halen was nominated for two Grammy Awards.",
+      "expected": [
+        "Billie Jean King is an advocate for gender equality and has long been a pioneer for equality and social justice."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "8_rewrites",
+      "conversation_id": "bench-conv-32",
+      "turn_index": 1,
+      "query": "Did Oingo Boingo release any albums?",
+      "served": "The first release with the new line-up was Dead Man's Party in 1985.",
+      "expected": [
+        "Oingo Boing also released the albums Only a Lad, Nothing to Fear, and Good for Your Soul."
+      ],
+      "verdict": "correct"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-11",
+      "turn_index": 3,
+      "query": "Did they release any albums?",
+      "served": "After Gary Cherone, Eddie Van Halen recovered from his hip surgery in November 1999, and no official statements were made by Van Halen and no music was released.",
+      "expected": [
+        "The Animals also came out with albums such as Eric Is Here, Winds of Change, The Twain Shall Meet, and other albums."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-93",
+      "turn_index": 2,
+      "query": "when was it released",
+      "served": "MMM is the debut mixtape by Puff Daddy, originally released on November 4, 2015.",
+      "expected": [
+        "06/11/2013"
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "8_rewrites",
+      "conversation_id": "bench-conv-34",
+      "turn_index": 3,
+      "query": "Did Chet Atkins record any song with RCA Records?",
+      "served": "Chet Atkins produced albums such as Chet Atkins' Gallopin' Guitar, Stringin' Along with Chet Atkins, A Session with Chet Atkins, and many more.",
+      "expected": [
+        "Chet Atkins released numerous albums with RCA Records including Stringin' Along with Chet Atkins, Chet Atkins in Three Dimensions, Finger Style Guitar, and many more."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-41",
+      "turn_index": 2,
+      "query": "Did they put out any albums?",
+      "served": "After Gary Cherone, Eddie Van Halen recovered from his hip surgery in November 1999, and no official statements were made by Van Halen and no music was released.",
+      "expected": [
+        "Velvet Revolver put out two albums Contraband and Libertad."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-34",
+      "turn_index": 3,
+      "query": "Did he record any song with them?",
+      "served": "Chet Atkins produced albums such as Chet Atkins' Gallopin' Guitar, Stringin' Along with Chet Atkins, A Session with Chet Atkins, and many more.",
+      "expected": [
+        "Chet Atkins released numerous albums with RCA Records including Stringin' Along with Chet Atkins, Chet Atkins in Three Dimensions, Finger Style Guitar, and many more."
+      ],
+      "verdict": "correct"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-59",
+      "turn_index": 3,
+      "query": "Did he win any awards?",
+      "served": "In 1985, Bob Crewe was inducted into the Songwriter's Hall of Fame.",
+      "expected": [
+        "In 2006, Rex Ryan received Assistant Coach of the Year awards from Pro Football Weekly and the Pro Football Writers Association."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-46",
+      "turn_index": 6,
+      "query": "Did he win any awards for the album?",
+      "served": "In 1998, Sean Combs started a clothing line, Sean John. It was nominated for the Council of Fashion Designers of America award and won in 2004.",
+      "expected": [
+        "No awards were won for No.X."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-64",
+      "turn_index": 2,
+      "query": "Was this album a success?",
+      "served": "No Way Out 2 was never released.",
+      "expected": [
+        "The Corrs' Forgiven, Not Forgotten album sold well in Ireland, Australia, Japan, Norway and Spain. Major success in the US and the UK, however, was not immediately forthcoming."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-80",
+      "turn_index": 4,
+      "query": "How many records did they sell under that label?",
+      "served": "As of 2017, The Corrs has sold 9 million copies of In Blue worldwide.",
+      "expected": [
+        "3 Albums"
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-44",
+      "turn_index": 5,
+      "query": "Are there any other interesting aspects of this article?",
+      "served": "During that era, a single taken from 1988's OU812, When It's Love, reached the Top Five, peaking at No. 5. In addition, Van Halen was nominated for two Grammy Awards.",
+      "expected": [
+        "Each episode has at least one guest star: a television or film celebrity, who play what Gervais and Merchant have referred to as twisted versions of themselves."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-44",
+      "turn_index": 5,
+      "query": "Are there any other interesting aspects of this article?",
+      "served": "During that era, a single taken from 1988's OU812, When It's Love, reached the Top Five, peaking at No. 5. In addition, Van Halen was nominated for two Grammy Awards.",
+      "expected": [
+        "Each episode has at least one guest star: a television or film celebrity, who play what Gervais and Merchant have referred to as twisted versions of themselves."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-11",
+      "turn_index": 3,
+      "query": "Did they release any albums?",
+      "served": "After Gary Cherone, Eddie Van Halen recovered from his hip surgery in November 1999, and no official statements were made by Van Halen and no music was released.",
+      "expected": [
+        "The Animals also came out with albums such as Eric Is Here, Winds of Change, The Twain Shall Meet, and other albums."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-18",
+      "turn_index": 2,
+      "query": "When was he born?",
+      "served": "David Monroe Shoup was born on 30 December 1904 in Battle Ground, Indiana.",
+      "expected": [
+        "Josh White was born on February 11, 1914, in the black section of Greenville, South Carolina, one of the four children of Reverend Dennis and Daisy Elizabeth White."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-72",
+      "turn_index": 8,
+      "query": "Are they still making music?",
+      "served": "In a February 2019 interview with Metal Wani, Tucker stated that Morbid Angel plans to begin working on a new album this year.",
+      "expected": [
+        "Morbid Angel is still active in the present"
+      ],
+      "verdict": "correct"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-65",
+      "turn_index": 3,
+      "query": "was it successful?",
+      "served": "No Way Out 2 was never released.",
+      "expected": [
+        "In Blue by The Corrs hit number one in its first sales week in the UK, Ireland, Australia, Germany, Switzerland, Austria and debuted at No. 2 in France and Norway."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-87",
+      "turn_index": 4,
+      "query": "When was it released?",
+      "served": "MMM is the debut mixtape by Puff Daddy, originally released on November 4, 2015.",
+      "expected": [
+        "Love Somebody by Reba McEntire was released on April 14, 2015"
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-68",
+      "turn_index": 7,
+      "query": "How many copies did this album sell?",
+      "served": "As of 2017, The Corrs has sold 9 million copies of In Blue worldwide.",
+      "expected": [
+        "REO Speedwagon's Hi Infidelity sold over 10 million copies."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-38",
+      "turn_index": 5,
+      "query": "What did he say?",
+      "served": "Josh White said, In 1933, I wrote and recorded a song called 'Low Cotton,' about the plight of Negro cotton pickers down South.",
+      "expected": [
+        "As the fifth of March turned to the sixth, Kwame Nkrumah stood before tens of thousands of supporters and proclaimed, Ghana will be free forever.\u201c"
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "8_rewrites",
+      "conversation_id": "bench-conv-58",
+      "turn_index": 2,
+      "query": "Why was Rubin Carter in prison?",
+      "served": "Rubin Hurricane Carter was an American-Canadian boxer who was wrongfully convicted of murder and later released following a petition of habeas corpus after serving almost 20 years in prison.",
+      "expected": [
+        "In 1966, police arrested Rubin Carter and friend John Artis for a triple homicide committed at the Lafayette Bar and Grill in Paterson, New Jersey."
+      ],
+      "verdict": "correct"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-100",
+      "turn_index": 1,
+      "query": "How did the band begin?",
+      "served": "Pavement formed in Stockton, California in 1989 as a studio project of guitarists and vocalists Stephen Malkmus & Scott Kannberg, known originally only as S.M. and Spiral Stairs.",
+      "expected": [
+        "In 2000, SM Entertainment held their first overseas casting auditions for Super Junior in Beijing 101"
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-12",
+      "turn_index": 1,
+      "query": "What is Sean John?",
+      "served": "Sean John Combs, also known by the stage names Puff Daddy, P. Diddy,Puffy, or Diddy, is an American rapper, singer, record producer, entrepreneur, record executive, and actor.",
+      "expected": [
+        "In 1998, Sean Combs started a clothing line, Sean John."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-41",
+      "turn_index": 2,
+      "query": "Did they put out any albums?",
+      "served": "After Gary Cherone, Eddie Van Halen recovered from his hip surgery in November 1999, and no official statements were made by Van Halen and no music was released.",
+      "expected": [
+        "Velvet Revolver put out two albums Contraband and Libertad."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-18",
+      "turn_index": 7,
+      "query": "What did he do for this?",
+      "served": "Josh White transcended the typical racial and social barriers of the time who associated blues with a rural, while performing in nightclubs and theaters during the 1930s and 1940s.",
+      "expected": [
+        "Two months after his father had been taken away from the family, Josh White left home with Blind Man Arnold, a black street singer."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-93",
+      "turn_index": 2,
+      "query": "when was it released",
+      "served": "MMM is the debut mixtape by Puff Daddy, originally released on November 4, 2015.",
+      "expected": [
+        "06/11/2013"
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "8_rewrites",
+      "conversation_id": "bench-conv-59",
+      "turn_index": 6,
+      "query": "Was there anything else of significance of note in this article?",
+      "served": "David M. Shoup opposed the military escalation in response to events such as the Cuban Missile Crisis and the Bay of Pigs invasion.",
+      "expected": [
+        "Rex Ryan was hired by ESPN, where he currently serves as an analyst, most notably on Sunday NFL Countdown."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-28",
+      "turn_index": 1,
+      "query": "When was he born?",
+      "served": "David Monroe Shoup was born on 30 December 1904 in Battle Ground, Indiana.",
+      "expected": [
+        "In 231 or 232 A.H., Hasan al-Askari was born in Medina."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-56",
+      "turn_index": 6,
+      "query": "When did this happen?",
+      "served": "The Duke lacrosse case was a widely reported 2006 criminal case in which three members of the men's lacrosse team of Duke University were falsely accused of rape.",
+      "expected": [
+        "Vinnie Jones grabbed Paul Gascoigne's genitals in February 1988."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-28",
+      "turn_index": 3,
+      "query": "Who were his parents?",
+      "served": "Ralph Waldo Emerson was born in Boston, Massachusetts, on May 25, 1803, a son of Ruth Haskins and the Rev. William Emerson, a Unitarian minister.",
+      "expected": [
+        "Hasan al-Askari's parents were Ali al-Hadi and Al-Askari's mother's given name was Hadith, though some say she was called Susan, Ghazala, Salil, or Haribta."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-18",
+      "turn_index": 2,
+      "query": "When was he born?",
+      "served": "David Monroe Shoup was born on 30 December 1904 in Battle Ground, Indiana.",
+      "expected": [
+        "Josh White was born on February 11, 1914, in the black section of Greenville, South Carolina, one of the four children of Reverend Dennis and Daisy Elizabeth White."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-70",
+      "turn_index": 5,
+      "query": "did she receive any awards",
+      "served": "Yui Horie won the award for Best Supporting Voice Actress in the 4th Seiyu Awards.",
+      "expected": [
+        "Alia Bhatt won the Filmfare Critics Award for Best Actress for playing a kidnapping victim in the road drama Highway"
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-96",
+      "turn_index": 3,
+      "query": "Why did he do this?",
+      "served": "Josh White transcended the typical racial and social barriers of the time who associated blues with a rural, while performing in nightclubs and theaters during the 1930s and 1940s.",
+      "expected": [
+        "Michael Bloomberg cited Obama's policies on climate change."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-70",
+      "turn_index": 5,
+      "query": "did she receive any awards",
+      "served": "Yui Horie won the award for Best Supporting Voice Actress in the 4th Seiyu Awards.",
+      "expected": [
+        "Alia Bhatt won the Filmfare Critics Award for Best Actress for playing a kidnapping victim in the road drama Highway"
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-58",
+      "turn_index": 4,
+      "query": "Did he win any awards?",
+      "served": "In 1998, Sean Combs started a clothing line, Sean John. It was nominated for the Council of Fashion Designers of America award and won in 2004.",
+      "expected": [
+        "Rubin Carter received the Abolition Award from Death Penalty Focus in 1996."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-28",
+      "turn_index": 2,
+      "query": "Where was he born?",
+      "served": "David Monroe Shoup was born on 30 December 1904 in Battle Ground, Indiana.",
+      "expected": [
+        "In 231 or 232 A.H., Hasan al-Askari was born in Medina."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "8_rewrites",
+      "conversation_id": "bench-conv-56",
+      "turn_index": 4,
+      "query": "Did Paul Gascoigne suffer any injuries during his captainship?",
+      "served": "Paul Gascoigne once injured himself through a moped accident which ruled him out of a prestigious youth tournament; and he once lost Kevin Keegan's boots on a bus.",
+      "expected": [
+        "While playing for Tottenham Hotspur Paul Gascoigne committed a dangerous knee-high foul on Gary Charles and ruptured his own cruciate ligaments in his right knee."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-12",
+      "turn_index": 3,
+      "query": "Did he receive any other awards?",
+      "served": "David M. Shoup also was awarded the Purple Heart for the combat wounds he suffered during the course of the campaign.",
+      "expected": [
+        "It was nominated for the Council of Fashion Designers of America award for Menswear Designer of the Year in 2000, and won in 2004."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-28",
+      "turn_index": 2,
+      "query": "Where was he born?",
+      "served": "David Monroe Shoup was born on 30 December 1904 in Battle Ground, Indiana.",
+      "expected": [
+        "In 231 or 232 A.H., Hasan al-Askari was born in Medina."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-32",
+      "turn_index": 1,
+      "query": "Did they release any albums?",
+      "served": "After Gary Cherone, Eddie Van Halen recovered from his hip surgery in November 1999, and no official statements were made by Van Halen and no music was released.",
+      "expected": [
+        "Oingo Boing also released the albums Only a Lad, Nothing to Fear, and Good for Your Soul."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-71",
+      "turn_index": 7,
+      "query": "Did anybody leave the band?",
+      "served": "After the Babylon LP, Alan Jackman parted ways with the band and was replaced for a concert tour by Paul Read.",
+      "expected": [
+        "In late 1992, second guitarist Richard Brunelle was kicked out of the band due to alleged substance abuse; instead of replacing him, Morbid Angel moved on as a three-piece."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "8_rewrites",
+      "conversation_id": "bench-conv-18",
+      "turn_index": 7,
+      "query": "What did Josh White's do for this?",
+      "served": "Joshua Daniel White was an American singer, guitarist, songwriter, actor and civil rights activist. He also recorded under the names Pinewood Tom and Tippy Barton in the 1930s.",
+      "expected": [
+        "Two months after his father had been taken away from the family, Josh White left home with Blind Man Arnold, a black street singer."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-42",
+      "turn_index": 1,
+      "query": "when was he born?",
+      "served": "David Monroe Shoup was born on 30 December 1904 in Battle Ground, Indiana.",
+      "expected": [
+        "Bobby Fischer was born at Michael Reese Hospital in Chicago, Illinois, on March 9, 1943."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-28",
+      "turn_index": 3,
+      "query": "Who were his parents?",
+      "served": "Ralph Waldo Emerson was born in Boston, Massachusetts, on May 25, 1803, a son of Ruth Haskins and the Rev. William Emerson, a Unitarian minister.",
+      "expected": [
+        "Hasan al-Askari's parents were Ali al-Hadi and Al-Askari's mother's given name was Hadith, though some say she was called Susan, Ghazala, Salil, or Haribta."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-31",
+      "turn_index": 8,
+      "query": "Did they release any albums during this period?",
+      "served": "After Gary Cherone, Eddie Van Halen recovered from his hip surgery in November 1999, and no official statements were made by Van Halen and no music was released.",
+      "expected": [
+        "The first release with the new line-up was Dead Man's Party in 1985."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-65",
+      "turn_index": 2,
+      "query": "what was their third album?",
+      "served": "Voices of Babylon is the third studio album by the British band The Outfield, released during the spring of 1989 and which spawned an eponymous single.",
+      "expected": [
+        "The Corrs' third album was In Blue"
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-100",
+      "turn_index": 1,
+      "query": "How did the band begin?",
+      "served": "Pavement formed in Stockton, California in 1989 as a studio project of guitarists and vocalists Stephen Malkmus & Scott Kannberg, known originally only as S.M. and Spiral Stairs.",
+      "expected": [
+        "In 2000, SM Entertainment held their first overseas casting auditions for Super Junior in Beijing 101"
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-42",
+      "turn_index": 2,
+      "query": "Who were his parents?",
+      "served": "Ralph Waldo Emerson was born in Boston, Massachusetts, on May 25, 1803, a son of Ruth Haskins and the Rev. William Emerson, a Unitarian minister.",
+      "expected": [
+        "Bobby Fischer's birth certificate listed his father as Hans-Gerhardt Fischer, also known as Gerardo Liebscher, a German biophysicist. His mother, Regina Wender Fischer, was a US citizen, born in Switzerland."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-7",
+      "turn_index": 7,
+      "query": "Where did he go to college?",
+      "served": "At age 12 David M. Shoup was enrolled in Covington High School, a competitive high school with an advanced curriculum.",
+      "expected": [
+        "In October 1817, at age 14, Ralph Waldo Emerson went to Harvard College and was appointed freshman messenger for the president."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-18",
+      "turn_index": 5,
+      "query": "What was his parents name?",
+      "served": "Ralph Waldo Emerson was born in Boston, Massachusetts, on May 25, 1803, a son of Ruth Haskins and the Rev. William Emerson, a Unitarian minister.",
+      "expected": [
+        "Josh White was born on February 11, 1914, in the black section of Greenville, South Carolina, one of the four children of Reverend Dennis and Daisy Elizabeth White."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "8_rewrites",
+      "conversation_id": "bench-conv-12",
+      "turn_index": 1,
+      "query": "What is Sean John?",
+      "served": "Sean John Combs, also known by the stage names Puff Daddy, P. Diddy,Puffy, or Diddy, is an American rapper, singer, record producer, entrepreneur, record executive, and actor.",
+      "expected": [
+        "In 1998, Sean Combs started a clothing line, Sean John."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-94",
+      "turn_index": 2,
+      "query": "How well did the album do?",
+      "served": "Off with Their Heads had generally good reviews. Allmusic gave it a 4 out of 5.",
+      "expected": [
+        "Bleed American was a critical and commercial success, helping Jimmy Eat World gain mainstream popularity. As well as its platinum certification in the United States"
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-58",
+      "turn_index": 4,
+      "query": "Did he win any awards?",
+      "served": "In 1985, Bob Crewe was inducted into the Songwriter's Hall of Fame.",
+      "expected": [
+        "Rubin Carter received the Abolition Award from Death Penalty Focus in 1996."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-56",
+      "turn_index": 6,
+      "query": "When did this happen?",
+      "served": "The Duke lacrosse case was a widely reported 2006 criminal case in which three members of the men's lacrosse team of Duke University were falsely accused of rape.",
+      "expected": [
+        "Vinnie Jones grabbed Paul Gascoigne's genitals in February 1988."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-56",
+      "turn_index": 2,
+      "query": "Did he win any awards?",
+      "served": "In 1985, Bob Crewe was inducted into the Songwriter's Hall of Fame.",
+      "expected": [
+        "Paul Gascoigne received an award for BBC Sports Personality of the Year in 1990."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-81",
+      "turn_index": 3,
+      "query": "what was his greatest accomplishment?",
+      "served": "Taylor Hanson launched a separate project including members of Smashing Pumpkins, Fountains of Wayne and Cheap Trick called Tinted Windows.",
+      "expected": [
+        "Augustine of Hippo held that the timing of the infusion of the soul was a mystery known to God alone."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-81",
+      "turn_index": 5,
+      "query": "what is the most important fact in this article?",
+      "served": "Once again Hanson continued to help fight poverty in Africa by continuing their 1-mile walks before the shows.",
+      "expected": [
+        "Augustine of Hippo called the use of means to avoid the birth of a child an \u2018evil work:\u2019 a reference to either abortion or contraception or both.\u201c"
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "8_rewrites",
+      "conversation_id": "bench-conv-44",
+      "turn_index": 5,
+      "query": "Are there any other interesting aspects of this article?",
+      "served": "During that era, a single taken from 1988's OU812, When It's Love, reached the Top Five, peaking at No. 5. In addition, Van Halen was nominated for two Grammy Awards.",
+      "expected": [
+        "Each episode has at least one guest star: a television or film celebrity, who play what Gervais and Merchant have referred to as twisted versions of themselves."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-7",
+      "turn_index": 6,
+      "query": "Where did he go to school?",
+      "served": "At age 12 David M. Shoup was enrolled in Covington High School, a competitive high school with an advanced curriculum.",
+      "expected": [
+        "Ralph Waldo Emerson's formal schooling began at the Boston Latin School in 1812, when he was nine."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-65",
+      "turn_index": 3,
+      "query": "was it successful?",
+      "served": "No Way Out 2 was never released.",
+      "expected": [
+        "In Blue by The Corrs hit number one in its first sales week in the UK, Ireland, Australia, Germany, Switzerland, Austria and debuted at No. 2 in France and Norway."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "6_conversation",
+      "conversation_id": "bench-conv-102",
+      "turn_index": 7,
+      "query": "What was their third album",
+      "served": "Voices of Babylon is the third studio album by the British band The Outfield, released during the spring of 1989 and which spawned an eponymous single.",
+      "expected": [
+        "Serebro's 3rd studio album '925' was supposed to be released on iTunes Russia on 15 October 2015 but due to their studio harddrive being stolen, the album release was cancelled."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-99",
+      "turn_index": 3,
+      "query": "Was this album considered a success?",
+      "served": "No Way Out 2 was never released.",
+      "expected": [
+        "Twelve Reasons to Die by Ghostface Killah was met with critical acclaim upon its release."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-31",
+      "turn_index": 9,
+      "query": "How did it do on the charts?",
+      "served": "Restless debuted at No. 3 on the Top Country Albums chart and at No. 20 on the Billboard 200 chart, with first-week sales of over 40,000 copies.",
+      "expected": [
+        "Dead Man's Party featured Oingo Boingo's highest-charting song on the Billboard Hot 100, Weird Science, which was written for the John Hughes film of the same name."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-81",
+      "turn_index": 3,
+      "query": "what was his greatest accomplishment?",
+      "served": "Taylor Hanson launched a separate project including members of Smashing Pumpkins, Fountains of Wayne and Cheap Trick called Tinted Windows.",
+      "expected": [
+        "Augustine of Hippo held that the timing of the infusion of the soul was a mystery known to God alone."
+      ],
+      "verdict": "wrong"
+    },
+    {
+      "pass": "8_rewrites",
+      "conversation_id": "bench-conv-56",
+      "turn_index": 2,
+      "query": "Did Paul Gascoigne win any awards?",
+      "served": "Paul Gascoigne was named as BBC Sports Personality of the Year in 1990.",
+      "expected": [
+        "Paul Gascoigne received an award for BBC Sports Personality of the Year in 1990."
+      ],
+      "verdict": "correct"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "conversation_id": "bench-conv-18",
+      "turn_index": 5,
+      "query": "What was his parents name?",
+      "served": "Ralph Waldo Emerson was born in Boston, Massachusetts, on May 25, 1803, a son of Ruth Haskins and the Rev. William Emerson, a Unitarian minister.",
+      "expected": [
+        "Josh White was born on February 11, 1914, in the black section of Greenville, South Carolina, one of the four children of Reverend Dennis and Daisy Elizabeth White."
+      ],
+      "verdict": "wrong"
+    }
+  ]
+}

@@ -1,0 +1,1988 @@
+{
+  "what_this_is": "Blind hand classification of every serve blocked by four candidate fixes to the qualification gate (HANDOFF item 15). Each arm was run as a full 4,600-query benchmark; the union of their blocked serves was merged, shuffled and classified without knowledge of which arm blocked which row. This measures what each fix costs, against what it catches, on the same evidence type for both numbers.",
+  "RESULT_SHIP_NONE_OF_THEM": "Every arm blocks between four and eleven correct serves for each wrong one. 131 of 147 classified rows - 89% - were serving the right answer, and most were byte-identical to an expected answer. The gate defect is real and confirmed in code, but widening the gate on any of these axes costs far more than it buys. See recommendation.",
+  "per_arm": [
+    {
+      "arm": "a_reorder",
+      "blocked": 113,
+      "scorable": 101,
+      "unscorable_excluded": 12,
+      "caught_wrong_serves": 8,
+      "lost_correct_serves": 93,
+      "ratio_caught_per_lost": 0.086,
+      "rewrite_attempts": 438,
+      "independent_rationale": "Control flow: a positive anaphora signal is gated behind a negative word-count heuristic, so the pattern list and pronoun rule can only fire on queries that already failed to look self-contained. Holds even if the corpus showed nothing."
+    },
+    {
+      "arm": "b1_pronouns",
+      "blocked": 35,
+      "scorable": 21,
+      "unscorable_excluded": 14,
+      "caught_wrong_serves": 3,
+      "lost_correct_serves": 18,
+      "ratio_caught_per_lost": 0.167,
+      "rewrite_attempts": 282,
+      "independent_rationale": "Precedent in the same constant: it/that/this are excluded from substantive_words via FUNCTION_WORDS; he/she/they/them are not. Same job, same sentence position, one class treated as subject matter."
+    },
+    {
+      "arm": "b2_pron_quant",
+      "blocked": 35,
+      "scorable": 18,
+      "unscorable_excluded": 17,
+      "caught_wrong_serves": 4,
+      "lost_correct_serves": 14,
+      "ratio_caught_per_lost": 0.286,
+      "rewrite_attempts": 308,
+      "independent_rationale": "b1 plus a new judgement that any/other/some/more/else are not subject matter. No precedent, and the set is not internally consistent - 'any' is counted while 'other' is already in ELABORATION_WORDS. A second change bundled behind a first one's rationale."
+    },
+    {
+      "arm": "c_loose_regex",
+      "blocked": 57,
+      "scorable": 43,
+      "unscorable_excluded": 14,
+      "caught_wrong_serves": 7,
+      "lost_correct_serves": 36,
+      "ratio_caught_per_lost": 0.194,
+      "rewrite_attempts": 388,
+      "independent_rationale": "Grammar: _SHORT_PRONOUN_RE requires interrogative and pronoun adjacent, so it matches 'Where is it' and misses 'Where was he born' - the same construction with an auxiliary between. Systematically misses past tense."
+    }
+  ],
+  "recommendation": {
+    "ship": null,
+    "item_15": "closed as measured-and-rejected, not pending",
+    "a_reorder_note": "a_reorder has the strongest abstract rationale of the four and the worst ratio, 0.09:1. The control-flow argument is correct and the change is still not worth making, because reordering makes the gate fire MORE often and firing more often is the problem. A rationale that survives without the benchmark is necessary and not sufficient.",
+    "where_the_fix_belongs": "Item 16, the composite key. The follow-ups the gate lets through are mostly answered correctly because the conversation that asked them is usually the one that cached the answer, so the shared key returns the right entry. The defect bites only on collision between conversations, and collisions are rarer than the blast radius of any gate widening. Putting the conversation in the key stops colliding follow-ups sharing an entry at no cost to the 89% that are already correct, because those keep hitting their own conversation's entry."
+  },
+  "criterion": "A served answer is substantively CORRECT if a user who asked that query would be correctly and sufficiently answered by it: it conveys the same substantive claim as at least one expected answer (wording may differ freely), or it independently answers the query's actual question correctly. It is WRONG if it answers a different question; names a different entity, jurisdiction, product or subject; contradicts an expected answer; or addresses a related-but-distinct topic such that the user would be misinformed. BORDERLINE RESOLVES TO WRONG. Stated in full before any row was read; identical to the criterion in disagreement_classification.json.",
+  "annotation": {
+    "annotators": 1,
+    "who": "single annotator, the assistant; no second pass, no adjudication",
+    "blind_protocol": "Arm membership was written to a separate file and not opened until every verdict was fixed. Rows were judged on query, served text and expected answers only. Blinding is imperfect in one direction: quora rows read as 'Mock answer to: ...' and conversation rows as real prose, and a_reorder is the only arm blocking quora serves, so quora rows were identifiable as its. The bulk - every conversation row, where the decision turns - was not attributable to an arm while being judged.",
+    "why_blind": "These rows were blocked by candidates the annotator had already publicly recommended. Classifying arm-by-arm in recommendation order is the setup where a single annotator confirms a prior without noticing."
+  },
+  "method": {
+    "arms_run": "four full 4,600-query benchmarks, one per candidate, patch/run/revert, nothing committed",
+    "baseline": "tests/benchmark/results/inprocess_baseline_damp050.json at commit 590bed0",
+    "corpus_identity": "query sequence verified identical across baseline and all four arms; index join valid",
+    "census_not_sample": "All 147 scorable rows of the 178-row union were classified. This matters: the previous reading of these arms reused the 95-row sample from disagreement_classification.json, which was drawn from the strict/lenient disagreements and therefore could not contain a correct serve by construction. A fresh sample drawn the same way would have reproduced the same bias; only the census removed it.",
+    "shuffle_seed": 20260913,
+    "provenance_of_arm_runs": "dirty:true by design - each arm was a local patch, reverted after"
+  },
+  "caveats": {
+    "unscorable_rows_excluded": "31 of the 178 blocked rows have expected_hit null - conversation pass 6, where a follow-up that misses on first appearance is correct rather than a recall failure. They are excluded from every ratio above and their treatment is unmeasured.",
+    "one_annotator_one_corpus": "The 4:1-to-11:1 range is solid; the ordering between arms is not. Do not rank the four on these numbers."
+  },
+  "rewrite_attempts": {
+    "note": "is_context_dependent gates session resolution at proxy/base.py:464 as well as the qualification gate, so every candidate also changes how often follow-ups are rewritten. A stricter gate produces MORE rewriting, and 8_rewrites hits went UP for b1, b2 and c. The REWRITTEN/UNRESOLVED split is unmeasured at every setting including current; attempts is an upper bound on gate bypasses.",
+    "baseline_current": 189,
+    "by_arm": {
+      "a_reorder": 438,
+      "b1_pronouns": 282,
+      "b2_pron_quant": 308,
+      "c_loose_regex": 388
+    }
+  },
+  "generic_followup_unmoved": {
+    "query": "Are there any other interesting aspects about this article?",
+    "occurrences": 86,
+    "served_baseline_and_every_arm": true,
+    "note": "No candidate moves it - it has no pronoun and clears the substantive-word bar. b2 takes it from 5 substantive words to 4 against a bar of 3: one word short, and the word is 'there', an existential expletive counted as subject matter. A lead, not a fifth arm - defining an arm after seeing a specific query is one word from flipping is fitting the rule to the case."
+  },
+  "drift_check": {
+    "note": "Read before any conversation result. a_reorder was expected to move quora (83 predicted flips) and moved 37 serves; b1 was expected not to and moved 0; b2 and c moved 1 each against 2 and 4 predicted. No unexpected movement, so the conversation results are readable.",
+    "hits_by_pass": [
+      {
+        "pass": "1_cold",
+        "baseline_hits": 7,
+        "a_reorder": 7,
+        "b1_pronouns": 7,
+        "b2_pron_quant": 7,
+        "c_loose_regex": 7
+      },
+      {
+        "pass": "2_repeat",
+        "baseline_hits": 496,
+        "a_reorder": 482,
+        "b1_pronouns": 496,
+        "b2_pron_quant": 495,
+        "c_loose_regex": 496
+      },
+      {
+        "pass": "3_paraphrase",
+        "baseline_hits": 202,
+        "a_reorder": 198,
+        "b1_pronouns": 202,
+        "b2_pron_quant": 202,
+        "c_loose_regex": 202
+      },
+      {
+        "pass": "4_unrelated",
+        "baseline_hits": 1,
+        "a_reorder": 1,
+        "b1_pronouns": 1,
+        "b2_pron_quant": 1,
+        "c_loose_regex": 1
+      },
+      {
+        "pass": "5_link_traversal",
+        "baseline_hits": 495,
+        "a_reorder": 476,
+        "b1_pronouns": 495,
+        "b2_pron_quant": 495,
+        "c_loose_regex": 494
+      },
+      {
+        "pass": "6_conversation",
+        "baseline_hits": 89,
+        "a_reorder": 77,
+        "b1_pronouns": 77,
+        "b2_pron_quant": 74,
+        "c_loose_regex": 79
+      },
+      {
+        "pass": "7_conversation_repeat",
+        "baseline_hits": 666,
+        "a_reorder": 610,
+        "b1_pronouns": 659,
+        "b2_pron_quant": 664,
+        "c_loose_regex": 625
+      },
+      {
+        "pass": "8_rewrites",
+        "baseline_hits": 197,
+        "a_reorder": 190,
+        "b1_pronouns": 198,
+        "b2_pron_quant": 199,
+        "c_loose_regex": 201
+      }
+    ]
+  },
+  "provenance": {
+    "commit": "0f1d9b0b39fc92e61f7dff39f4037a445603adc3",
+    "tree_sha256": "e3b0c44298fc1c14",
+    "dirty": false,
+    "untracked_files": 0
+  },
+  "classifications": [
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Where was he born?",
+      "served": "David Monroe Shoup was born on 30 December 1904 in Battle Ground, Indiana.",
+      "expected": [
+        "Ralph Waldo Emerson was born in Boston, Massachusetts."
+      ],
+      "verdict": "wrong",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "What was it about?",
+      "served": "Throughout Prometheus Bound, the Titan Prometheus is bound to a rock as punishment from the Olympian Zeus for providing fire to humans.",
+      "expected": [
+        "Throughout Prometheus Bound, the Titan Prometheus is bound to a rock as punishment from the Olympian Zeus for providing fire to humans."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did they recieve any awards for their music?",
+      "served": "Metalsucks named Morbid Angel one of the most important bands of the 90s, writing that The band released three seminal albums \u2014 Blessed are the Sick, Covenant, and Domination",
+      "expected": [
+        "Metalsucks named Morbid Angel one of the most important bands of the 90s, writing that The band released three seminal albums \u2014 Blessed are the Sick, Covenant, and Domination"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder",
+        "b2_pron_quant"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "How did it do",
+      "served": "Shaman by the Santana band  initially sold briskly and debuted at number 1 on the Billboard 200, the album's appeal quickly wore off and it soon slid down the charts.",
+      "expected": [
+        "Shaman by the Santana band  initially sold briskly and debuted at number 1 on the Billboard 200, the album's appeal quickly wore off and it soon slid down the charts."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he get into any trouble in prison?",
+      "served": "Rubin Hurricane Carter was an American-Canadian boxer who was wrongfully convicted of murder and later released following a petition of habeas corpus after serving almost 20 years in prison.",
+      "expected": [
+        "Rubin Hurricane Carter was an American-Canadian boxer who was wrongfully convicted of murder and later released following a petition of habeas corpus after serving almost 20 years in prison."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder",
+        "b2_pron_quant"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "How did she start her career?",
+      "served": "Whilst still training and under the representation of Arts Vision, Yui Horie was able to make her voice actor debut in the 1997 PlayStation and Sega Saturn game, Voice Fantasia",
+      "expected": [
+        "Whilst still training and under the representation of Arts Vision, Yui Horie was able to make her voice actor debut in the 1997 PlayStation and Sega Saturn game, Voice Fantasia"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he have any notable wins?",
+      "served": "In Rex Ryan's first two seasons as the Jets' head coach, he led the team to back-to-back AFC Championship Game appearances.",
+      "expected": [
+        "In Rex Ryan's first two seasons as the Jets' head coach, he led the team to back-to-back AFC Championship Game appearances."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder",
+        "b1_pronouns"
+      ]
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "What are the best stocks to invest for long term right now?",
+      "served": "Mock answer to: What are the best stocks to invest for long term right now?",
+      "expected": [
+        "Mock answer to: What stocks are the best to invest in right now?",
+        "Mock answer to: What are the best stocks to invest for long term right now?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did they release any albums during this period?",
+      "served": "After Gary Cherone, Eddie Van Halen recovered from his hip surgery in November 1999, and no official statements were made by Van Halen and no music was released.",
+      "expected": [
+        "The first release with the new line-up was Dead Man's Party in 1985."
+      ],
+      "verdict": "wrong",
+      "blocked_by": [
+        "a_reorder",
+        "b2_pron_quant"
+      ]
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "No fanboys please, but who was the true batman, Christian Bale or Ben Affleck?",
+      "served": "Mock answer to: No fanboys please, but who was the true batman, Christian Bale or Ben Affleck?",
+      "expected": [
+        "Mock answer to: Did Ben Affleck shine more than Christian Bale as Batman?",
+        "Mock answer to: No fanboys please, but who was the true batman, Christian Bale or Ben Affleck?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "If Hillary Clinton can no longer serve as the Democratic nominee how would her successor be chosen?",
+      "served": "Mock answer to: If Hillary Clinton can no longer serve as the Democratic nominee how would her successor be chosen?",
+      "expected": [
+        "Mock answer to: If Hillary Clinton could not continue her Presidential campaign how would the Democratic Party choose a new candidate?",
+        "Mock answer to: If Hillary Clinton can no longer serve as the Democratic nominee how would her successor be chosen?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he participate in many lectures?",
+      "served": "Ralph Waldo Emerson gave a number of speeches and lectures, and welcomed John Brown to his home during Brown's visits to Concord.",
+      "expected": [
+        "Ralph Waldo Emerson gave a number of speeches and lectures, and welcomed John Brown to his home during Brown's visits to Concord."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Is there anything else noteworthy during this time period for the Kaiser Chiefs?",
+      "served": "Kaiser Chiefs also released a DVD of their live performance at Elland Road from 24 May where they played to a sold out capacity crowd of 40,000 people.",
+      "expected": [
+        "Kaiser Chiefs also released a DVD of their live performance at Elland Road from 24 May where they played to a sold out capacity crowd of 40,000 people."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "What else happened during the Civil War years?",
+      "served": "Ralph Waldo Emerson voted for Abraham Lincoln in 1860, but was disappointed that Lincoln was more concerned about preserving the Union than eliminating slavery outright.",
+      "expected": [
+        "Ralph Waldo Emerson voted for Abraham Lincoln in 1860, but was disappointed that Lincoln was more concerned about preserving the Union than eliminating slavery outright."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "how was this band's beginnings?",
+      "served": "Pavement formed in Stockton, California in 1989 as a studio project of guitarists and vocalists Stephen Malkmus & Scott Kannberg, known originally only as S.M. and Spiral Stairs.",
+      "expected": [
+        "Pavement formed in Stockton, California in 1989 as a studio project of guitarists and vocalists Stephen Malkmus & Scott Kannberg, known originally only as S.M. and Spiral Stairs."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "How come there are no depictions of the massacres inflicted by Islam on India.?",
+      "served": "Mock answer to: How come there are no depictions of the massacres Islam inflicted on India?",
+      "expected": [
+        "Mock answer to: How come there are no depictions of the massacres Islam inflicted on India?",
+        "Mock answer to: How come there are no depictions of the massacres inflicted by Islam on India.?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did they celebrate any successes?",
+      "served": "The Animals' success in their hometown and a connection with Yardbirds manager Giorgio Gomelsky motivated them to move to London in 1964 in the immediate wake of Beatlemania.",
+      "expected": [
+        "The Animals' success in their hometown and a connection with Yardbirds manager Giorgio Gomelsky motivated them to move to London in 1964 in the immediate wake of Beatlemania."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder",
+        "b1_pronouns"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Anything else interesting about her early life?",
+      "served": "In 1995, during the first year of college, Yui Horie auditioned at the Japan Voice Acting Institute for a scholarship, the voice training school for Arts Vision.",
+      "expected": [
+        "In 1995, during the first year of college, Yui Horie auditioned at the Japan Voice Acting Institute for a scholarship, the voice training school for Arts Vision."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did they have any hit songs?",
+      "served": "Oingo Boingo appeared on the movie Back to School in 1986, performing their hit single Dead Man's Party.",
+      "expected": [
+        "Oingo Boingo appeared on the movie Back to School in 1986, performing their hit single Dead Man's Party."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder",
+        "b1_pronouns"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he do anything after releasing this album?",
+      "served": "After releasing Twelve Reasons to Die, Ghostface Killah would later announce that the sequel to Supreme Clientele would be released between July and September 2013",
+      "expected": [
+        "After releasing Twelve Reasons to Die, Ghostface Killah would later announce that the sequel to Supreme Clientele would be released between July and September 2013"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder",
+        "b1_pronouns",
+        "b2_pron_quant"
+      ]
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "Is it too late to go to medical school at 24?",
+      "served": "Mock answer to: Is it too late to go to medical school at 24?",
+      "expected": [
+        "Mock answer to: Is it too late to go to medical school and become a doctor?",
+        "Mock answer to: Is it too late to go to medical school at 24?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he do any big interviews?",
+      "served": "Despite his excitement, in a Rolling Stone interview, John Mayer recalled after former Columbia Records head Don Ienner panned Continuum he briefly considered quitting music and studying design full-time.",
+      "expected": [
+        "Despite his excitement, in a Rolling Stone interview, John Mayer recalled after former Columbia Records head Don Ienner panned Continuum he briefly considered quitting music and studying design full-time."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "What exactly is GST bill and how exactly will it affect the common people?",
+      "served": "Mock answer to: What exactly is GST bill and how exactly will it affect the common people?",
+      "expected": [
+        "Mock answer to: How will the implementation of GST bill impact the lives of common people?",
+        "Mock answer to: What exactly is GST bill and how exactly will it affect the common people?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "2_repeat",
+      "query": "If Hillary Clinton could not continue her Presidential campaign how would the Democratic Party choose a new candidate?",
+      "served": "Mock answer to: If Hillary Clinton could not continue her Presidential campaign how would the Democratic Party choose a new candidate?",
+      "expected": [
+        "Mock answer to: If Hillary Clinton could not continue her Presidential campaign how would the Democratic Party choose a new candidate?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "when was he born?",
+      "served": "David Monroe Shoup was born on 30 December 1904 in Battle Ground, Indiana.",
+      "expected": [
+        "Bobby Fischer was born at Michael Reese Hospital in Chicago, Illinois, on March 9, 1943."
+      ],
+      "verdict": "wrong",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he win any awards?",
+      "served": "In 1985, Bob Crewe was inducted into the Songwriter's Hall of Fame.",
+      "expected": [
+        "Rubin Carter received the Abolition Award from Death Penalty Focus in 1996."
+      ],
+      "verdict": "wrong",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did they tour outside of the UK?",
+      "served": "Education, Education, Education & War was toured across Europe and the Americas throughout 2014 and 2015.",
+      "expected": [
+        "Education, Education, Education & War was toured across Europe and the Americas throughout 2014 and 2015."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder",
+        "b1_pronouns",
+        "b2_pron_quant"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he have a good season with the Warriors?",
+      "served": "Kevin Durant made his debut for the Warriors on October 25 against the San Antonio Spurs, scoring a team-high 27 points in a blowout loss.",
+      "expected": [
+        "Kevin Durant made his debut for the Warriors on October 25 against the San Antonio Spurs, scoring a team-high 27 points in a blowout loss."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder",
+        "b1_pronouns",
+        "b2_pron_quant"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Does she use her power during this season?",
+      "served": "Yes. With Kennedy nearby, Willow Rosenberg infuses every Potential Slayer in the world with the same powers Buffy Summers and Faith have.",
+      "expected": [
+        "Yes. With Kennedy nearby, Willow Rosenberg infuses every Potential Slayer in the world with the same powers Buffy Summers and Faith have."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he encounter any trouble on the way?",
+      "served": "The ships went to the Dutch port of Batavia, where Woodes Rogers underwent surgery to remove a musket ball from the roof of his mouth",
+      "expected": [
+        "The ships went to the Dutch port of Batavia, where Woodes Rogers underwent surgery to remove a musket ball from the roof of his mouth"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "What did he do?",
+      "served": "Josh White transcended the typical racial and social barriers of the time who associated blues with a rural, while performing in nightclubs and theaters during the 1930s and 1940s.",
+      "expected": [
+        "Josh White transcended the typical racial and social barriers of the time who associated blues with a rural, while performing in nightclubs and theaters during the 1930s and 1940s."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "Was No Way Out a movie or an album?",
+      "served": "No Way Out 2 was supposed to be an album.",
+      "expected": [
+        "No Way Out 2 was supposed to be an album."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "2_repeat",
+      "query": "Is it possible to pursue many different things in life?",
+      "served": "Mock answer to: Is it possible to pursue many different things in life?",
+      "expected": [
+        "Mock answer to: Is it possible to pursue many different things in life?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "What was his career like in the 1950s?",
+      "served": "In 1953, Bob Crewe met and partnered professionally with Frank Slay Jr., a young pianist from Texas.",
+      "expected": [
+        "In 1953, Bob Crewe met and partnered professionally with Frank Slay Jr., a young pianist from Texas."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "When did he do the recording?",
+      "served": "Chet Atkins recorded numerous albums with RCA Records from 1953 all the way to 1981.",
+      "expected": [
+        "Chet Atkins recorded numerous albums with RCA Records from 1953 all the way to 1981."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "2_repeat",
+      "query": "Is it physically possible to travel back in time?",
+      "served": "Mock answer to: Is it physically possible to travel back in time?",
+      "expected": [
+        "Mock answer to: Is it physically possible to travel back in time?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did she get an education in music?",
+      "served": "Sara Evans attended Central Methodist for 11 days despite getting a full ride scholarship to a school with a good music department. She was to study music at this university.",
+      "expected": [
+        "Sara Evans attended Central Methodist for 11 days despite getting a full ride scholarship to a school with a good music department. She was to study music at this university."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "Is it possible to travel back or forward in time?",
+      "served": "Mock answer to: Is it physically possible to travel back in time?",
+      "expected": [
+        "Mock answer to: Is it physically possible to travel back in time?",
+        "Mock answer to: Is it possible to travel back or forward in time?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Why did they choose Japan",
+      "served": "This was after the decline of Serebro's success after Mama Lover",
+      "expected": [
+        "This was after the decline of Serebro's success after Mama Lover"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did they work with any other celebrities?",
+      "served": "Popular LA radio & television personality Richard Blade gave a speech describing Oingo Boingo. Several members attended the meeting from across the band's changing line-ups.",
+      "expected": [
+        "Popular LA radio & television personality Richard Blade gave a speech describing Oingo Boingo. Several members attended the meeting from across the band's changing line-ups."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder",
+        "b1_pronouns"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did they do any live performances?",
+      "served": "Oingo Boingo continued to regularly perform live, most notably with annual Halloween concerts at Irvine Meadows and the Universal Amphitheatre.",
+      "expected": [
+        "Oingo Boingo continued to regularly perform live, most notably with annual Halloween concerts at Irvine Meadows and the Universal Amphitheatre."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "What were his views on sterilization?",
+      "served": "Havelock Ellis was strongly opposed to the idea of castration for eugenic purposes.",
+      "expected": [
+        "Havelock Ellis was strongly opposed to the idea of castration for eugenic purposes."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he win any awards for the album?",
+      "served": "Kim Jae-joong did not win awards for other albums.",
+      "expected": [
+        "No awards were won for No.X."
+      ],
+      "verdict": "wrong",
+      "blocked_by": [
+        "a_reorder",
+        "b2_pron_quant"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Why was he against sterilization?",
+      "served": "Havelock Ellis posited that the sexual glands provided an important source of internal secretions vital for the functioning of the organism, and thus their removal could greatly injure the patient.",
+      "expected": [
+        "Havelock Ellis posited that the sexual glands provided an important source of internal secretions vital for the functioning of the organism, and thus their removal could greatly injure the patient."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Where did he go to school?",
+      "served": "At age 12 David M. Shoup was enrolled in Covington High School, a competitive high school with an advanced curriculum.",
+      "expected": [
+        "Ralph Waldo Emerson's formal schooling began at the Boston Latin School in 1812, when he was nine."
+      ],
+      "verdict": "wrong",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Where was he born?",
+      "served": "David Monroe Shoup was born on 30 December 1904 in Battle Ground, Indiana.",
+      "expected": [
+        "In 231 or 232 A.H., Hasan al-Askari was born in Medina."
+      ],
+      "verdict": "wrong",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "How come there are no depictions of the massacres inflicted by Islam on India.?",
+      "served": "Mock answer to: How come there are no depictions of the massacres Islam inflicted on India?",
+      "expected": [
+        "Mock answer to: How come there are no depictions of the massacres Islam inflicted on India?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did they do anything else related to the album Off With Their Heads?",
+      "served": "Off with Their Heads features guest appearances from several artists, including Lily Allen who provides backing vocals on Always Happens Like That and Never Miss a Beat.",
+      "expected": [
+        "Off with Their Heads features guest appearances from several artists, including Lily Allen who provides backing vocals on Always Happens Like That and Never Miss a Beat."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Who was she?",
+      "served": "Narjis bint Yashoua was the wife of Imam Hasan al-Askari and the mother of the final Imam of Twelver Shia Islam.",
+      "expected": [
+        "Narjis bint Yashoua was the wife of Imam Hasan al-Askari and the mother of the final Imam of Twelver Shia Islam."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "b1_pronouns",
+        "b2_pron_quant"
+      ]
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "What digital cameras have electronic shutter that can be set to make absolutely no sound or noise?",
+      "served": "Mock answer to: What digital cameras have electronic shutter that can be set to make absolutely no sound or noise?",
+      "expected": [
+        "Mock answer to: Why do digital cameras have shutter sound?",
+        "Mock answer to: What digital cameras have electronic shutter that can be set to make absolutely no sound or noise?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he win awards for other albums?",
+      "served": "Kim Jae-joong did not win awards for other albums.",
+      "expected": [
+        "Kim Jae-joong did not win awards for other albums."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder",
+        "b1_pronouns",
+        "b2_pron_quant"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he embrace any priates?",
+      "served": "Afonso de Albuquerque had been informed by Timoji that it would be easier to fight them in Goa",
+      "expected": [
+        "Afonso de Albuquerque had been informed by Timoji that it would be easier to fight them in Goa"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder",
+        "b1_pronouns"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he record any song with them?",
+      "served": "Chet Atkins produced albums such as Chet Atkins' Gallopin' Guitar, Stringin' Along with Chet Atkins, A Session with Chet Atkins, and many more.",
+      "expected": [
+        "Chet Atkins released numerous albums with RCA Records including Stringin' Along with Chet Atkins, Chet Atkins in Three Dimensions, Finger Style Guitar, and many more."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Where did they take off to?",
+      "served": "obeying the orders from the King and aware of the absence of Zamorin, Afonso de Albuquerque advanced on Calicut.",
+      "expected": [
+        "obeying the orders from the King and aware of the absence of Zamorin, Afonso de Albuquerque advanced on Calicut."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he make the All Star game that year?",
+      "served": "The players named to the Western Conference starting roster include Kevin Durant of the Oklahoma City Thunder",
+      "expected": [
+        "The players named to the Western Conference starting roster include Kevin Durant of the Oklahoma City Thunder"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "Did Yui Horie have any roles in anything else?",
+      "served": "Yui Horie's first leading role was in the 1998 anime Kurogane Communication, of which she sang the theme songs, My best friend and Dear Mama.",
+      "expected": [
+        "In 1999, Yui Horie was able to win a major role as Multi, a robotic girl, in the romantic anime To Heart."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did she still sing during this time?",
+      "served": "Recuperating for months in a wheelchair, Sara Evans continued singing to help pay her medical bills.",
+      "expected": [
+        "Recuperating for months in a wheelchair, Sara Evans continued singing to help pay her medical bills."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "Is it healthy to eat one chicken every day?",
+      "served": "Mock answer to: Is it healthy to eat one chicken every day?",
+      "expected": [
+        "Mock answer to: Is it healthy to eat egg whites every day?",
+        "Mock answer to: Is it healthy to eat one chicken every day?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Why was he in prison?",
+      "served": "In 1966, police arrested Rubin Carter and friend John Artis for a triple homicide committed at the Lafayette Bar and Grill in Paterson, New Jersey.",
+      "expected": [
+        "In 1966, police arrested Rubin Carter and friend John Artis for a triple homicide committed at the Lafayette Bar and Grill in Paterson, New Jersey."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he make it to any championships?",
+      "served": "No, at White Hart Lane Paul Gascoigne helped Terry Venables's Spurs to sixth in the First Division. They rose to third place in 1989\u201390, but were still behind Liverpool.",
+      "expected": [
+        "No, at White Hart Lane Paul Gascoigne helped Terry Venables's Spurs to sixth in the First Division. They rose to third place in 1989\u201390, but were still behind Liverpool."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder",
+        "b1_pronouns"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he work to enact other legislation?",
+      "served": "Concerning civil rights, Rogers Morton voted for the Civil Rights Act of 1964 and the Voting Rights Act of 1965, but cast no vote on the Civil Rights Act of 1968.",
+      "expected": [
+        "Concerning civil rights, Rogers Morton voted for the Civil Rights Act of 1964 and the Voting Rights Act of 1965, but cast no vote on the Civil Rights Act of 1968."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "2_repeat",
+      "query": "Is it too late for me at the age of 25 thinking to start a career in photography?",
+      "served": "Mock answer to: Is it too late for me at the age of 25 thinking to start a career in photography?",
+      "expected": [
+        "Mock answer to: Is it too late for me at the age of 25 thinking to start a career in photography?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "Was there anything else of significance of note in this article?",
+      "served": "David M. Shoup opposed the military escalation in response to events such as the Cuban Missile Crisis and the Bay of Pigs invasion.",
+      "expected": [
+        "Rex Ryan was hired by ESPN, where he currently serves as an analyst, most notably on Sunday NFL Countdown."
+      ],
+      "verdict": "wrong",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he lose any men on his conquest?",
+      "served": "Coutinho was killed during the escape on Afonso de Albuquerque's conquest",
+      "expected": [
+        "Coutinho was killed during the escape on Afonso de Albuquerque's conquest"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "Is there anything else noteworthy during this time period for the Kaiser Chiefs?",
+      "served": "Kaiser Chiefs also released a DVD of their live performance at Elland Road from 24 May where they played to a sold out capacity crowd of 40,000 people.",
+      "expected": [
+        "Kaiser Chiefs also released a DVD of their live performance at Elland Road from 24 May where they played to a sold out capacity crowd of 40,000 people."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "When did she become an artist?",
+      "served": "Sara Evans moved to Nashville, Tennessee, in 1991 to be a country music artist.",
+      "expected": [
+        "Sara Evans moved to Nashville, Tennessee, in 1991 to be a country music artist."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did they release any albums?",
+      "served": "After Gary Cherone, Eddie Van Halen recovered from his hip surgery in November 1999, and no official statements were made by Van Halen and no music was released.",
+      "expected": [
+        "Oingo Boing also released the albums Only a Lad, Nothing to Fear, and Good for Your Soul."
+      ],
+      "verdict": "wrong",
+      "blocked_by": [
+        "a_reorder",
+        "b1_pronouns",
+        "b2_pron_quant"
+      ]
+    },
+    {
+      "pass": "2_repeat",
+      "query": "Is this the real life or is this some fantasy?",
+      "served": "Mock answer to: Is this the real life or is this some fantasy?",
+      "expected": [
+        "Mock answer to: Is this the real life or is this some fantasy?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder",
+        "b2_pron_quant"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did they have any singles between 1991-1995?",
+      "served": "In 1991, Morbid Angel released their second album, Blessed Are the Sick, which was met with widespread critical acclaim",
+      "expected": [
+        "In 1991, Morbid Angel released their second album, Blessed Are the Sick, which was met with widespread critical acclaim"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder",
+        "b2_pron_quant"
+      ]
+    },
+    {
+      "pass": "2_repeat",
+      "query": "Is Morgan Freeman correct when he says the only way to stop racism, is to stop talking about it?",
+      "served": "Mock answer to: Is Morgan Freeman correct when he says the only way to stop racism, is to stop talking about it?",
+      "expected": [
+        "Mock answer to: Is Morgan Freeman correct when he says the only way to stop racism, is to stop talking about it?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "2_repeat",
+      "query": "Is it too late to go to medical school and become a doctor?",
+      "served": "Mock answer to: Is it too late to go to medical school and become a doctor?",
+      "expected": [
+        "Mock answer to: Is it too late to go to medical school and become a doctor?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "When did he start boxing?",
+      "served": "After his release from prison in September 1961, Rubin Carter became a professional boxer.",
+      "expected": [
+        "After his release from prison in September 1961, Rubin Carter became a professional boxer."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "How does the 3rd season of Buffy the Vampire Slayer start?",
+      "served": "Willow Rosenberg is presented as a bookish nerd with computer skills, and intimidated by popular girls. However, she quickly forms a friendship with Buffy Summers.",
+      "expected": [
+        "During the third season three episodes explore Willow Rosenberg's backstory and foreshadow her development."
+      ],
+      "verdict": "wrong",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "What did he support?",
+      "served": "Rahul Bose assisted in the relief efforts in the Andaman and Nicobar Islands",
+      "expected": [
+        "Rahul Bose assisted in the relief efforts in the Andaman and Nicobar Islands"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "2_repeat",
+      "query": "If time started because of the big bang happening then how could the big bang start because there was no time for the big bang to start?",
+      "served": "Mock answer to: If time started because of the big bang happening then how could the big bang start because there was no time for the big bang to start?",
+      "expected": [
+        "Mock answer to: If time started because of the big bang happening then how could the big bang start because there was no time for the big bang to start?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Where was she born?",
+      "served": "Sara Evans was born in Boonville, Missouri, in 1971, and is of Welsh, English, Irish, and Native American descent.",
+      "expected": [
+        "Sara Evans was born in Boonville, Missouri, in 1971, and is of Welsh, English, Irish, and Native American descent."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did she had any problems with her career?",
+      "served": "Yui Horie was affiliated with Arts Vision. However, she eventually left the agency in mid-2007 during an unrelated scandal in the agency's top management and became a freelance voice actress.",
+      "expected": [
+        "Yui Horie was affiliated with Arts Vision. However, she eventually left the agency in mid-2007 during an unrelated scandal in the agency's top management and became a freelance voice actress."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder",
+        "b1_pronouns"
+      ]
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "Does it matter whether humanity is evil or not?",
+      "served": "Mock answer to: Does it matter whether humanity is evil or not?",
+      "expected": [
+        "Mock answer to: Does it matter whether humans are selfish or evil?",
+        "Mock answer to: Does it matter whether humanity is evil or not?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "When was he born?",
+      "served": "David Monroe Shoup was born on 30 December 1904 in Battle Ground, Indiana.",
+      "expected": [
+        "David Monroe Shoup was born on 30 December 1904 in Battle Ground, Indiana."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he win any awards during this time?",
+      "served": "In 1998, Sean Combs started a clothing line, Sean John. It was nominated for the Council of Fashion Designers of America award and won in 2004.",
+      "expected": [
+        "In 1998, Sean Combs started a clothing line, Sean John. It was nominated for the Council of Fashion Designers of America award and won in 2004."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "Is it possible to travel back or forward in time?",
+      "served": "Mock answer to: Is it physically possible to travel back in time?",
+      "expected": [
+        "Mock answer to: Is it physically possible to travel back in time?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did they do any music videos?",
+      "served": "The music video for Weird Science features Oingo Boingo performing in an abstract laboratory.",
+      "expected": [
+        "The music video for Weird Science features Oingo Boingo performing in an abstract laboratory."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder",
+        "b1_pronouns"
+      ]
+    },
+    {
+      "pass": "2_repeat",
+      "query": "I was suddenly logged off Gmail. I can't remember my Gmail password and just realized the recovery email is no longer alive. What can I do?",
+      "served": "Mock answer to: I was suddenly logged off Gmail. I can't remember my Gmail password and just realized the recovery email is no longer alive. What can I do?",
+      "expected": [
+        "Mock answer to: I was suddenly logged off Gmail. I can't remember my Gmail password and just realized the recovery email is no longer alive. What can I do?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did she collaborate with anyone of note?",
+      "served": "Jan Howard collaborate with singer Bill Anderson",
+      "expected": [
+        "Jan Howard collaborate with singer Bill Anderson"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "How did he get his name",
+      "served": "Milo\u0161 Obili\u0107 is a Slavic name recorded from the early Middle Ages among the Bulgarians, Czechs, Poles and Serbs. It is derived from the Slavic root mil-, meaning merciful",
+      "expected": [
+        "Milo\u0161 Obili\u0107 is a Slavic name recorded from the early Middle Ages among the Bulgarians, Czechs, Poles and Serbs. It is derived from the Slavic root mil-, meaning merciful"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "Do we need to change the  education system of India? If yes then why?",
+      "served": "Mock answer to: Do we need to change the  education system of India? If yes then why?",
+      "expected": [
+        "Mock answer to: Should the Indian education system be changed?",
+        "Mock answer to: Do we need to change the  education system of India? If yes then why?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "When was he elected to congress?",
+      "served": "Rogers Morton became a member of the House of Representatives in January 3, 1963.",
+      "expected": [
+        "Rogers Morton became a member of the House of Representatives in January 3, 1963."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he just not believe in forced sterilization?",
+      "served": "In 1909, regulations were introduced, which allowed those deemed \u2018unfit\u2019 and with strong sexual inclinations to be mandatorily sterilized. Havelock Ellis remained staunchly opposed to the practice.",
+      "expected": [
+        "In 1909, regulations were introduced, which allowed those deemed \u2018unfit\u2019 and with strong sexual inclinations to be mandatorily sterilized. Havelock Ellis remained staunchly opposed to the practice."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "2_repeat",
+      "query": "Is it healthy to eat egg whites every day?",
+      "served": "Mock answer to: Is it healthy to eat egg whites every day?",
+      "expected": [
+        "Mock answer to: Is it healthy to eat egg whites every day?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "How did he do in school?",
+      "served": "David M. Shoup was an excellent student, maintaining high marks in French, English, physics, and history.",
+      "expected": [
+        "David M. Shoup was an excellent student, maintaining high marks in French, English, physics, and history."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "Is it possible to store the energy of lightning?",
+      "served": "Mock answer to: Can we ever store energy produced in lightning?",
+      "expected": [
+        "Mock answer to: Can we ever store energy produced in lightning?",
+        "Mock answer to: Is it possible to store the energy of lightning?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "What was his wife's name?",
+      "served": "Narjis bint Yashoua was the wife of Imam Hasan al-Askari and the mother of the final Imam of Twelver Shia Islam.",
+      "expected": [
+        "Narjis bint Yashoua was the wife of Imam Hasan al-Askari and the mother of the final Imam of Twelver Shia Islam."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Was No Way Out a movie or an album?",
+      "served": "No Way Out 2 was supposed to be an album.",
+      "expected": [
+        "No Way Out 2 was supposed to be an album."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "2_repeat",
+      "query": "Does it matter whether humans are selfish or evil?",
+      "served": "Mock answer to: Does it matter whether humans are selfish or evil?",
+      "expected": [
+        "Mock answer to: Does it matter whether humans are selfish or evil?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "Where these 8 paintings of Rake's Progress now?",
+      "served": "The oil paintings of A Rake's Progress are displayed in the gallery room at Sir John Soane's Museum, London, UK.",
+      "expected": [
+        "The oil paintings of A Rake's Progress are displayed in the gallery room at Sir John Soane's Museum, London, UK."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "Was No Way Out 2 a success?",
+      "served": "In July 2015, Gizzle told the press that she is collaborating with Sean Combs on what she describes as his last album, titled No Way Out 2.",
+      "expected": [
+        "No Way Out 2 was never released."
+      ],
+      "verdict": "wrong",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Is there anything else interesting I should know?",
+      "served": "Chumbawamba also toured the United States for the first time in 1990.",
+      "expected": [
+        "Chumbawamba also toured the United States for the first time in 1990."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "Is it healthy to eat a whole avocado every day?",
+      "served": "Mock answer to: Is it healthy to eat a whole avocado every day?",
+      "expected": [
+        "Mock answer to: What can I eat every day to be more healthy?",
+        "Mock answer to: Is it healthy to eat a whole avocado every day?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "What was he convicted of?",
+      "served": "In 1966, police arrested Rubin Carter and friend John Artis for a triple homicide committed at the Lafayette Bar and Grill in Paterson, New Jersey.",
+      "expected": [
+        "In 1966, police arrested Rubin Carter and friend John Artis for a triple homicide committed at the Lafayette Bar and Grill in Paterson, New Jersey."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Why did he quit?",
+      "served": "Neil Simon quit his job as a mailroom clerk in the Warner Brothers offices in Manhattan to write radio and television scripts with his brother Danny Simon",
+      "expected": [
+        "Neil Simon quit his job as a mailroom clerk in the Warner Brothers offices in Manhattan to write radio and television scripts with his brother Danny Simon"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Does he travel to other countries in support of these?",
+      "served": "Rahul Bose has given lectures on gender equality and human rights at Oxford and during the 2004 World Youth Peace Summit. In 2009, he toured Canada lecturing on climate change",
+      "expected": [
+        "Rahul Bose has given lectures on gender equality and human rights at Oxford and during the 2004 World Youth Peace Summit. In 2009, he toured Canada lecturing on climate change"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "When did they move to Covington?",
+      "served": "David M. Shoup's family lived on a farm in Ash Grove, but moved to Covington to live on a new farm in 1916.",
+      "expected": [
+        "David M. Shoup's family lived on a farm in Ash Grove, but moved to Covington to live on a new farm in 1916."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he torch any of his body part?",
+      "served": "No, nothing of Osceola was torched.",
+      "expected": [
+        "No, nothing of Osceola was torched."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "What else did she do?",
+      "served": "During that era, a single taken from 1988's OU812, When It's Love, reached the Top Five, peaking at No. 5. In addition, Van Halen was nominated for two Grammy Awards.",
+      "expected": [
+        "Billie Jean King is an advocate for gender equality and has long been a pioneer for equality and social justice."
+      ],
+      "verdict": "wrong",
+      "blocked_by": [
+        "b1_pronouns",
+        "b2_pron_quant"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "How did his show in Vegas do?",
+      "served": "Garth Brook's first weekend on shows in Vegas received positive reviews and was called the antithesis of Vegas glitz and of the country singer's arena and stadium extravaganzas\u201c",
+      "expected": [
+        "Garth Brook's first weekend on shows in Vegas received positive reviews and was called the antithesis of Vegas glitz and of the country singer's arena and stadium extravaganzas\u201c"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he receive any other awards?",
+      "served": "David M. Shoup also was awarded the Purple Heart for the combat wounds he suffered during the course of the campaign.",
+      "expected": [
+        "David M. Shoup also was awarded the Purple Heart for the combat wounds he suffered during the course of the campaign."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder",
+        "b1_pronouns",
+        "b2_pron_quant"
+      ]
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "What is wrong with Indian engineering education system?",
+      "served": "Mock answer to: What is wrong with Indian engineering education system?",
+      "expected": [
+        "Mock answer to: Why does the Indian education system suck?",
+        "Mock answer to: What is wrong with Indian engineering education system?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "What were his earliest sources on?",
+      "served": "The earliest sources on the Battle of Kosovo with Milo\u0161 Obili\u0107, which generally favour the cult of Prince Lazar, do not mention Milo\u0161 or his assassination of the sultan.",
+      "expected": [
+        "The earliest sources on the Battle of Kosovo with Milo\u0161 Obili\u0107, which generally favour the cult of Prince Lazar, do not mention Milo\u0161 or his assassination of the sultan."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "2_repeat",
+      "query": "What exactly is the \"Common Core Initiative/Standards\" and what are the pros and cons?",
+      "served": "Mock answer to: What exactly is the \"Common Core Initiative/Standards\" and what are the pros and cons?",
+      "expected": [
+        "Mock answer to: What exactly is the \"Common Core Initiative/Standards\" and what are the pros and cons?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he have a job other than playing music at the time?",
+      "served": "Chet Atkins began assisting Sholes as a session leader when the New York\u2013based producer needed help organizing Nashville sessions for RCA Victor artists.",
+      "expected": [
+        "Chet Atkins began assisting Sholes as a session leader when the New York\u2013based producer needed help organizing Nashville sessions for RCA Victor artists."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "When was he born?",
+      "served": "David Monroe Shoup was born on 30 December 1904 in Battle Ground, Indiana.",
+      "expected": [
+        "In 231 or 232 A.H., Hasan al-Askari was born in Medina."
+      ],
+      "verdict": "wrong",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Are they still making music?",
+      "served": "In a February 2019 interview with Metal Wani, Tucker stated that Morbid Angel plans to begin working on a new album this year.",
+      "expected": [
+        "Morbid Angel is still active in the present"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder",
+        "b1_pronouns",
+        "b2_pron_quant"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did they go on tour to support the album?",
+      "served": "Velvet Revolver toured extensively for nineteen months in support of Contraband.",
+      "expected": [
+        "Velvet Revolver toured extensively for nineteen months in support of Contraband."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder",
+        "b1_pronouns",
+        "b2_pron_quant"
+      ]
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "Is Urjit Patel is right person for RBI Governor?",
+      "served": "Mock answer to: Is Urjit Patel is right person for RBI Governor?",
+      "expected": [
+        "Mock answer to: What is your take on Urjit Patel as the new RBI governor?",
+        "Mock answer to: Is Urjit Patel is right person for RBI Governor?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Where else she had an appearance?",
+      "served": "Yui Horie's first appearance was in The Adventure Over Yui Horie III ~Secret Mission Tour~ concert, acting as the antagonist who wanted to turn the world black and white.",
+      "expected": [
+        "Yui Horie's first appearance was in The Adventure Over Yui Horie III ~Secret Mission Tour~ concert, acting as the antagonist who wanted to turn the world black and white."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "What else did he say?",
+      "served": "Josh White said, In 1933, I wrote and recorded a song called 'Low Cotton,' about the plight of Negro cotton pickers down South.",
+      "expected": [
+        "Josh White said, In 1933, I wrote and recorded a song called 'Low Cotton,' about the plight of Negro cotton pickers down South."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "b1_pronouns",
+        "b2_pron_quant"
+      ]
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "How does it feel to be homosexual in India?",
+      "served": "Mock answer to: How does it feel to be homosexual in India?",
+      "expected": [
+        "Mock answer to: How does it feel to be a closeted gay in India?",
+        "Mock answer to: How does it feel to be homosexual in India?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did they release any songs between 1985 to 1990?",
+      "served": "Oingo Boingo released three albums from 1985 to 1990: Dead Man's Party, Boi-ngo, and Dark at the End of the Tunnel.",
+      "expected": [
+        "Oingo Boingo released three albums from 1985 to 1990: Dead Man's Party, Boi-ngo, and Dark at the End of the Tunnel."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Where did he go to college?",
+      "served": "At age 12 David M. Shoup was enrolled in Covington High School, a competitive high school with an advanced curriculum.",
+      "expected": [
+        "In October 1817, at age 14, Ralph Waldo Emerson went to Harvard College and was appointed freshman messenger for the president."
+      ],
+      "verdict": "wrong",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Where was he born?",
+      "served": "David Monroe Shoup was born on 30 December 1904 in Battle Ground, Indiana.",
+      "expected": [
+        "David Monroe Shoup was born on 30 December 1904 in Battle Ground, Indiana."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "What else took place after Henry David Thoreau's death and the delivery of Ralph Waldo Emerson's eulogy?",
+      "served": "Another friend, Nathaniel Hawthorne, died two years after Thoreau, in 1864.",
+      "expected": [
+        "Another friend, Nathaniel Hawthorne, died two years after Thoreau, in 1864."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "2_repeat",
+      "query": "What stocks are the best to invest in right now?",
+      "served": "Mock answer to: What stocks are the best to invest in right now?",
+      "expected": [
+        "Mock answer to: What stocks are the best to invest in right now?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he have any notable losses?",
+      "served": "The Ravens lost by a score of 23\u201314 in the AFC Championship Game against the Pittsburgh Steelers.",
+      "expected": [
+        "The Ravens lost by a score of 23\u201314 in the AFC Championship Game against the Pittsburgh Steelers."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder",
+        "b1_pronouns",
+        "b2_pron_quant"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he receive any other injuries?",
+      "served": "Paul Gascoigne once injured himself through a moped accident which ruled him out of a prestigious youth tournament; and he once lost Kevin Keegan's boots on a bus.",
+      "expected": [
+        "Paul Gascoigne once injured himself through a moped accident which ruled him out of a prestigious youth tournament; and he once lost Kevin Keegan's boots on a bus."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "Is the potential energy of vacuum energy, virtual particles and/or dark energy infinite? NO MERGE",
+      "served": "Mock answer to: Is the potential energy of vacuum energy, virtual particles and/or dark energy infinite? NO MERGE",
+      "expected": [
+        "Mock answer to: Can an infinite amount of dark or vacuum or gravitational energy be created with expansion?",
+        "Mock answer to: Is the potential energy of vacuum energy, virtual particles and/or dark energy infinite? NO MERGE"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he sing for any other sound tracks?",
+      "served": "Kim Jae-joong sang Love for the soundtrack of the film Heaven's Postman in which he starred as the male lead.",
+      "expected": [
+        "Kim Jae-joong sang Love for the soundtrack of the film Heaven's Postman in which he starred as the male lead."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "Is it possible to travel faster than light?",
+      "served": "Mock answer to: How we can travel faster than light?",
+      "expected": [
+        "Mock answer to: How we can travel faster than light?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did she received any awards?",
+      "served": "Yui Horie won the award for Best Supporting Voice Actress in the 4th Seiyu Awards.",
+      "expected": [
+        "Yui Horie won the award for Best Supporting Voice Actress in the 4th Seiyu Awards."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did they have any other hits during that time?",
+      "served": "The first Chumbawamba release was the Revolution EP in 1985, which quickly sold out of its initial run, reaching No. 4 in the UK Indie Chart",
+      "expected": [
+        "The first Chumbawamba release was the Revolution EP in 1985, which quickly sold out of its initial run, reaching No. 4 in the UK Indie Chart"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he win any awards?",
+      "served": "In 1985, Bob Crewe was inducted into the Songwriter's Hall of Fame.",
+      "expected": [
+        "In 2006, Rex Ryan received Assistant Coach of the Year awards from Pro Football Weekly and the Pro Football Writers Association."
+      ],
+      "verdict": "wrong",
+      "blocked_by": [
+        "a_reorder",
+        "b1_pronouns"
+      ]
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "Who would win a *conventional* war between Iran and Pakistan right now?",
+      "served": "Mock answer to: Who would win a *conventional* war between Iran and Pakistan right now?",
+      "expected": [
+        "Mock answer to: Who will probably win in the war between Pakistan and Iran?",
+        "Mock answer to: Who would win a *conventional* war between Iran and Pakistan right now?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Why did he want to go home?",
+      "served": "The long voyage and the capture of the Spanish ship made Woodes Rogers a national hero.",
+      "expected": [
+        "The long voyage and the capture of the Spanish ship made Woodes Rogers a national hero."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "what did he have to do with christian anthropology?",
+      "served": "Augustine of Hippo was one of the first Christian ancient Latin authors with a very clear vision of theological anthropology.",
+      "expected": [
+        "Augustine of Hippo was one of the first Christian ancient Latin authors with a very clear vision of theological anthropology."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "Is it possible to store the energy of lightning?",
+      "served": "Mock answer to: Can we ever store energy produced in lightning?",
+      "expected": [
+        "Mock answer to: Can we ever store energy produced in lightning?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he grow up in Battleground?",
+      "served": "David M. Shoup's family lived on a farm in Ash Grove, but moved to Covington to live on a new farm in 1916.",
+      "expected": [
+        "David M. Shoup's family lived on a farm in Ash Grove, but moved to Covington to live on a new farm in 1916."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "Starting with no programming experience, how long will it take to learn Python 3?",
+      "served": "Mock answer to: Starting with no programming experience, how long will it take to learn Python 3?",
+      "expected": [
+        "Mock answer to: How do I learn Python systematically?",
+        "Mock answer to: Starting with no programming experience, how long will it take to learn Python 3?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "When did she rise to fame?",
+      "served": "In 1995, Sara Evans began recording demos. Nashville songwriter Harlan Howard was impressed by her demo. He decided to help her music career, leading to a contract with RCA Nashville.",
+      "expected": [
+        "In 1995, Sara Evans began recording demos. Nashville songwriter Harlan Howard was impressed by her demo. He decided to help her music career, leading to a contract with RCA Nashville."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Who did he fight?",
+      "served": "After Rubin Carter defeated a number of middleweight contenders\u2014such as Florentino Fernandez, Holley Mims, Gomeo Brennan, and George Benton\u2014the boxing world took notice.",
+      "expected": [
+        "After Rubin Carter defeated a number of middleweight contenders\u2014such as Florentino Fernandez, Holley Mims, Gomeo Brennan, and George Benton\u2014the boxing world took notice."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he win any awards?",
+      "served": "In 1985, Bob Crewe was inducted into the Songwriter's Hall of Fame.",
+      "expected": [
+        "Paul Gascoigne received an award for BBC Sports Personality of the Year in 1990."
+      ],
+      "verdict": "wrong",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "2_repeat",
+      "query": "How come there are no depictions of the massacres Islam inflicted on India?",
+      "served": "Mock answer to: How come there are no depictions of the massacres Islam inflicted on India?",
+      "expected": [
+        "Mock answer to: How come there are no depictions of the massacres Islam inflicted on India?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did they play any venues in North America?",
+      "served": "In early 2012, Kaiser Chiefs played a 20 date tour of the United Kingdom, followed by a tour of North America.",
+      "expected": [
+        "In early 2012, Kaiser Chiefs played a 20 date tour of the United Kingdom, followed by a tour of North America."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "How did he assist them?",
+      "served": "Rahul Bose launched the Andaman and Nicobar Scholarship Initiative through his NGO, The Foundation. The scholarship program provides for the education of underprivileged children from the Andaman and Nicobar Islands.",
+      "expected": [
+        "Rahul Bose launched the Andaman and Nicobar Scholarship Initiative through his NGO, The Foundation. The scholarship program provides for the education of underprivileged children from the Andaman and Nicobar Islands."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Why did he grab his genitals?",
+      "served": "Vinnie Jones singled Paul Gascoigne out for attention, and in an incident that would become a much-publicised photograph, Jones grabbed him by the genitals as Gascoigne screamed in agony.",
+      "expected": [
+        "Vinnie Jones singled Paul Gascoigne out for attention, and in an incident that would become a much-publicised photograph, Jones grabbed him by the genitals as Gascoigne screamed in agony."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he suffer any injuries during his captionship?",
+      "served": "While playing for Tottenham Hotspur Paul Gascoigne committed a dangerous knee-high foul on Gary Charles and ruptured his own cruciate ligaments in his right knee.",
+      "expected": [
+        "While playing for Tottenham Hotspur Paul Gascoigne committed a dangerous knee-high foul on Gary Charles and ruptured his own cruciate ligaments in his right knee."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Does she ever return to her home?",
+      "served": "Yes. In the final episode of the series, Chosen, Buffy Summers calls upon Willow Rosenberg to perform the most powerful spell she has ever attempted.",
+      "expected": [
+        "Yes. In the final episode of the series, Chosen, Buffy Summers calls upon Willow Rosenberg to perform the most powerful spell she has ever attempted."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Where did he finally settle?",
+      "served": "Ralph Waldo Emerson then went farther south, to St. Augustine, Florida, where he took long walks on the beach and began writing poetry.",
+      "expected": [
+        "Ralph Waldo Emerson then went farther south, to St. Augustine, Florida, where he took long walks on the beach and began writing poetry."
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "c_loose_regex"
+      ]
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "Is it possible to travel faster than light?",
+      "served": "Mock answer to: How we can travel faster than light?",
+      "expected": [
+        "Mock answer to: How we can travel faster than light?",
+        "Mock answer to: Is it possible to travel faster than light?"
+      ],
+      "verdict": "correct",
+      "blocked_by": [
+        "a_reorder"
+      ]
+    }
+  ]
+}

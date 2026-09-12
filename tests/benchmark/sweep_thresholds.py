@@ -13,9 +13,24 @@ TWO BOUNDS, NOT ONE
     strict   only the pair's own partner counts as correct
     lenient  any serve on a labelled duplicate counts as correct
 
-    Hand-classifying 33 such serves put 19 of them substantively correct, so
-    the truth sits nearer the lenient bound — but both are reported rather than
-    a single number resting on that judgement.
+    THE TRUTH IS NEAR STRICT, AND IT DEPENDS ON THE STRATUM. 373 rows disagree
+    at 0.75 on the 4,600-query baseline. Classified by hand:
+
+        quora passes         81-100% substantively correct  (census, 55 rows)
+        conversation passes    5-10% substantively correct  (20 of 88, 20 of 230)
+
+    85% of disagreements are conversation-pass, where a follow-up reaches an
+    answer about a different subject entirely, so roughly a fifth are correct
+    overall. See tests/benchmark/results/disagreement_classification.json —
+    read its strata, not its weighted average.
+
+    This supersedes an earlier figure of 19 of 33, which had no artifact behind
+    it and described the quora mechanism only: cross-pair near-duplicates, which
+    account for 15% of the disagreements it was being applied to. On that
+    stratum it understated correctness; applied to the whole population it
+    overstated it about fourfold.
+
+    Both bounds are still reported, because neither is the answer on its own.
 
     python tests/benchmark/sweep_thresholds.py --rows <path> --budget <n>
 

@@ -31,16 +31,71 @@ import json
 from pathlib import Path
 
 
+def detect_schema(payload: dict) -> str:
+    """Which harness wrote this row file. The two are not interchangeable."""
+    first = (payload.get("rows") or [{}])[0]
+    if "kind" in first:
+        return "quora"
+    if "expected_hit" in first:
+        return "inprocess"
+    raise SystemExit("unrecognised row schema: expected 'kind' (quora pairs) or 'expected_hit' (in-process run)")
+
+
 def load(path: Path) -> list[dict]:
+    """Quora pair schema: one row per labelled pair, keyed on `kind`.
+
+    Every row is scorable — the label says whether a serve would be right, for
+    all of them.
+    """
     payload = json.loads(path.read_text())
     rows = []
     for row in payload["rows"]:
-        best = (row.get("best_candidate") or row.get("served_text") or "").strip()
+        candidate = (row.get("best_candidate") or row.get("served_text") or "").strip()
         rows.append(
             {
                 "confidence": float(row["total_confidence"]),
                 "duplicate": row["kind"] == "duplicate",
-                "own_partner": bool(best) and best == (row.get("correct_answer") or "").strip(),
+                "own_partner": bool(candidate) and candidate == (row.get("correct_answer") or "").strip(),
+                "scorable": True,
+            }
+        )
+    return rows
+
+
+def load_inprocess(path: Path, unlabelled: str) -> list[dict]:
+    """In-process 4,600-query schema: `pass`, `expected_hit`, `expected_answers`.
+
+    `expected_hit` is True where a correct serve is expected, False where any
+    serve is wrong, and None for the 700 conversation-pass rows, which carry no
+    label: a follow-up that misses on its first appearance is correct, not a
+    recall failure.
+
+    Those unlabelled rows are the 4,600-versus-3,900 split, and the caller must
+    choose, because the two answer different questions:
+
+        drop  remove them. Denominator 3,900, every remaining row scorable.
+        keep  leave them in the denominator at 4,600 but never score them, so a
+              serve on one is neither right nor wrong. This is ADR-004's
+              convention — wrong answers counted on the labelled rows, the rate
+              expressed over the whole run.
+
+    `expected_answers` is a set of acceptable answers, not one answer. See
+    Recorder.add in run_inprocess_benchmark.py for why 5_link_traversal has two.
+    """
+    payload = json.loads(path.read_text())
+    rows = []
+    for row in payload["rows"]:
+        expected_hit = row.get("expected_hit")
+        if expected_hit is None and unlabelled == "drop":
+            continue
+        candidate = (row.get("best_candidate") or row.get("served_text") or "").strip()
+        acceptable = {a.strip() for a in (row.get("expected_answers") or []) if a and a.strip()}
+        rows.append(
+            {
+                "confidence": float(row["total_confidence"]),
+                "duplicate": expected_hit is True,
+                "own_partner": bool(candidate) and candidate in acceptable,
+                "scorable": expected_hit is not None,
             }
         )
     return rows
@@ -53,18 +108,24 @@ def sweep(rows: list[dict], step: int = 5) -> list[dict]:
     for value in range(30, 100, step):
         threshold = value / 100
         served = [r for r in rows if r["confidence"] >= threshold]
-        strict_right = sum(1 for r in served if r["duplicate"] and r["own_partner"])
-        lenient_right = sum(1 for r in served if r["duplicate"])
+        # Only scorable serves can be right or wrong. An unlabelled row that
+        # serves is neither, so it stays in the denominator without being
+        # counted against the threshold. Every quora row is scorable, so this
+        # is the identity there.
+        scored = [r for r in served if r["scorable"]]
+        strict_right = sum(1 for r in scored if r["duplicate"] and r["own_partner"])
+        lenient_right = sum(1 for r in scored if r["duplicate"])
         out.append(
             {
                 "threshold": round(threshold, 2),
                 "served": len(served),
-                "recall_strict": round(strict_right / duplicates, 4),
-                "recall_lenient": round(lenient_right / duplicates, 4),
-                "precision_strict": round(strict_right / len(served), 4) if served else None,
-                "precision_lenient": round(lenient_right / len(served), 4) if served else None,
-                "wrong_per_1000_sweepset_strict": round((len(served) - strict_right) / total * 1000, 1),
-                "wrong_per_1000_sweepset_lenient": round((len(served) - lenient_right) / total * 1000, 1),
+                "scored": len(scored),
+                "recall_strict": round(strict_right / duplicates, 4) if duplicates else None,
+                "recall_lenient": round(lenient_right / duplicates, 4) if duplicates else None,
+                "precision_strict": round(strict_right / len(scored), 4) if scored else None,
+                "precision_lenient": round(lenient_right / len(scored), 4) if scored else None,
+                "wrong_per_1000_sweepset_strict": round((len(scored) - strict_right) / total * 1000, 1),
+                "wrong_per_1000_sweepset_lenient": round((len(scored) - lenient_right) / total * 1000, 1),
             }
         )
     return out
@@ -84,35 +145,71 @@ def main() -> None:
             "docs/adr/004-damped-evidence-accumulation.md."
         ),
     )
+    parser.add_argument(
+        "--unlabelled",
+        choices=("drop", "keep"),
+        default=None,
+        help=(
+            "in-process schema only, and required when the file contains unlabelled rows. "
+            "'drop' removes them (denominator 3,900); 'keep' leaves them in the denominator "
+            "(4,600) without ever scoring them, which is ADR-004's convention. The two are "
+            "different questions, so there is no default."
+        ),
+    )
     parser.add_argument("--out", default="")
     args = parser.parse_args()
 
-    rows = load(Path(args.rows))
+    path = Path(args.rows)
+    payload = json.loads(path.read_text())
+    schema = detect_schema(payload)
+
+    if schema == "quora":
+        if args.unlabelled is not None:
+            parser.error("--unlabelled applies to the in-process schema; this file is quora pairs")
+        rows = load(path)
+    else:
+        has_unlabelled = any(r.get("expected_hit") is None for r in payload["rows"])
+        if has_unlabelled and args.unlabelled is None:
+            parser.error(
+                "this run contains unlabelled rows (expected_hit null). Pass --unlabelled drop "
+                "for a 3,900-row denominator, or --unlabelled keep for 4,600 with those rows "
+                "never scored. See ADR-004."
+            )
+        rows = load_inprocess(path, args.unlabelled or "keep")
+
     table = sweep(rows)
 
     duplicates = sum(1 for r in rows if r["duplicate"])
+    scorable = sum(1 for r in rows if r["scorable"])
     denominator = {
         "rows_file": str(args.rows),
+        "schema": schema,
         "rows": len(rows),
-        "duplicates": duplicates,
-        "non_duplicates": len(rows) - duplicates,
+        "recall_eligible_rows": duplicates,
+        "scorable_rows": scorable,
+        "unscorable_rows": len(rows) - scorable,
+        "unlabelled_policy": args.unlabelled if schema == "inprocess" else None,
     }
 
-    print(f"rows file: {denominator['rows_file']}")
+    print(f"rows file: {denominator['rows_file']}  (schema: {schema})")
     print(
-        f"denominator: {denominator['rows']} rows "
-        f"({denominator['duplicates']} labelled duplicates, "
-        f"{denominator['non_duplicates']} labelled non-duplicates)"
+        f"denominator: {denominator['rows']} rows — "
+        f"{denominator['recall_eligible_rows']} where a correct serve is expected, "
+        f"{denominator['scorable_rows']} scorable, {denominator['unscorable_rows']} unscorable"
     )
+    if schema == "inprocess":
+        print(f"unlabelled rows: {denominator['unlabelled_policy']}")
     print(f"budget: {args.budget} wrong per 1000 rows of THIS set — not ADR-004's 4,600-query rate.\n")
     print(f"{'thresh':>7}{'served':>8}{'recall':>18}{'precision':>18}{'wrong/1000 sweepset':>20}")
     print(f"{'':>7}{'':>8}{'strict':>9}{'lenient':>9}{'strict':>9}{'lenient':>9}{'strict':>10}{'lenient':>10}")
     for entry in table:
         ps = f"{entry['precision_strict']:.1%}" if entry["precision_strict"] is not None else "—"
         pl = f"{entry['precision_lenient']:.1%}" if entry["precision_lenient"] is not None else "—"
+        rs = f"{entry['recall_strict']:.1%}" if entry["recall_strict"] is not None else "—"
+        rl = f"{entry['recall_lenient']:.1%}" if entry["recall_lenient"] is not None else "—"
         print(
             f"{entry['threshold']:>7.2f}{entry['served']:>8}"
-            f"{entry['recall_strict']:>9.1%}{entry['recall_lenient']:>9.1%}"
+            f"{rs:>9}{rl:>9}"
             f"{ps:>9}{pl:>9}"
             f"{entry['wrong_per_1000_sweepset_strict']:>10.1f}{entry['wrong_per_1000_sweepset_lenient']:>10.1f}"
         )
@@ -120,10 +217,11 @@ def main() -> None:
     within = [e for e in table if e["wrong_per_1000_sweepset_lenient"] <= args.budget]
     print()
     if within:
-        best = max(within, key=lambda e: e["recall_lenient"])
+        best = max(within, key=lambda e: e["recall_lenient"] or 0.0)
         print(
             f"  most recall inside the budget: threshold {best['threshold']:.2f} — "
-            f"recall {best['recall_lenient']:.1%} lenient / {best['recall_strict']:.1%} strict, "
+            f"recall {(best['recall_lenient'] or 0.0):.1%} lenient / "
+            f"{(best['recall_strict'] or 0.0):.1%} strict, "
             f"{best['wrong_per_1000_sweepset_lenient']:.1f} wrong per 1000 rows of this set"
         )
     else:

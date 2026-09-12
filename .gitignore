@@ -38,11 +38,27 @@ tests/__pycache__/
 
 # Benchmark datasets and results (large files)
 tests/benchmark/data/
-tests/benchmark/results/
+tests/benchmark/results/*
 tests/mega/data/
 tests/mega/data_1m/
 tests/mega/reports/
 tests/stress/*.jsonl
+
+# Artifacts that back a decision are tracked by name. The negation list is the
+# list of load-bearing artifacts: adding one is a deliberate statement that a
+# claim somewhere depends on this file. Working output stays ignored.
+#
+# Note the directory is ignored as `results/*`, not `results/`. Git does not
+# re-include a file inside an excluded directory, so negations under a `dir/`
+# rule are silently inert — which is how this went unnoticed.
+!tests/benchmark/results/accumulation_fit.json
+!tests/benchmark/results/confidence_curve_fit.json
+!tests/benchmark/results/inprocess_calibrated.json
+!tests/benchmark/results/inprocess_damp050.json
+!tests/benchmark/results/inprocess_damp100_at085.json
+!tests/benchmark/results/threshold_sweep.json
+!tests/benchmark/results/inprocess_conversations150.json
+!tests/benchmark/results/inprocess_conversations150_rows.json.gz
 
 # Backup sessions (generated at runtime)
 bitmod_backup/

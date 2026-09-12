@@ -1,0 +1,574 @@
+{
+  "harness": "in-process (_run_cache_pipeline called directly)",
+  "measures": "cache hit rate and per-layer attribution",
+  "does_not_measure": [
+    "end-to-end latency \u2014 generation is stubbed, so lookup_ms is cache cost only",
+    "token savings \u2014 the stub reports fixed token counts, nothing is tokenized"
+  ],
+  "dataset": {
+    "name": "sentence-transformers/quora-duplicates",
+    "config": "pair-class",
+    "split": "train",
+    "source": "https://datasets-server.huggingface.co/rows",
+    "duplicate_pairs": 500,
+    "non_duplicate_pairs": 500,
+    "labels": "1 = human-labelled duplicate, 0 = not a duplicate"
+  },
+  "conversation_dataset": {
+    "name": "voidful/qrecc",
+    "conversations": 100,
+    "turns": 700,
+    "context_dependent_turns": 611,
+    "answers_at_or_above_fact_floor": 479,
+    "ground_truth": "human-written self-contained Rewrite per turn"
+  },
+  "embedder": "ollama/nomic-embed-text",
+  "generation": "stubbed \u2014 returns the corpus answer for known questions, identical to the HTTP harness",
+  "serve_threshold": 0.85,
+  "timestamp": "2026-09-10T14:23:42.511656+00:00",
+  "commit": "3229d6dcf7137c7903af05c74757dc9d074e2915",
+  "duration_s": 375.8,
+  "summary": {
+    "queries": 4600,
+    "hits": 2053,
+    "hit_rate": 0.4463,
+    "by_pass": {
+      "1_cold": {
+        "total": 500,
+        "hits": 6,
+        "expected_hit": false,
+        "hit_rate": 0.012
+      },
+      "2_repeat": {
+        "total": 500,
+        "hits": 496,
+        "expected_hit": true,
+        "hit_rate": 0.992
+      },
+      "3_paraphrase": {
+        "total": 500,
+        "hits": 165,
+        "expected_hit": true,
+        "hit_rate": 0.33
+      },
+      "4_unrelated": {
+        "total": 500,
+        "hits": 1,
+        "expected_hit": false,
+        "hit_rate": 0.002
+      },
+      "5_link_traversal": {
+        "total": 500,
+        "hits": 495,
+        "expected_hit": true,
+        "hit_rate": 0.99
+      },
+      "6_conversation": {
+        "total": 700,
+        "hits": 79,
+        "expected_hit": null,
+        "hit_rate": 0.1129
+      },
+      "7_conversation_repeat": {
+        "total": 700,
+        "hits": 666,
+        "expected_hit": true,
+        "hit_rate": 0.9514
+      },
+      "8_rewrites": {
+        "total": 700,
+        "hits": 145,
+        "expected_hit": true,
+        "hit_rate": 0.2071
+      }
+    },
+    "against_labels": {
+      "labelled_queries": 3900,
+      "agreement": 0.759,
+      "false_positives": 7,
+      "false_negatives": 933,
+      "false_positive_examples": [
+        "How do I make money with YouTube?",
+        "Why are so many questions posted to Quora that are so easily answered by using Google?",
+        "When will the best time for having sex?",
+        "HOw do I speak Fluent English?",
+        "How can I hack a WhatsApp account?"
+      ]
+    },
+    "layers": {
+      "contributed": {
+        "semantic": 2422,
+        "atomic_facts": 775,
+        "similarity_link": 1655,
+        "exact": 1457,
+        "session": 1561,
+        "fuzzy": 121,
+        "composable": 2
+      },
+      "decisive": {
+        "semantic": 345,
+        "exact": 1457,
+        "similarity_link": 9,
+        "atomic_facts": 1
+      },
+      "blocked": {},
+      "served_by": {
+        "semantic": 596,
+        "exact": 1457
+      }
+    },
+    "layer_coverage": [
+      {
+        "layer": "exact",
+        "contributed": 1457,
+        "decisive": 1457,
+        "blocked": 0,
+        "served": 1457,
+        "exercised": true,
+        "queries_where_it_ran": 4600,
+        "best_similarity_seen": null,
+        "note": "answer-key match; contributes 1.0 and returns immediately"
+      },
+      {
+        "layer": "semantic",
+        "contributed": 2422,
+        "decisive": 345,
+        "blocked": 0,
+        "served": 596,
+        "exercised": true,
+        "queries_where_it_ran": 3143,
+        "best_similarity_seen": null,
+        "note": "embedding similarity, graded by _similarity_to_confidence"
+      },
+      {
+        "layer": "composable",
+        "contributed": 2,
+        "decisive": 0,
+        "blocked": 0,
+        "served": 0,
+        "exercised": true,
+        "queries_where_it_ran": 3143,
+        "best_similarity_seen": null,
+        "note": "fires only on comparison phrasing \u2014 decompose_query is a regex over compare/vs/versus/differences between, so questions with separable parts that do not use those words are never decomposed (see BACKLOG item 7)"
+      },
+      {
+        "layer": "fuzzy",
+        "contributed": 121,
+        "decisive": 0,
+        "blocked": 0,
+        "served": 0,
+        "exercised": true,
+        "queries_where_it_ran": 3143,
+        "best_similarity_seen": 1.0,
+        "note": "token overlap or edit distance, graded by measured similarity"
+      },
+      {
+        "layer": "similarity_link",
+        "contributed": 1655,
+        "decisive": 9,
+        "blocked": 0,
+        "served": 0,
+        "exercised": true,
+        "queries_where_it_ran": 3143,
+        "best_similarity_seen": null,
+        "note": "traverses links learned from semantic near-misses in the link_learn_min..link_learn_max band; needs a query to be revisited after the link exists, so a single pass over distinct queries cannot reach it"
+      },
+      {
+        "layer": "atomic_facts",
+        "contributed": 775,
+        "decisive": 1,
+        "blocked": 0,
+        "served": 0,
+        "exercised": true,
+        "queries_where_it_ran": 3143,
+        "best_similarity_seen": null,
+        "note": "embedding search over facts extracted from cached ANSWER text, not from ingested documents; needs answers of at least fact_min_answer_length (100) chars whose sentences survive a 30-char floor"
+      },
+      {
+        "layer": "session",
+        "contributed": 1561,
+        "decisive": 0,
+        "blocked": 0,
+        "served": 0,
+        "exercised": true,
+        "queries_where_it_ran": 3143,
+        "best_similarity_seen": null,
+        "note": "contributes 0.0 by design. The Batch 2 rewrite removed the flat +0.25 and made this layer resolve the query against history rather than vote on it, so it is carried as context for a miss. It will always read contributed N, decisive 0, and that is the layer working correctly"
+      },
+      {
+        "layer": "serve_verify",
+        "contributed": 0,
+        "decisive": 0,
+        "blocked": 0,
+        "served": 0,
+        "exercised": false,
+        "queries_where_it_ran": 0,
+        "best_similarity_seen": null,
+        "note": "penalty, not a match \u2014 subtracts confidence when a served candidate fails source verification, so it appears under 'blocked', never 'decisive'"
+      },
+      {
+        "layer": "promotion_verify",
+        "contributed": 0,
+        "decisive": 0,
+        "blocked": 0,
+        "served": 0,
+        "exercised": false,
+        "queries_where_it_ran": 0,
+        "best_similarity_seen": null,
+        "note": "penalty, and off by default (promotion_config.enabled); silent unless LLM promotion verification is switched on"
+      }
+    ],
+    "threshold_sweep": [
+      {
+        "threshold": 0.5,
+        "recall": 0.852,
+        "precision": 0.8272,
+        "hit_rate": 0.515,
+        "false_positives": 89
+      },
+      {
+        "threshold": 0.51,
+        "recall": 0.848,
+        "precision": 0.8429,
+        "hit_rate": 0.503,
+        "false_positives": 79
+      },
+      {
+        "threshold": 0.52,
+        "recall": 0.842,
+        "precision": 0.8557,
+        "hit_rate": 0.492,
+        "false_positives": 71
+      },
+      {
+        "threshold": 0.53,
+        "recall": 0.838,
+        "precision": 0.8604,
+        "hit_rate": 0.487,
+        "false_positives": 68
+      },
+      {
+        "threshold": 0.54,
+        "recall": 0.826,
+        "precision": 0.8769,
+        "hit_rate": 0.471,
+        "false_positives": 58
+      },
+      {
+        "threshold": 0.55,
+        "recall": 0.822,
+        "precision": 0.9013,
+        "hit_rate": 0.456,
+        "false_positives": 45
+      },
+      {
+        "threshold": 0.56,
+        "recall": 0.814,
+        "precision": 0.9105,
+        "hit_rate": 0.447,
+        "false_positives": 40
+      },
+      {
+        "threshold": 0.57,
+        "recall": 0.8,
+        "precision": 0.9281,
+        "hit_rate": 0.431,
+        "false_positives": 31
+      },
+      {
+        "threshold": 0.58,
+        "recall": 0.792,
+        "precision": 0.9384,
+        "hit_rate": 0.422,
+        "false_positives": 26
+      },
+      {
+        "threshold": 0.59,
+        "recall": 0.78,
+        "precision": 0.9489,
+        "hit_rate": 0.411,
+        "false_positives": 21
+      },
+      {
+        "threshold": 0.6,
+        "recall": 0.764,
+        "precision": 0.9574,
+        "hit_rate": 0.399,
+        "false_positives": 17
+      },
+      {
+        "threshold": 0.61,
+        "recall": 0.758,
+        "precision": 0.9619,
+        "hit_rate": 0.394,
+        "false_positives": 15
+      },
+      {
+        "threshold": 0.62,
+        "recall": 0.752,
+        "precision": 0.9616,
+        "hit_rate": 0.391,
+        "false_positives": 15
+      },
+      {
+        "threshold": 0.63,
+        "recall": 0.746,
+        "precision": 0.9613,
+        "hit_rate": 0.388,
+        "false_positives": 15
+      },
+      {
+        "threshold": 0.64,
+        "recall": 0.74,
+        "precision": 0.9635,
+        "hit_rate": 0.384,
+        "false_positives": 14
+      },
+      {
+        "threshold": 0.65,
+        "recall": 0.72,
+        "precision": 0.9626,
+        "hit_rate": 0.374,
+        "false_positives": 14
+      },
+      {
+        "threshold": 0.66,
+        "recall": 0.714,
+        "precision": 0.9675,
+        "hit_rate": 0.369,
+        "false_positives": 12
+      },
+      {
+        "threshold": 0.67,
+        "recall": 0.7,
+        "precision": 0.9669,
+        "hit_rate": 0.362,
+        "false_positives": 12
+      },
+      {
+        "threshold": 0.68,
+        "recall": 0.68,
+        "precision": 0.9687,
+        "hit_rate": 0.351,
+        "false_positives": 11
+      },
+      {
+        "threshold": 0.69,
+        "recall": 0.662,
+        "precision": 0.9707,
+        "hit_rate": 0.341,
+        "false_positives": 10
+      },
+      {
+        "threshold": 0.7,
+        "recall": 0.654,
+        "precision": 0.9761,
+        "hit_rate": 0.335,
+        "false_positives": 8
+      },
+      {
+        "threshold": 0.71,
+        "recall": 0.632,
+        "precision": 0.9783,
+        "hit_rate": 0.323,
+        "false_positives": 7
+      },
+      {
+        "threshold": 0.72,
+        "recall": 0.63,
+        "precision": 0.9783,
+        "hit_rate": 0.322,
+        "false_positives": 7
+      },
+      {
+        "threshold": 0.73,
+        "recall": 0.618,
+        "precision": 0.9778,
+        "hit_rate": 0.316,
+        "false_positives": 7
+      },
+      {
+        "threshold": 0.74,
+        "recall": 0.596,
+        "precision": 0.9803,
+        "hit_rate": 0.304,
+        "false_positives": 6
+      },
+      {
+        "threshold": 0.75,
+        "recall": 0.572,
+        "precision": 0.9828,
+        "hit_rate": 0.291,
+        "false_positives": 5
+      },
+      {
+        "threshold": 0.76,
+        "recall": 0.554,
+        "precision": 0.9858,
+        "hit_rate": 0.281,
+        "false_positives": 4
+      },
+      {
+        "threshold": 0.77,
+        "recall": 0.528,
+        "precision": 0.9962,
+        "hit_rate": 0.265,
+        "false_positives": 1
+      },
+      {
+        "threshold": 0.78,
+        "recall": 0.506,
+        "precision": 0.9961,
+        "hit_rate": 0.254,
+        "false_positives": 1
+      },
+      {
+        "threshold": 0.79,
+        "recall": 0.49,
+        "precision": 0.9959,
+        "hit_rate": 0.246,
+        "false_positives": 1
+      },
+      {
+        "threshold": 0.8,
+        "recall": 0.458,
+        "precision": 0.9957,
+        "hit_rate": 0.23,
+        "false_positives": 1
+      },
+      {
+        "threshold": 0.81,
+        "recall": 0.44,
+        "precision": 0.9955,
+        "hit_rate": 0.221,
+        "false_positives": 1
+      },
+      {
+        "threshold": 0.82,
+        "recall": 0.42,
+        "precision": 0.9953,
+        "hit_rate": 0.211,
+        "false_positives": 1
+      },
+      {
+        "threshold": 0.83,
+        "recall": 0.39,
+        "precision": 0.9949,
+        "hit_rate": 0.196,
+        "false_positives": 1
+      },
+      {
+        "threshold": 0.84,
+        "recall": 0.36,
+        "precision": 0.9945,
+        "hit_rate": 0.181,
+        "false_positives": 1
+      },
+      {
+        "threshold": 0.85,
+        "recall": 0.334,
+        "precision": 0.994,
+        "hit_rate": 0.168,
+        "false_positives": 1
+      },
+      {
+        "threshold": 0.86,
+        "recall": 0.314,
+        "precision": 0.9937,
+        "hit_rate": 0.158,
+        "false_positives": 1
+      },
+      {
+        "threshold": 0.87,
+        "recall": 0.278,
+        "precision": 0.9929,
+        "hit_rate": 0.14,
+        "false_positives": 1
+      },
+      {
+        "threshold": 0.88,
+        "recall": 0.248,
+        "precision": 0.992,
+        "hit_rate": 0.125,
+        "false_positives": 1
+      },
+      {
+        "threshold": 0.89,
+        "recall": 0.202,
+        "precision": 0.9902,
+        "hit_rate": 0.102,
+        "false_positives": 1
+      },
+      {
+        "threshold": 0.9,
+        "recall": 0.178,
+        "precision": 0.9889,
+        "hit_rate": 0.09,
+        "false_positives": 1
+      },
+      {
+        "threshold": 0.91,
+        "recall": 0.142,
+        "precision": 1.0,
+        "hit_rate": 0.071,
+        "false_positives": 0
+      },
+      {
+        "threshold": 0.92,
+        "recall": 0.11,
+        "precision": 1.0,
+        "hit_rate": 0.055,
+        "false_positives": 0
+      },
+      {
+        "threshold": 0.93,
+        "recall": 0.07,
+        "precision": 1.0,
+        "hit_rate": 0.035,
+        "false_positives": 0
+      },
+      {
+        "threshold": 0.94,
+        "recall": 0.038,
+        "precision": 1.0,
+        "hit_rate": 0.019,
+        "false_positives": 0
+      },
+      {
+        "threshold": 0.95,
+        "recall": 0.028,
+        "precision": 1.0,
+        "hit_rate": 0.014,
+        "false_positives": 0
+      },
+      {
+        "threshold": 0.96,
+        "recall": 0.028,
+        "precision": 1.0,
+        "hit_rate": 0.014,
+        "false_positives": 0
+      },
+      {
+        "threshold": 0.97,
+        "recall": 0.028,
+        "precision": 1.0,
+        "hit_rate": 0.014,
+        "false_positives": 0
+      },
+      {
+        "threshold": 0.98,
+        "recall": 0.028,
+        "precision": 1.0,
+        "hit_rate": 0.014,
+        "false_positives": 0
+      },
+      {
+        "threshold": 0.99,
+        "recall": 0.028,
+        "precision": 1.0,
+        "hit_rate": 0.014,
+        "false_positives": 0
+      }
+    ]
+  }
+}

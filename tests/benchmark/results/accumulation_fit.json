@@ -1,0 +1,158 @@
+{
+  "provenance": {
+    "commit": "3229d6dcf7137c7903af05c74757dc9d074e2915",
+    "tree_sha256": "92832f0b4a36997b",
+    "dirty": true,
+    "untracked_files": 12
+  },
+  "rows": "/private/tmp/claude-501/-Users-deepanjaynandal-Documents-MyFiles-vsCodeFiles-BITMOD/9159eb97-fac0-45ef-816d-b9f19979ddb1/scratchpad/recall_rows_with_guard.json",
+  "a": 3.8642,
+  "b": -1.8921,
+  "held_out": {
+    "n": 300,
+    "raw": {
+      "brier": 0.1487,
+      "log_loss": 1.6082
+    },
+    "reliability_raw": [
+      {
+        "bin": "0.0-0.1",
+        "n": 102,
+        "predicted": 0.0,
+        "observed": 0.1275
+      },
+      {
+        "bin": "0.2-0.3",
+        "n": 5,
+        "predicted": 0.2775,
+        "observed": 0.4
+      },
+      {
+        "bin": "0.3-0.4",
+        "n": 22,
+        "predicted": 0.3381,
+        "observed": 0.2727
+      },
+      {
+        "bin": "0.4-0.5",
+        "n": 17,
+        "predicted": 0.4449,
+        "observed": 0.4118
+      },
+      {
+        "bin": "0.5-0.6",
+        "n": 16,
+        "predicted": 0.5532,
+        "observed": 0.8125
+      },
+      {
+        "bin": "0.6-0.7",
+        "n": 18,
+        "predicted": 0.6582,
+        "observed": 0.6111
+      },
+      {
+        "bin": "0.7-0.8",
+        "n": 22,
+        "predicted": 0.751,
+        "observed": 0.8182
+      },
+      {
+        "bin": "0.8-0.9",
+        "n": 30,
+        "predicted": 0.8499,
+        "observed": 0.8
+      },
+      {
+        "bin": "0.9-1.0",
+        "n": 68,
+        "predicted": 0.9637,
+        "observed": 0.9118
+      }
+    ],
+    "fitted": {
+      "brier": 0.1428,
+      "log_loss": 0.454
+    },
+    "reliability_fitted": [
+      {
+        "bin": "0.1-0.2",
+        "n": 102,
+        "predicted": 0.131,
+        "observed": 0.1275
+      },
+      {
+        "bin": "0.2-0.3",
+        "n": 2,
+        "predicted": 0.2887,
+        "observed": 0.5
+      },
+      {
+        "bin": "0.3-0.4",
+        "n": 24,
+        "predicted": 0.3509,
+        "observed": 0.2917
+      },
+      {
+        "bin": "0.4-0.5",
+        "n": 17,
+        "predicted": 0.4513,
+        "observed": 0.3529
+      },
+      {
+        "bin": "0.5-0.6",
+        "n": 16,
+        "predicted": 0.5548,
+        "observed": 0.8125
+      },
+      {
+        "bin": "0.6-0.7",
+        "n": 19,
+        "predicted": 0.6539,
+        "observed": 0.6316
+      },
+      {
+        "bin": "0.7-0.8",
+        "n": 35,
+        "predicted": 0.752,
+        "observed": 0.8571
+      },
+      {
+        "bin": "0.8-0.9",
+        "n": 85,
+        "predicted": 0.8515,
+        "observed": 0.8706
+      }
+    ]
+  },
+  "overstatement": [
+    {
+      "contributing_layers": 0,
+      "n": 354,
+      "mean_claimed": 0.0,
+      "observed_rate": 0.1243,
+      "overstatement": -0.1243
+    },
+    {
+      "contributing_layers": 1,
+      "n": 503,
+      "mean_claimed": 0.6759,
+      "observed_rate": 0.6819,
+      "overstatement": -0.006
+    },
+    {
+      "contributing_layers": 2,
+      "n": 138,
+      "mean_claimed": 0.923,
+      "observed_rate": 0.7971,
+      "overstatement": 0.1258
+    },
+    {
+      "contributing_layers": 3,
+      "n": 5,
+      "mean_claimed": 0.9857,
+      "observed_rate": 0.6,
+      "overstatement": 0.3857
+    }
+  ]
+}

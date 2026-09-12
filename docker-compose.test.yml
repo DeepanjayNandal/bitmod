@@ -8,10 +8,18 @@
 #   DATABASE_URL=postgresql://bitmod:bitmod@localhost:5433/bitmod_test \
 #   BITMOD_TEST_MYSQL=1 \
 #   MYSQL_URL=mysql+pymysql://bitmod:bitmod@localhost:3307/bitmod_test \
+#   BITMOD_TEST_MONGO=1 \
+#   MONGO_URL=mongodb://localhost:27018/bitmod_test \
 #   pytest tests/ -q
 #
-# Ports are offset (5433/3307) so these never collide with a local
-# postgres/mysql or with the services in docker-compose.yml.
+# Ports are offset (5433/3307/27018) so these never collide with a local
+# postgres/mysql/mongo or with the services in docker-compose.yml.
+#
+# Mongo was absent from this file until the conversation_id work. Its adapter
+# tests mock pymongo entirely (tests/test_adapters_expanded.py:862), so they
+# pass against an adapter that never writes namespace_id — which is how four
+# fields stayed missing on this backend after 7a16597 fixed them on the other
+# two. A backend with no real engine in the harness cannot be audited by one.
 
 services:
   test-postgres:
@@ -48,6 +56,20 @@ services:
       - /var/lib/mysql
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -ubitmod -pbitmod --silent"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+
+  test-mongo:
+    image: mongo:7
+    container_name: bitmod-test-mongo
+    ports:
+      - "27018:27017"
+    tmpfs:
+      # Ephemeral storage — test data should never survive a restart.
+      - /data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ping:1}).ok' | grep -q 1"]
       interval: 3s
       timeout: 5s
       retries: 40

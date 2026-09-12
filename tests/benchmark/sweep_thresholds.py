@@ -101,12 +101,26 @@ def load_inprocess(path: Path, unlabelled: str) -> list[dict]:
     return rows
 
 
+# The decision lives between 0.80 and 0.95, and a 0.05 grid cannot resolve it.
+# At damping 0.5 the wrong-answer rate jumps from 7.0 to 19.0 per 1000 between
+# 0.90 and 0.85, so every budget from 8 to 18 selects 0.90 — not because the
+# answer is stable across that range but because the grid has no point inside
+# it. Flatness that comes from missing points reads exactly like flatness that
+# comes from the data. Coarse outside the region, 0.01 inside it.
+FINE_FROM, FINE_TO = 80, 95
+
+
+def thresholds(coarse_step: int = 5) -> list[float]:
+    coarse = [value / 100 for value in range(30, FINE_FROM, coarse_step)]
+    fine = [value / 100 for value in range(FINE_FROM, FINE_TO + 1)]
+    return coarse + fine
+
+
 def sweep(rows: list[dict], step: int = 5) -> list[dict]:
     total = len(rows)
     duplicates = sum(1 for r in rows if r["duplicate"])
     out = []
-    for value in range(30, 100, step):
-        threshold = value / 100
+    for threshold in thresholds(step):
         served = [r for r in rows if r["confidence"] >= threshold]
         # Only scorable serves can be right or wrong. An unlabelled row that
         # serves is neither, so it stays in the denominator without being

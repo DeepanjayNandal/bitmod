@@ -82,7 +82,25 @@ class Recorder:
     def __init__(self):
         self.rows: list[dict] = []
 
-    def add(self, pass_name: str, query: str, result, expected_hit: bool | None) -> None:
+    def add(
+        self,
+        pass_name: str,
+        query: str,
+        result,
+        expected_hit: bool | None,
+        expected_answers: list[str] | None = None,
+    ) -> None:
+        """`expected_answers` is a SET of acceptable answers, not one answer.
+
+        One element is the normal case and it is tempting to read the field as
+        singular, but it is not. Empty means no serve is correct — nothing
+        relevant is cached yet, or the pair is labelled not-a-duplicate.
+        5_link_traversal is the multi-element case: the query can reach its
+        partner's entry by traversal or the entry stored for itself in pass 3,
+        and both are answers to a labelled duplicate. Code that assumes one
+        element is correct everywhere except there, where it silently undercounts
+        strict recall for a reason that has nothing to do with the cache.
+        """
         evidence = getattr(result, "evidence", None)
         contributions = []
         if evidence is not None:
@@ -94,10 +112,16 @@ class Recorder:
                         "is_partial": bool(getattr(item, "is_partial", False)),
                     }
                 )
-        served_by = ""
-        if result.hit and evidence is not None and hasattr(evidence, "best_single_answer"):
-            best = evidence.best_single_answer()
-            served_by = best.layer if best else ""
+        # The strongest candidate is recorded whether or not it served. A
+        # threshold sweep asks what would have happened at a threshold lower
+        # than the one this run used, and that is unanswerable from the served
+        # text alone: rows that missed here would serve there, and nothing would
+        # record what they served. recall_rows_with_guard.json has exactly this
+        # gap and cannot be swept because of it.
+        best_evidence = None
+        if evidence is not None and hasattr(evidence, "best_single_answer"):
+            best_evidence = evidence.best_single_answer()
+        served_by = (best_evidence.layer if best_evidence else "") if result.hit else ""
         if result.hit and not served_by:
             for step in result.trace or []:
                 if step.get("action") in ("HIT", "FULL_HIT"):
@@ -124,6 +148,9 @@ class Recorder:
                 "hit": bool(result.hit),
                 "expected_hit": expected_hit,
                 "served_by": served_by,
+                "served_text": (result.answer_text or "") if result.hit else "",
+                "best_candidate": (best_evidence.answer_text or "") if best_evidence else "",
+                "expected_answers": list(expected_answers or []),
                 "total_confidence": round(getattr(evidence, "total_confidence", 0.0), 4),
                 "contributions": contributions,
                 "lookup_ms": round(result.elapsed_ms, 2),
@@ -134,11 +161,12 @@ class Recorder:
 
 
 def run_pass(proxy, recorder, name, queries, expected_hit, serve_threshold, echo_every=200):
+    """`queries` is (query, expected_answers) pairs — see the call sites in main."""
     print(f"  pass {name}: {len(queries)} queries", flush=True)
-    for index, query in enumerate(queries, 1):
+    for index, (query, expected_answers) in enumerate(queries, 1):
         messages = [{"role": "user", "content": query}]
         result = proxy._run_cache_pipeline(query, messages)
-        recorder.add(name, query, result, expected_hit)
+        recorder.add(name, query, result, expected_hit, expected_answers)
         if not result.hit:
             # Cache the stubbed answer so later passes have something to match.
             proxy._store_response(
@@ -186,7 +214,7 @@ def run_conversation_pass(proxy, recorder, name, conversations, expected_hit, us
             asked = turn.rewrite if use_rewrites else turn.question
             messages.append({"role": "user", "content": asked})
             result = proxy._run_cache_pipeline(asked, list(messages), conversation_id=cid)
-            recorder.add(name, asked, result, expected_hit)
+            recorder.add(name, asked, result, expected_hit, [turn.answer])
             if not result.hit:
                 proxy._store_response(
                     user_message=asked,
@@ -528,17 +556,51 @@ def main() -> None:
     proxy._embedder = OllamaEmbeddingAdapter(model=args.embed_model)
 
     recorder = Recorder()
+
+    # Snapshotted before the run, not at write time. Python imports at launch,
+    # so a run spanning a commit executes the tree as it was when it started;
+    # capturing afterwards records a tree that never ran. The tuning constants
+    # go with it — a row set whose damping is unknown cannot be re-derived from,
+    # and every row set predating this records only the two thresholds.
+    cfg = _get_config()
+    run_config = {
+        "accumulation_damping": cfg.accumulation_damping,
+        "calibrated_confidence": cfg.calibrated_confidence,
+        "serve_threshold": cfg.serve_threshold,
+        "search_threshold": cfg.search_threshold,
+        "entity_guard_enabled": cfg.entity_guard_enabled,
+        "fact_min_similarity": cfg.fact_min_similarity,
+    }
+    provenance_info = provenance()
     started = time.time()
 
-    run_pass(proxy, recorder, "1_cold", [a for a, _ in duplicates], False, serve_threshold)
-    run_pass(proxy, recorder, "2_repeat", [a for a, _ in duplicates], True, serve_threshold)
-    run_pass(proxy, recorder, "3_paraphrase", [b for _, b in duplicates], True, serve_threshold)
-    run_pass(proxy, recorder, "4_unrelated", [b for _, b in non_duplicates], False, serve_threshold)
+    # Each pass carries the answers that would be correct for it, so strict
+    # recall is computable later without guessing. Empty means no serve is
+    # correct: nothing relevant is cached yet (1_cold) or the pair is labelled
+    # not-a-duplicate (4_unrelated).
+    run_pass(proxy, recorder, "1_cold", [(a, []) for a, _ in duplicates], False, serve_threshold)
+    run_pass(proxy, recorder, "2_repeat", [(a, [canned_answer(a)]) for a, _ in duplicates], True, serve_threshold)
+    run_pass(proxy, recorder, "3_paraphrase", [(b, [canned_answer(a)]) for a, b in duplicates], True, serve_threshold)
+    run_pass(proxy, recorder, "4_unrelated", [(b, []) for _, b in non_duplicates], False, serve_threshold)
 
     # Pass 3 learned similarity links from its near-misses. Traversal can only
     # be reached by asking again once those links exist, which no single pass
     # over distinct queries can do.
-    run_pass(proxy, recorder, "5_link_traversal", [b for _, b in duplicates], True, serve_threshold)
+    #
+    # Two answers are acceptable here and the ambiguity is recorded rather than
+    # resolved: b reaches a's entry by traversal, but where pass 3 missed, b was
+    # stored under its own answer and pass 5 exact-matches that instead. Both
+    # are answers to a labelled duplicate. Collapsing them to one would
+    # undercount strict recall for reasons that have nothing to do with the
+    # cache.
+    run_pass(
+        proxy,
+        recorder,
+        "5_link_traversal",
+        [(b, [canned_answer(a), canned_answer(b)]) for a, b in duplicates],
+        True,
+        serve_threshold,
+    )
 
     # Conversations: session resolution, and the real answers that atomic-fact
     # extraction needs. Expected outcome is left unlabelled — a follow-up that
@@ -548,7 +610,6 @@ def main() -> None:
     run_conversation_pass(proxy, recorder, "8_rewrites", conversations, True, use_rewrites=True)
 
     elapsed = time.time() - started
-    provenance_info = provenance()
 
     report = {
         "harness": "in-process (_run_cache_pipeline called directly)",
@@ -577,6 +638,7 @@ def main() -> None:
         "embedder": f"ollama/{args.embed_model}",
         "generation": "stubbed — returns the corpus answer for known questions, identical to the HTTP harness",
         "serve_threshold": serve_threshold,
+        "run_config": run_config,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "provenance": provenance_info,
         "duration_s": round(elapsed, 1),
@@ -588,7 +650,12 @@ def main() -> None:
     out_path = Path(args.out) if args.out else RESULTS_DIR / f"inprocess_{stamp}.json"
     out_path.write_text(json.dumps(report, indent=2))
     if args.rows_out:
-        Path(args.rows_out).write_text(json.dumps({"rows": recorder.rows}, indent=0))
+        Path(args.rows_out).write_text(
+            json.dumps(
+                {"run_config": run_config, "provenance": provenance_info, "rows": recorder.rows},
+                indent=0,
+            )
+        )
         print(f"  {len(recorder.rows)} rows written to {args.rows_out}", flush=True)
     _clear_scratch_db(db_path)
 

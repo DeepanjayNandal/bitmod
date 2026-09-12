@@ -89,6 +89,9 @@ class Recorder:
         result,
         expected_hit: bool | None,
         expected_answers: list[str] | None = None,
+        conversation_id: str = "",
+        turn_index: int = 0,
+        history_len: int = 0,
     ) -> None:
         """`expected_answers` is a SET of acceptable answers, not one answer.
 
@@ -118,6 +121,14 @@ class Recorder:
         # text alone: rows that missed here would serve there, and nothing would
         # record what they served. recall_rows_with_guard.json has exactly this
         # gap and cannot be swept because of it.
+        # Whether session resolution rewrote the query or bailed, not merely
+        # that it ran. Only REWRITTEN bypasses the qualification gate
+        # (proxy/base.py:480), so without the action the bypass rate is
+        # unmeasurable — mechanisms_run records the step, not its outcome.
+        session_resolution = next(
+            (s.get("action", "") for s in (result.trace or []) if s.get("mechanism") == "session_resolve"), ""
+        )
+
         best_evidence = None
         if evidence is not None and hasattr(evidence, "best_single_answer"):
             best_evidence = evidence.best_single_answer()
@@ -145,6 +156,15 @@ class Recorder:
             {
                 "pass": pass_name,
                 "query": query[:160],
+                # Conversation identity and position. filters["_context"] is a
+                # hash of the history prefix, so it is empty on turn 1 and
+                # changes every turn — turn_index and history_len are what make
+                # a cross-conversation collision distinguishable from a correct
+                # re-hit after the fact.
+                "conversation_id": conversation_id,
+                "turn_index": turn_index,
+                "history_len": history_len,
+                "session_resolution": session_resolution,
                 "hit": bool(result.hit),
                 "expected_hit": expected_hit,
                 "served_by": served_by,
@@ -210,11 +230,22 @@ def run_conversation_pass(proxy, recorder, name, conversations, expected_hit, us
         # X-Bitmod-Conversation-Id would take rather than the fallback.
         cid = f"bench-conv-{conversation.conversation_no}"
         messages: list[dict] = []
-        for turn in conversation.turns:
+        for turn_index, turn in enumerate(conversation.turns, 1):
             asked = turn.rewrite if use_rewrites else turn.question
             messages.append({"role": "user", "content": asked})
+            # history is messages_for_context[:-1] at proxy/base.py:445, so the
+            # prefix the _context hash is computed over is len(messages) - 1.
             result = proxy._run_cache_pipeline(asked, list(messages), conversation_id=cid)
-            recorder.add(name, asked, result, expected_hit, [turn.answer])
+            recorder.add(
+                name,
+                asked,
+                result,
+                expected_hit,
+                [turn.answer],
+                conversation_id=cid,
+                turn_index=turn_index,
+                history_len=len(messages) - 1,
+            )
             if not result.hit:
                 proxy._store_response(
                     user_message=asked,

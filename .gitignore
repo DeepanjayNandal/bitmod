@@ -48,6 +48,13 @@ tests/stress/*.jsonl
 # list of load-bearing artifacts: adding one is a deliberate statement that a
 # claim somewhere depends on this file. Working output stays ignored.
 #
+# REMOVAL RULE, which is not the mirror of the addition rule: an artifact leaves
+# this list when nothing cites it, NOT when it stops being current. Superseded
+# and uncited are different conditions. inprocess_conversations150_rows.json.gz
+# was dropped because nothing referenced it; inprocess_baseline_damp050* is
+# superseded and stays, because two classification artifacts index into it.
+# Check what cites a file before removing it, not whether a newer one exists.
+#
 # Note the directory is ignored as `results/*`, not `results/`. Git does not
 # re-include a file inside an excluded directory, so negations under a `dir/`
 # rule are silently inert — which is how this went unnoticed.
@@ -60,9 +67,18 @@ tests/stress/*.jsonl
 !tests/benchmark/results/inprocess_conversations150.json
 # Its row dump is deliberately NOT tracked. The 150-conversation run is a
 # stability data point and that claim lives in its report; nothing is expected to
-# re-derive from its rows. One row dump in the repo, and it is the baseline's.
+# re-derive from its rows. Row dumps are a deliberate act, not a per-run default.
+#
+# Two baseline row dumps are tracked, and that is intentional.
+# inprocess_baseline_damp050* is superseded by inprocess_baseline_session_fields*
+# but stays, because disagreement_classification.json and
+# gate_candidate_classification.json both reference rows BY INDEX into
+# inprocess_baseline_damp050_rows.json.gz. It is not dead weight. See the
+# removal rule above.
 !tests/benchmark/results/inprocess_baseline_damp050.json
 !tests/benchmark/results/inprocess_baseline_damp050_rows.json.gz
+!tests/benchmark/results/inprocess_baseline_session_fields.json
+!tests/benchmark/results/inprocess_baseline_session_fields_rows.json.gz
 !tests/benchmark/results/disagreement_classification.json
 !tests/benchmark/results/gate_candidate_classification.json
 

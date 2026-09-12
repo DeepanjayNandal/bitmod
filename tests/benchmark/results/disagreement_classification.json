@@ -1,0 +1,1375 @@
+{
+  "what_this_is": "Hand classification of the rows where the strict and lenient recall bounds disagree at serve_threshold 0.75, on the 4,600-query baseline. A disagreement is a row where a correct serve was expected, the cache served, and what it served is not among the answers recorded as acceptable. Lenient counts every such row correct; strict counts every one wrong. This measures which is closer to the truth. It replaces the 19-of-33 figure in tests/benchmark/sweep_thresholds.py, which described the quora mechanism only.",
+  "READ_THE_STRATA_NOT_THE_AVERAGE": "The stratification is the finding. Quora-pass disagreements are 81-100% substantively correct; conversation-pass disagreements are 5-10% correct. A single pooled rate hides a tenfold spread and would be misleading for either population. 85% of the disagreement population is conversation-pass, so the pooled figure is dominated by the stratum the superseded 19-of-33 figure never described.",
+  "strata": [
+    {
+      "pass": "2_repeat",
+      "population": 7,
+      "classified": 7,
+      "census": true,
+      "correct": 7,
+      "wrong": 0,
+      "rate_correct": 1.0
+    },
+    {
+      "pass": "3_paraphrase",
+      "population": 31,
+      "classified": 31,
+      "census": true,
+      "correct": 25,
+      "wrong": 6,
+      "rate_correct": 0.8065
+    },
+    {
+      "pass": "5_link_traversal",
+      "population": 17,
+      "classified": 17,
+      "census": true,
+      "correct": 15,
+      "wrong": 2,
+      "rate_correct": 0.8824
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "population": 88,
+      "classified": 20,
+      "census": false,
+      "correct": 1,
+      "wrong": 19,
+      "rate_correct": 0.05
+    },
+    {
+      "pass": "8_rewrites",
+      "population": 230,
+      "classified": 20,
+      "census": false,
+      "correct": 2,
+      "wrong": 18,
+      "rate_correct": 0.1
+    }
+  ],
+  "population_weighted_estimate": {
+    "disagreements_total": 373,
+    "estimated_rate_correct": 0.1995,
+    "reading": "Roughly a fifth of disagreements are substantively correct, so the truth sits close to the strict bound, not the lenient one. sweep_thresholds.py previously asserted the opposite."
+  },
+  "criterion": "A served answer is substantively CORRECT if a user who asked that query would be correctly and sufficiently answered by it: it conveys the same substantive claim as at least one expected answer (wording may differ freely), or it independently answers the query's actual question correctly. It is WRONG if it answers a different question; names a different entity, jurisdiction, product or subject; contradicts an expected answer; or addresses a related-but-distinct topic such that the user would be misinformed. BORDERLINE RESOLVES TO WRONG, which biases the estimate toward the strict bound - the conservative direction for a decision about loosening a threshold. This criterion was stated in full before any row was read.",
+  "annotation": {
+    "annotators": 1,
+    "who": "single annotator, the assistant; no second pass, no adjudication",
+    "standing": "This is judgement, not measurement. It has the same standing as the 18-24% Quora label-noise estimate: a considered human read, reproducible in method but not in verdict. Disagreement on individual rows is expected; the tenfold gap between strata is far larger than plausible annotator noise."
+  },
+  "method": {
+    "rows_file": "tests/benchmark/results/inprocess_baseline_damp050_rows.json.gz",
+    "threshold": 0.75,
+    "seed": 20260912,
+    "sampling": "Census of all 55 quora-pass disagreements. Random sample of 20 from each conversation pass (populations 88 and 230) using random.seed(20260912) after the census rows were partitioned out.",
+    "denominators": {
+      "recall_eligible_rows": 2900,
+      "total_rows": 4600
+    },
+    "the_census_is_partial_by_choice": "The conversation strata rest on 20 of 88 and 20 of 230. At rates of 5% and 10% those give roughly +/-5 and +/-7 points at 95%, propagating to about +/-5 points on the weighted estimate. That is why this file says 'roughly a fifth' rather than quoting a decimal, and the decimal should not be quoted without widening the census first. It was not widened because the conclusion - truth near the strict bound, not the lenient one - is an order of magnitude clear of the interval: the alternative it displaces was 58%. Tightening it would sharpen a number no decision turns on. TO WIDEN: the rows are committed in inprocess_baseline_damp050_rows.json.gz, so classifying the remaining 68 rows of 7_conversation_repeat and any of the 210 unclassified rows of 8_rewrites is reading, not re-running. Re-derive the disagreement set at threshold 0.75 and extend the classification tables."
+  },
+  "adjusted_bound": {
+    "definition": "strict, plus each stratum's classified correct share of its disagreements. Not a measurement - it propagates a judgement through the arithmetic.",
+    "table": [
+      {
+        "threshold": 0.7,
+        "recall_strict": 0.7276,
+        "recall_adjusted": 0.7584,
+        "recall_lenient": 0.8879,
+        "wrong_per_1000_strict": 110.4,
+        "wrong_per_1000_adjusted": 91.0,
+        "wrong_per_1000_lenient": 9.3
+      },
+      {
+        "threshold": 0.75,
+        "recall_strict": 0.7072,
+        "recall_adjusted": 0.7329,
+        "recall_lenient": 0.8359,
+        "wrong_per_1000_strict": 86.7,
+        "wrong_per_1000_adjusted": 70.6,
+        "wrong_per_1000_lenient": 5.7
+      },
+      {
+        "threshold": 0.8,
+        "recall_strict": 0.679,
+        "recall_adjusted": 0.701,
+        "recall_lenient": 0.7834,
+        "wrong_per_1000_strict": 69.3,
+        "wrong_per_1000_adjusted": 55.5,
+        "wrong_per_1000_lenient": 3.5
+      },
+      {
+        "threshold": 0.82,
+        "recall_strict": 0.67,
+        "recall_adjusted": 0.6907,
+        "recall_lenient": 0.7662,
+        "wrong_per_1000_strict": 63.9,
+        "wrong_per_1000_adjusted": 50.9,
+        "wrong_per_1000_lenient": 3.3
+      },
+      {
+        "threshold": 0.84,
+        "recall_strict": 0.6559,
+        "recall_adjusted": 0.6745,
+        "recall_lenient": 0.7407,
+        "wrong_per_1000_strict": 55.7,
+        "wrong_per_1000_adjusted": 43.9,
+        "wrong_per_1000_lenient": 2.2
+      },
+      {
+        "threshold": 0.85,
+        "recall_strict": 0.649,
+        "recall_adjusted": 0.6664,
+        "recall_lenient": 0.7245,
+        "wrong_per_1000_strict": 49.6,
+        "wrong_per_1000_adjusted": 38.6,
+        "wrong_per_1000_lenient": 2.0
+      },
+      {
+        "threshold": 0.88,
+        "recall_strict": 0.6162,
+        "recall_adjusted": 0.6314,
+        "recall_lenient": 0.6803,
+        "wrong_per_1000_strict": 42.2,
+        "wrong_per_1000_adjusted": 32.6,
+        "wrong_per_1000_lenient": 1.7
+      },
+      {
+        "threshold": 0.9,
+        "recall_strict": 0.5928,
+        "recall_adjusted": 0.6043,
+        "recall_lenient": 0.6459,
+        "wrong_per_1000_strict": 34.6,
+        "wrong_per_1000_adjusted": 27.3,
+        "wrong_per_1000_lenient": 1.1
+      },
+      {
+        "threshold": 0.95,
+        "recall_strict": 0.5193,
+        "recall_adjusted": 0.521,
+        "recall_lenient": 0.53,
+        "wrong_per_1000_strict": 6.7,
+        "wrong_per_1000_adjusted": 5.7,
+        "wrong_per_1000_lenient": 0.0
+      }
+    ],
+    "budget_6_per_1000": {
+      "lenient": "0.75 at 5.7 wrong per 1000, recall 83.6%",
+      "adjusted": "0.95 at 5.7 wrong per 1000, recall 52.1%",
+      "strict": "no threshold meets it; cheapest is 0.95 at 6.7",
+      "reading": "The 6-per-1000 budget was anchored on label-based counting, which is the lenient convention. Under the adjusted bound 0.75 costs 70.6 wrong per 1000 and the shipping 0.85 costs 38.6. serve_threshold stays 0.85; the budget itself needs revisiting as a product judgement."
+    }
+  },
+  "exact_match_disagreements": {
+    "count": 3,
+    "why_they_matter": "An exact match serves at confidence 1.000, consulting neither serve_threshold nor accumulation damping. Two of the three are corpus label errors where the cache answered correctly and strict scored it wrong: the entity guard let both through and was right to. That is independent evidence on both the label-noise estimate and the guard - the second time a Quora label being wrong has vindicated it. The third is a genuine defect: 'Where was he born?' served David Monroe Shoup's birthplace in a Ralph Waldo Emerson conversation.",
+    "label_errors_not_cache_errors": 2,
+    "genuine_defects": 1,
+    "rows": [
+      {
+        "pass": "3_paraphrase",
+        "query": "What is the most delicious dish you've ever eaten and why?",
+        "served": "Mock answer to: What is the most delicious dish you've ever eaten and why?",
+        "expected": [
+          "Mock answer to: What are the most interesting foods you have eaten in any country?"
+        ],
+        "total_confidence": 1.0,
+        "served_by": "exact",
+        "verdict": "wrong",
+        "note": "see why_they_matter"
+      },
+      {
+        "pass": "3_paraphrase",
+        "query": "Why is Saltwater taffy candy imported in China?",
+        "served": "Mock answer to: Why is Saltwater taffy candy imported in China?",
+        "expected": [
+          "Mock answer to: Why is Saltwater Taffy candy imported in Greece?"
+        ],
+        "total_confidence": 1.0,
+        "served_by": "exact",
+        "verdict": "wrong",
+        "note": "see why_they_matter"
+      },
+      {
+        "pass": "7_conversation_repeat",
+        "query": "Where was he born?",
+        "served": "David Monroe Shoup was born on 30 December 1904 in Battle Ground, Indiana.",
+        "expected": [
+          "Ralph Waldo Emerson was born in Boston, Massachusetts."
+        ],
+        "total_confidence": 1.0,
+        "served_by": "exact",
+        "verdict": "wrong",
+        "note": "see why_they_matter"
+      }
+    ]
+  },
+  "frequency_is_not_severity": "The exact-match defect is 1 row in 4,600 and bypasses every threshold. The same missing-key defect expressed through semantic similarity is 53 rows - the generic follow-up 'Are there any other interesting aspects about this article?' reaching one arbitrary Van Halen entry 56 times across the disagreement population. The alarming case is the rare one. Fixing only what alarms fixes 2% of the problem.",
+  "provenance": {
+    "commit": "1ec8dff185df9b8186e81d1ca9c82f2353e02c0e",
+    "tree_sha256": "e3b0c44298fc1c14",
+    "dirty": false,
+    "untracked_files": 0
+  },
+  "classifications": [
+    {
+      "pass": "2_repeat",
+      "query": "How do I make money with YouTube?",
+      "served": "Mock answer to: How can I earn money from YouTube?",
+      "expected": [
+        "Mock answer to: How do I make money with YouTube?"
+      ],
+      "total_confidence": 0.9143,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "2_repeat",
+      "query": "Why are so many questions posted to Quora that are so easily answered by using Google?",
+      "served": "Mock answer to: Why are so many Quora users posting questions that are readily answered on Google?",
+      "expected": [
+        "Mock answer to: Why are so many questions posted to Quora that are so easily answered by using Google?"
+      ],
+      "total_confidence": 0.9277,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "2_repeat",
+      "query": "When will the best time for having sex?",
+      "served": "Mock answer to: What\u2019s the best time to have sex?",
+      "expected": [
+        "Mock answer to: When will the best time for having sex?"
+      ],
+      "total_confidence": 0.9184,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "2_repeat",
+      "query": "What is the meaning and purpose to life?",
+      "served": "Mock answer to: What is purpose of life?",
+      "expected": [
+        "Mock answer to: What is the meaning and purpose to life?"
+      ],
+      "total_confidence": 0.8895,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "2_repeat",
+      "query": "HOw do I speak Fluent English?",
+      "served": "Mock answer to: How I can speak English fluently?",
+      "expected": [
+        "Mock answer to: HOw do I speak Fluent English?"
+      ],
+      "total_confidence": 0.9054,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "2_repeat",
+      "query": "How can I hack a WhatsApp account?",
+      "served": "Mock answer to: How can I hack someones whatsapp account?",
+      "expected": [
+        "Mock answer to: How can I hack a WhatsApp account?"
+      ],
+      "total_confidence": 0.9183,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "2_repeat",
+      "query": "What can I do to improve my English speaking?",
+      "served": "Mock answer to: How can I improve my spoken English ability?",
+      "expected": [
+        "Mock answer to: What can I do to improve my English speaking?"
+      ],
+      "total_confidence": 0.9166,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "Why do people ask Quora questions which can be answered easily by Google?",
+      "served": "Mock answer to: Why do so may people ask questions on Quora that can easily be found by a simple Google searh?",
+      "expected": [
+        "Mock answer to: Why are so many Quora users posting questions that are readily answered on Google?"
+      ],
+      "total_confidence": 0.9217,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "I can't remember my Gmail password or my recovery email. How can I recover my e-mail?",
+      "served": "Mock answer to: Can I recover my email if I forgot the password?",
+      "expected": [
+        "Mock answer to: I was suddenly logged off Gmail. I can't remember my Gmail password and just realized the recovery email is no longer alive. What can I do?"
+      ],
+      "total_confidence": 0.8169,
+      "served_by": "",
+      "verdict": "wrong",
+      "note": "served entry covers a forgotten password; the query also specifies the recovery address is dead"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "What is the most important book you have ever read?",
+      "served": "Mock answer to: What are the most important books ever written?",
+      "expected": [
+        "Mock answer to: What is the best book ever made?"
+      ],
+      "total_confidence": 0.8715,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "'most important book you have read' (personal) vs 'most important books ever written' (canonical)"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "Will there be a nuclear war between India and Pakistan?",
+      "served": "Mock answer to: If there will be a war between India and Pakistan who will win?",
+      "expected": [
+        "Mock answer to: Will there really be any war between India and Pakistan over the Uri attack? What will be its effects?"
+      ],
+      "total_confidence": 0.766,
+      "served_by": "",
+      "verdict": "wrong",
+      "note": "'will there be a war' vs 'who will win' - different question"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "What will be the impact of scrapping of \u20b9500 and \u20b91000 rupee notes on the real estate market?",
+      "served": "Mock answer to: How will real estate prices be affected in India after banning of 500 and 1000 rupees notes?",
+      "expected": [
+        "Mock answer to: What are the effects of demonitization of 500 and 1000 rupees notes on real estate sector?"
+      ],
+      "total_confidence": 0.7978,
+      "served_by": "",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "Where can I find delicious cupcakes at Gold Coast?",
+      "served": "Mock answer to: Where can I get wonderful flavors on cupcakes in Gold Coast?",
+      "expected": [
+        "Mock answer to: Where can I buy best quality customized cupcakes in Gold Coast?"
+      ],
+      "total_confidence": 0.9296,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "What is the most delicious dish you've ever eaten and why?",
+      "served": "Mock answer to: What is the most delicious dish you've ever eaten and why?",
+      "expected": [
+        "Mock answer to: What are the most interesting foods you have eaten in any country?"
+      ],
+      "total_confidence": 1.0,
+      "served_by": "exact",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "What are your views on ban of 500 and 1000 rupee notes in India?",
+      "served": "Mock answer to: What's your opinion about the decision on removal of 500 and 1000 rupees currency notes?",
+      "expected": [
+        "Mock answer to: What are your views on Modi governments decision to demonetize 500 and 1000 rupee notes? How will this affect economy?"
+      ],
+      "total_confidence": 0.8197,
+      "served_by": "",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "Why is Saltwater taffy candy imported in China?",
+      "served": "Mock answer to: Why is Saltwater taffy candy imported in China?",
+      "expected": [
+        "Mock answer to: Why is Saltwater Taffy candy imported in Greece?"
+      ],
+      "total_confidence": 1.0,
+      "served_by": "exact",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "When should I start preparing for the civil service exam?",
+      "served": "Mock answer to: How do I prepare for civil service?",
+      "expected": [
+        "Mock answer to: How can I start civil service exam preparation from scratch?"
+      ],
+      "total_confidence": 0.7506,
+      "served_by": "",
+      "verdict": "wrong",
+      "note": "'when should I start preparing' vs 'how do I prepare' - different aspect"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "What do you feel is the purpose of life?",
+      "served": "Mock answer to: What is purpose of life?",
+      "expected": [
+        "Mock answer to: What is the meaning of life? Whats our purpose on Earth?"
+      ],
+      "total_confidence": 0.8402,
+      "served_by": "",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "Do you think time travel is possible?",
+      "served": "Mock answer to: Is time travel possible? If yes? How?",
+      "expected": [
+        "Mock answer to: How is time travel possible?"
+      ],
+      "total_confidence": 0.8833,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "What are the funniest jokes / stories you ever heard?",
+      "served": "Mock answer to: What are some of the best jokes you've ever heard?",
+      "expected": [
+        "Mock answer to: What's the funniest highbrow joke you've ever heard?"
+      ],
+      "total_confidence": 0.8284,
+      "served_by": "",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "Is World War 3 more imminent than expected?",
+      "served": "Mock answer to: How imminent is world war III?",
+      "expected": [
+        "Mock answer to: Can World War 3 ever take place?"
+      ],
+      "total_confidence": 0.8862,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "How do I make money through YouTube?",
+      "served": "Mock answer to: How can I earn money from YouTube?",
+      "expected": [
+        "Mock answer to: How do I make money with YouTube?"
+      ],
+      "total_confidence": 0.9289,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "Why do many Quora users ask questions they could look up online?",
+      "served": "Mock answer to: Why do so may people ask questions on Quora that can easily be found by a simple Google searh?",
+      "expected": [
+        "Mock answer to: Why are so many questions posted to Quora that are so easily answered by using Google?"
+      ],
+      "total_confidence": 0.7871,
+      "served_by": "",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "What would be the best time to have sex?",
+      "served": "Mock answer to: What\u2019s the best time to have sex?",
+      "expected": [
+        "Mock answer to: When will the best time for having sex?"
+      ],
+      "total_confidence": 0.9398,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "Which institute provide best SSC and banking coaching in Chandigarh?",
+      "served": "Mock answer to: Which is the best coaching center for SSC and Banking in Chandigarh?",
+      "expected": [
+        "Mock answer to: Which is the best SSC and banking training insititute in Chandigarh?"
+      ],
+      "total_confidence": 0.9135,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "How can I teach myself how to sing?",
+      "served": "Mock answer to: How do I learn how to sing?",
+      "expected": [
+        "Mock answer to: What are some tips for someone trying to teach themselves to sing?"
+      ],
+      "total_confidence": 0.9183,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "How will abolishing Rs. 500 and Rs. 1000 notes affect the real estate businesses in India?",
+      "served": "Mock answer to: How will real estate prices be affected in India after banning of 500 and 1000 rupees notes?",
+      "expected": [
+        "Mock answer to: What will the real estate look like now after the 500 and 1000 scraping?"
+      ],
+      "total_confidence": 0.8604,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "Does Donald Trump have any chance of winning the forthcoming election?",
+      "served": "Mock answer to: Does Trump have a chance at winning presidency?",
+      "expected": [
+        "Mock answer to: Did Trump win the election?"
+      ],
+      "total_confidence": 0.8865,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "How can I earn money on internet?",
+      "served": "Mock answer to: How can I make money online with free of cost?",
+      "expected": [
+        "Mock answer to: What are the easy ways to earn money online?"
+      ],
+      "total_confidence": 0.8397,
+      "served_by": "",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "How can I understand english?",
+      "served": "Mock answer to: How can I improve my spoken English ability?",
+      "expected": [
+        "Mock answer to: HOw do I speak Fluent English?"
+      ],
+      "total_confidence": 0.7706,
+      "served_by": "",
+      "verdict": "wrong",
+      "note": "'understand English' (comprehension) vs 'improve spoken English' (production)"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "What are the best ways to ask a question on Quora?",
+      "served": "Mock answer to: All my questions on Quora need improvement. What is the best way to ask a question on Quora?",
+      "expected": [
+        "Mock answer to: Quora: How do you post a question on Quora?"
+      ],
+      "total_confidence": 0.852,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "How can I hack another WhatsApp account?",
+      "served": "Mock answer to: How can I hack someones whatsapp account?",
+      "expected": [
+        "Mock answer to: How can I hack a WhatsApp account?"
+      ],
+      "total_confidence": 0.8977,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "How can I improve my spoken English?",
+      "served": "Mock answer to: How can I improve my spoken English ability?",
+      "expected": [
+        "Mock answer to: What can I do to improve my English speaking?"
+      ],
+      "total_confidence": 0.9554,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "Why do some Indian Muslims hate Narendra Modi?",
+      "served": "Mock answer to: Does all Muslims hate Narendra Modi?",
+      "expected": [
+        "Mock answer to: Do Muslim in India, especially in Gujarat,India hate(still) Narendra Modi?"
+      ],
+      "total_confidence": 0.9269,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "'why do some Muslims hate Modi' vs 'do all Muslims hate Modi' - reasons vs universality"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "What do you think of abolishing 500 and 1000 Rupee Currency notes by the Indian Government?",
+      "served": "Mock answer to: What's your opinion about the decision on removal of 500 and 1000 rupees currency notes?",
+      "expected": [
+        "Mock answer to: What are your views on the ban of Rs 500 and Rs 1000 notes by the Indian Government? Pros cons?"
+      ],
+      "total_confidence": 0.8834,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "Which chemistry objective book is good for NEET 2017?",
+      "served": "Mock answer to: Which book is best for Neet chemistry?",
+      "expected": [
+        "Mock answer to: Which book to use for preparing chemistry for neet?"
+      ],
+      "total_confidence": 0.8239,
+      "served_by": "",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "How does the demonetized notes of 500 and 1000 effect the real estate?",
+      "served": "Mock answer to: What are the effects of demonitization of 500 and 1000 rupees notes on real estate sector?",
+      "expected": [
+        "Mock answer to: How will real estate prices be affected in India after banning of 500 and 1000 rupees notes?"
+      ],
+      "total_confidence": 0.8377,
+      "served_by": "",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "3_paraphrase",
+      "query": "What are some best ways to earn money online?",
+      "served": "Mock answer to: What are the easy ways to earn money online?",
+      "expected": [
+        "Mock answer to: What are my options for earning money online?"
+      ],
+      "total_confidence": 0.9108,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "Why do people ask Quora questions which can be answered easily by Google?",
+      "served": "Mock answer to: Why do so may people ask questions on Quora that can easily be found by a simple Google searh?",
+      "expected": [
+        "Mock answer to: Why are so many Quora users posting questions that are readily answered on Google?",
+        "Mock answer to: Why do people ask Quora questions which can be answered easily by Google?"
+      ],
+      "total_confidence": 0.9256,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "What is the most important book you have ever read?",
+      "served": "Mock answer to: What are the most important books ever written?",
+      "expected": [
+        "Mock answer to: What is the best book ever made?",
+        "Mock answer to: What is the most important book you have ever read?"
+      ],
+      "total_confidence": 0.9008,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "'most important book you have read' (personal) vs 'most important books ever written' (canonical)"
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "Where can I find delicious cupcakes at Gold Coast?",
+      "served": "Mock answer to: Where can I get wonderful flavors on cupcakes in Gold Coast?",
+      "expected": [
+        "Mock answer to: Where can I buy best quality customized cupcakes in Gold Coast?",
+        "Mock answer to: Where can I find delicious cupcakes at Gold Coast?"
+      ],
+      "total_confidence": 0.9311,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "Do you think time travel is possible?",
+      "served": "Mock answer to: Is time travel possible? If yes? How?",
+      "expected": [
+        "Mock answer to: How is time travel possible?",
+        "Mock answer to: Do you think time travel is possible?"
+      ],
+      "total_confidence": 0.8868,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "Is World War 3 more imminent than expected?",
+      "served": "Mock answer to: How imminent is world war III?",
+      "expected": [
+        "Mock answer to: Can World War 3 ever take place?",
+        "Mock answer to: Is World War 3 more imminent than expected?"
+      ],
+      "total_confidence": 0.8885,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "How do I make money through YouTube?",
+      "served": "Mock answer to: How can I earn money from YouTube?",
+      "expected": [
+        "Mock answer to: How do I make money with YouTube?",
+        "Mock answer to: How do I make money through YouTube?"
+      ],
+      "total_confidence": 0.9299,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "What would be the best time to have sex?",
+      "served": "Mock answer to: What\u2019s the best time to have sex?",
+      "expected": [
+        "Mock answer to: When will the best time for having sex?",
+        "Mock answer to: What would be the best time to have sex?"
+      ],
+      "total_confidence": 0.9398,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "Which institute provide best SSC and banking coaching in Chandigarh?",
+      "served": "Mock answer to: Which is the best coaching center for SSC and Banking in Chandigarh?",
+      "expected": [
+        "Mock answer to: Which is the best SSC and banking training insititute in Chandigarh?",
+        "Mock answer to: Which institute provide best SSC and banking coaching in Chandigarh?"
+      ],
+      "total_confidence": 0.915,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "How can I teach myself how to sing?",
+      "served": "Mock answer to: How do I learn how to sing?",
+      "expected": [
+        "Mock answer to: What are some tips for someone trying to teach themselves to sing?",
+        "Mock answer to: How can I teach myself how to sing?"
+      ],
+      "total_confidence": 0.9202,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "How will abolishing Rs. 500 and Rs. 1000 notes affect the real estate businesses in India?",
+      "served": "Mock answer to: How will real estate prices be affected in India after banning of 500 and 1000 rupees notes?",
+      "expected": [
+        "Mock answer to: What will the real estate look like now after the 500 and 1000 scraping?",
+        "Mock answer to: How will abolishing Rs. 500 and Rs. 1000 notes affect the real estate businesses in India?"
+      ],
+      "total_confidence": 0.8627,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "Does Donald Trump have any chance of winning the forthcoming election?",
+      "served": "Mock answer to: Does Trump have a chance at winning presidency?",
+      "expected": [
+        "Mock answer to: Did Trump win the election?",
+        "Mock answer to: Does Donald Trump have any chance of winning the forthcoming election?"
+      ],
+      "total_confidence": 0.8879,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "What are the best ways to ask a question on Quora?",
+      "served": "Mock answer to: All my questions on Quora need improvement. What is the best way to ask a question on Quora?",
+      "expected": [
+        "Mock answer to: Quora: How do you post a question on Quora?",
+        "Mock answer to: What are the best ways to ask a question on Quora?"
+      ],
+      "total_confidence": 0.855,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "How can I hack another WhatsApp account?",
+      "served": "Mock answer to: How can I hack someones whatsapp account?",
+      "expected": [
+        "Mock answer to: How can I hack a WhatsApp account?",
+        "Mock answer to: How can I hack another WhatsApp account?"
+      ],
+      "total_confidence": 0.9218,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "How can I improve my spoken English?",
+      "served": "Mock answer to: How can I improve my spoken English ability?",
+      "expected": [
+        "Mock answer to: What can I do to improve my English speaking?",
+        "Mock answer to: How can I improve my spoken English?"
+      ],
+      "total_confidence": 0.9555,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "Why do some Indian Muslims hate Narendra Modi?",
+      "served": "Mock answer to: Does all Muslims hate Narendra Modi?",
+      "expected": [
+        "Mock answer to: Do Muslim in India, especially in Gujarat,India hate(still) Narendra Modi?",
+        "Mock answer to: Why do some Indian Muslims hate Narendra Modi?"
+      ],
+      "total_confidence": 0.9276,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "'why do some Muslims hate Modi' vs 'do all Muslims hate Modi' - reasons vs universality"
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "What do you think of abolishing 500 and 1000 Rupee Currency notes by the Indian Government?",
+      "served": "Mock answer to: What's your opinion about the decision on removal of 500 and 1000 rupees currency notes?",
+      "expected": [
+        "Mock answer to: What are your views on the ban of Rs 500 and Rs 1000 notes by the Indian Government? Pros cons?",
+        "Mock answer to: What do you think of abolishing 500 and 1000 Rupee Currency notes by the Indian Government?"
+      ],
+      "total_confidence": 0.8879,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "5_link_traversal",
+      "query": "What are some best ways to earn money online?",
+      "served": "Mock answer to: What are the easy ways to earn money online?",
+      "expected": [
+        "Mock answer to: What are my options for earning money online?",
+        "Mock answer to: What are some best ways to earn money online?"
+      ],
+      "total_confidence": 0.9112,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "same question, wording differs"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Are there any other interesting aspects about this article?",
+      "served": "During that era, a single taken from 1988's OU812, When It's Love, reached the Top Five, peaking at No. 5. In addition, Van Halen was nominated for two Grammy Awards.",
+      "expected": [
+        "While Sara Evans's' debut album was defined by neotraditionalist country influences, most of her material has taken a more slick, country pop production, similar to Faith Hill and Martina McBride."
+      ],
+      "total_confidence": 0.9472,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "Van Halen discography served for a Sara Evans article"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Who else had been members of the group?",
+      "served": "Anastasia Karpova",
+      "expected": [
+        "Marina Lizorkina"
+      ],
+      "total_confidence": 0.9041,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "Anastasia Karpova and Marina Lizorkina were both Serebro members; 'who else had been members' is answered"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Are there any other interesting aspects about this article?",
+      "served": "During that era, a single taken from 1988's OU812, When It's Love, reached the Top Five, peaking at No. 5. In addition, Van Halen was nominated for two Grammy Awards.",
+      "expected": [
+        "The Corrs received a BRIT Award for Best International Band. They performed live on MTV's Unplugged on 5 October 1999 at Ardmore Studios, County Wicklow, Ireland."
+      ],
+      "total_confidence": 0.9472,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "Van Halen served for a The Corrs article"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did they release any albums during this period?",
+      "served": "After Gary Cherone, Eddie Van Halen recovered from his hip surgery in November 1999, and no official statements were made by Van Halen and no music was released.",
+      "expected": [
+        "The first release with the new line-up was Dead Man's Party in 1985."
+      ],
+      "total_confidence": 0.9371,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "Van Halen 'no music released' served for an Oingo Boingo album question"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "When was he born?",
+      "served": "David Monroe Shoup was born on 30 December 1904 in Battle Ground, Indiana.",
+      "expected": [
+        "Josh White was born on February 11, 1914, in the black section of Greenville, South Carolina, one of the four children of Reverend Dennis and Daisy Elizabeth White."
+      ],
+      "total_confidence": 0.9666,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "David Monroe Shoup's birth served for a Josh White question"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Where was he born?",
+      "served": "David Monroe Shoup was born on 30 December 1904 in Battle Ground, Indiana.",
+      "expected": [
+        "Ralph Waldo Emerson was born in Boston, Massachusetts."
+      ],
+      "total_confidence": 1.0,
+      "served_by": "exact",
+      "verdict": "wrong",
+      "note": "Shoup's birthplace served for a Ralph Waldo Emerson conversation - EXACT MATCH at confidence 1.000"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Are there any other interesting aspects about this article?",
+      "served": "During that era, a single taken from 1988's OU812, When It's Love, reached the Top Five, peaking at No. 5. In addition, Van Halen was nominated for two Grammy Awards.",
+      "expected": [
+        "Harras and writer/artists Jim Lee and Whilce Portacio decided that Nathan would be sent into the future and grow up to become Cable."
+      ],
+      "total_confidence": 0.9472,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "Van Halen served for an X-Men/Cable article"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "what is the most important fact in this article?",
+      "served": "Once again Hanson continued to help fight poverty in Africa by continuing their 1-mile walks before the shows.",
+      "expected": [
+        "Augustine of Hippo called the use of means to avoid the birth of a child an \u2018evil work:\u2019 a reference to either abortion or contraception or both.\u201c"
+      ],
+      "total_confidence": 0.9639,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "Hanson's charity walks served for an Augustine of Hippo article"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "What was their third album",
+      "served": "Voices of Babylon is the third studio album by the British band The Outfield, released during the spring of 1989 and which spawned an eponymous single.",
+      "expected": [
+        "Serebro's 3rd studio album '925' was supposed to be released on iTunes Russia on 15 October 2015 but due to their studio harddrive being stolen, the album release was cancelled."
+      ],
+      "total_confidence": 0.9274,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "The Outfield's third album served for a Serebro question"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Are there any other interesting aspects about this article?",
+      "served": "During that era, a single taken from 1988's OU812, When It's Love, reached the Top Five, peaking at No. 5. In addition, Van Halen was nominated for two Grammy Awards.",
+      "expected": [
+        "Soon after the failed attack, Afonso de Albuquerque assembled a fleet of 23 ships and 1200 men."
+      ],
+      "total_confidence": 0.9472,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "Van Halen served for an Afonso de Albuquerque article"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "How many copies did this album sell?",
+      "served": "As of 2017, The Corrs has sold 9 million copies of In Blue worldwide.",
+      "expected": [
+        "REO Speedwagon's Hi Infidelity sold over 10 million copies."
+      ],
+      "total_confidence": 0.8572,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "The Corrs' sales served for an REO Speedwagon question"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did he receive any other awards?",
+      "served": "David M. Shoup also was awarded the Purple Heart for the combat wounds he suffered during the course of the campaign.",
+      "expected": [
+        "It was nominated for the Council of Fashion Designers of America award for Menswear Designer of the Year in 2000, and won in 2004."
+      ],
+      "total_confidence": 0.9667,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "Shoup's Purple Heart served for a fashion-design award question"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Where was he born?",
+      "served": "David Monroe Shoup was born on 30 December 1904 in Battle Ground, Indiana.",
+      "expected": [
+        "In 231 or 232 A.H., Hasan al-Askari was born in Medina."
+      ],
+      "total_confidence": 0.9667,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "Shoup's birthplace served for a Hasan al-Askari question"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Are there any other interesting aspects about this article?",
+      "served": "During that era, a single taken from 1988's OU812, When It's Love, reached the Top Five, peaking at No. 5. In addition, Van Halen was nominated for two Grammy Awards.",
+      "expected": [
+        "In 2013, influenced by the set list of the Las Vegas shows, Garth Brooks released Blame It All on My Roots: Five Decades of Influences via Walmart, a compilation album"
+      ],
+      "total_confidence": 0.9472,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "Van Halen served for a Garth Brooks article"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "was it successful?",
+      "served": "No Way Out 2 was never released.",
+      "expected": [
+        "In Blue by The Corrs hit number one in its first sales week in the UK, Ireland, Australia, Germany, Switzerland, Austria and debuted at No. 2 in France and Norway."
+      ],
+      "total_confidence": 0.9162,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "'No Way Out 2 was never released' served for a question about In Blue's success"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Are there any other interesting aspects about this article?",
+      "served": "During that era, a single taken from 1988's OU812, When It's Love, reached the Top Five, peaking at No. 5. In addition, Van Halen was nominated for two Grammy Awards.",
+      "expected": [
+        "Like other Church Fathers such as Athenagoras, Tertullian, Clement of Alexandria and Basil of Caesarea, Augustine of Hippo vigorously condemned the practice of induced abortion\u201c"
+      ],
+      "total_confidence": 0.9472,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "Van Halen served for an Augustine of Hippo article"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "what was his greatest accomplishment?",
+      "served": "Taylor Hanson launched a separate project including members of Smashing Pumpkins, Fountains of Wayne and Cheap Trick called Tinted Windows.",
+      "expected": [
+        "Augustine of Hippo held that the timing of the infusion of the soul was a mystery known to God alone."
+      ],
+      "total_confidence": 0.9466,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "Taylor Hanson's side project served for an Augustine of Hippo question"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "How did the band begin?",
+      "served": "Pavement formed in Stockton, California in 1989 as a studio project of guitarists and vocalists Stephen Malkmus & Scott Kannberg, known originally only as S.M. and Spiral Stairs.",
+      "expected": [
+        "In 2000, SM Entertainment held their first overseas casting auditions for Super Junior in Beijing 101"
+      ],
+      "total_confidence": 0.8732,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "Pavement's formation served for a Super Junior question"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "When was it released?",
+      "served": "MMM is the debut mixtape by Puff Daddy, originally released on November 4, 2015.",
+      "expected": [
+        "Love Somebody by Reba McEntire was released on April 14, 2015"
+      ],
+      "total_confidence": 0.9665,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "MMM's release date served for a Reba McEntire release question"
+    },
+    {
+      "pass": "7_conversation_repeat",
+      "query": "Did they release any albums?",
+      "served": "After Gary Cherone, Eddie Van Halen recovered from his hip surgery in November 1999, and no official statements were made by Van Halen and no music was released.",
+      "expected": [
+        "The Animals also came out with albums such as Eric Is Here, Winds of Change, The Twain Shall Meet, and other albums."
+      ],
+      "total_confidence": 0.9031,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "Van Halen 'no music released' served for a The Animals album question"
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "Did Oingo Boingo do any music videos?",
+      "served": "Oingo Boingo appeared on the movie Back to School in 1986, performing their hit single Dead Man's Party.",
+      "expected": [
+        "The music video for Weird Science features Oingo Boingo performing in an abstract laboratory."
+      ],
+      "total_confidence": 0.8218,
+      "served_by": "",
+      "verdict": "wrong",
+      "note": "a film appearance, not a music video - does not answer what was asked"
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "What other countries did Shama by Sanata the band achieve plantinum status",
+      "served": "Super Junior originally debuted with twelve members, consisting of leader Leeteuk, Heechul, Hangeng, Yesung, Kangin, Shindong, Sungmin, Eunhyuk, Siwon, Donghae, Ryeowook, and Kibum. Kyuhyun joined the group later in 2006.",
+      "expected": [
+        "Australia"
+      ],
+      "total_confidence": 0.8115,
+      "served_by": "",
+      "verdict": "wrong",
+      "note": "Super Junior's line-up served for a platinum-certification question"
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "How many copies did by REO Speedwagon sell?",
+      "served": "On November 21, 1980, Epic released REO Speedwagon's Hi Infidelity, which represented a change in sound, going from hard rock to more pop-oriented material.",
+      "expected": [
+        "REO Speedwagon's Hi Infidelity sold over 10 million copies."
+      ],
+      "total_confidence": 0.76,
+      "served_by": "",
+      "verdict": "wrong",
+      "note": "right album, wrong fact - release and sound, not copies sold"
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "What was the incident that Paul Gascoigne injured himslef in?",
+      "served": "Paul Gascoigne once injured himself through a moped accident which ruled him out of a prestigious youth tournament; and he once lost Kevin Keegan's boots on a bus.",
+      "expected": [
+        "15 minutes into the game Paul Gascoigne committed a dangerous knee-high foul on Gary Charles and ruptured his own cruciate ligaments in his right knee."
+      ],
+      "total_confidence": 0.8937,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "a moped accident served for a question about the knee-high foul incident"
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "Did Kim Jae-joong ever perform live?",
+      "served": "Kim Jae-joong sang Love for the soundtrack of the film Heaven's Postman in which he starred as the male lead.",
+      "expected": [
+        "Kim Jae-joong performed two rounds of lives: the four-day Thanksgiving Live in Dome concerts with JYJ at Osaka Dome."
+      ],
+      "total_confidence": 0.7721,
+      "served_by": "",
+      "verdict": "wrong",
+      "note": "a soundtrack recording served for a question about live performances"
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "How many records did Chumbawamba sell under Sky and Trees?",
+      "served": "Super Junior's U ultimately surpassed 1.7 million downloads, crashing the server",
+      "expected": [
+        "3 Albums"
+      ],
+      "total_confidence": 0.7507,
+      "served_by": "",
+      "verdict": "wrong",
+      "note": "Super Junior download counts served for a Chumbawamba sales question"
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "Were there any significant losses or injuries from the Battle of Tarawa?",
+      "served": "David M. Shoup was transferred to the staff of Major General Julian C. Smith, and tasked to help plan the invasion of Betio on Tarawa Atoll.",
+      "expected": [
+        "David M. Shoup's force met heavy resistance on the beaches. His LVT was disabled by shore fire, and he had to proceed without transportation."
+      ],
+      "total_confidence": 0.7999,
+      "served_by": "",
+      "verdict": "wrong",
+      "note": "Shoup's transfer and planning role served for a question about losses and injuries"
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "Why were there differences between the UK and US Extra TV series?",
+      "served": "There were some subtle changes between the UK and US versions, with references to the names of British celebrities often being changed to American celebrities for the US edition.",
+      "expected": [
+        "Some cultural references did not translate well for the demographic the show was being presented to."
+      ],
+      "total_confidence": 0.9461,
+      "served_by": "semantic",
+      "verdict": "correct",
+      "note": "both state the UK/US differences were cultural localisation - same substantive claim"
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "Are there any other interesting aspects about this article?",
+      "served": "During that era, a single taken from 1988's OU812, When It's Love, reached the Top Five, peaking at No. 5. In addition, Van Halen was nominated for two Grammy Awards.",
+      "expected": [
+        "In 2017, Peter Cetera, Robert Lamm, and James Pankow were elected to the Songwriters Hall of Fame for their songwriting efforts as members of the music group."
+      ],
+      "total_confidence": 0.9475,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "Van Halen served for a Chicago question"
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "Was Sara Evans raised there?",
+      "served": "Sara Evans was born in Boonville, Missouri, in 1971, and is of Welsh, English, Irish, and Native American descent.",
+      "expected": [
+        "Sara Evans was raised on a farm near New Franklin, Missouri, the eldest girl of seven children."
+      ],
+      "total_confidence": 0.8932,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "birthplace served for a question about where she was raised"
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "Did Kim Jae-joong win any awards for No.X?",
+      "served": "For his leadership during the assault and the push inland, David M. Shoup was awarded the Medal of Honor and the British Distinguished Service Order.",
+      "expected": [
+        "No awards were won for No.X."
+      ],
+      "total_confidence": 0.8444,
+      "served_by": "",
+      "verdict": "wrong",
+      "note": "Shoup's Medal of Honor served for a Kim Jae-joong awards question"
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "Are there any other interesting aspects about this article?",
+      "served": "During that era, a single taken from 1988's OU812, When It's Love, reached the Top Five, peaking at No. 5. In addition, Van Halen was nominated for two Grammy Awards.",
+      "expected": [
+        "Havelock Ellis was a pioneering investigator of psychedelic drugs and the author of one of the first written reports to the public about an experience with mescaline."
+      ],
+      "total_confidence": 0.9475,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "Van Halen served for a Havelock Ellis article"
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "Where did Ralph Waldo Emerson go to college?",
+      "served": "Ralph Waldo Emerson's formal schooling began at the Boston Latin School in 1812, when he was nine.",
+      "expected": [
+        "In October 1817, at age 14, Ralph Waldo Emerson went to Harvard College and was appointed freshman messenger for the president."
+      ],
+      "total_confidence": 0.91,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "Boston Latin School (school, age nine) served for a question about college"
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "When was MMM released?",
+      "served": "Off with Their Heads was released on 20 October 2008 in the UK, and on 25 August 2009 in the United States.",
+      "expected": [
+        "MMM is the debut mixtape by Puff Daddy, originally released on November 4, 2015."
+      ],
+      "total_confidence": 0.8347,
+      "served_by": "",
+      "verdict": "wrong",
+      "note": "'Off with Their Heads' release date served for a question about MMM"
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "How does the 3rd season of Buffy the Vampire Slayer start?",
+      "served": "Willow Rosenberg is presented as a bookish nerd with computer skills, and intimidated by popular girls. However, she quickly forms a friendship with Buffy Summers.",
+      "expected": [
+        "During the third season three episodes explore Willow Rosenberg's backstory and foreshadow her development."
+      ],
+      "total_confidence": 0.8506,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "Willow's characterisation generally, not how season three opens"
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "What is Sean John?",
+      "served": "Sean John Combs, also known by the stage names Puff Daddy, P. Diddy,Puffy, or Diddy, is an American rapper, singer, record producer, entrepreneur, record executive, and actor.",
+      "expected": [
+        "In 1998, Sean Combs started a clothing line, Sean John."
+      ],
+      "total_confidence": 0.9599,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "Sean Combs the person served for a question about Sean John the clothing line"
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "Was there backlash due to Vinnie Jones grabbing Paul Gascoigne's genitals?",
+      "served": "Vinnie Jones singled Paul Gascoigne out for attention, and in an incident that would become a much-publicised photograph, Jones grabbed him by the genitals as Gascoigne screamed in agony.",
+      "expected": [
+        "The incident would become a much-publicised photograph, but Paul Gascoigne subsequently sent Jones a red rose, and the two became good friends."
+      ],
+      "total_confidence": 0.9036,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "describes the incident but does not address whether there was backlash"
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "Are there any other interesting aspects about this article?",
+      "served": "During that era, a single taken from 1988's OU812, When It's Love, reached the Top Five, peaking at No. 5. In addition, Van Halen was nominated for two Grammy Awards.",
+      "expected": [
+        "Judd Apatow is the founder of Apatow Productions, through which he produced the television series Freaks and Geeks, Crashing and directed the films Knocked Up, and This Is 40."
+      ],
+      "total_confidence": 0.9475,
+      "served_by": "semantic",
+      "verdict": "wrong",
+      "note": "Van Halen served for a Judd Apatow article"
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "Did Billie Jean King win anything else?",
+      "served": "In early 1968, Billie Jean King won three consecutive tournaments to end her Australian tour. King won three Grand Slam singles titles in 1972.",
+      "expected": [
+        "In 1966, Billie Jean King defeated Dorothy Dodo Cheney for the first time in five career matches, winning their semifinal at the Southern California Championships 6\u20130, 6\u20133."
+      ],
+      "total_confidence": 0.8365,
+      "served_by": "",
+      "verdict": "correct",
+      "note": "names other Billie Jean King wins - answers 'win anything else'"
+    },
+    {
+      "pass": "8_rewrites",
+      "query": "Did Oingo Boingo do any live performances?",
+      "served": "Oingo Boingo appeared on a number of movie soundtracks, including an appearance in the movie Back to School in 1986, performing their hit single Dead Man's Party.",
+      "expected": [
+        "Oingo Boingo continued to regularly perform live, most notably with annual Halloween concerts at Irvine Meadows and the Universal Amphitheatre."
+      ],
+      "total_confidence": 0.7804,
+      "served_by": "",
+      "verdict": "wrong",
+      "note": "a film soundtrack appearance served for a question about regular live performances"
+    }
+  ]
+}

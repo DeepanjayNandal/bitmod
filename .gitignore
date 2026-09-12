@@ -63,6 +63,7 @@ tests/stress/*.jsonl
 # re-derive from its rows. One row dump in the repo, and it is the baseline's.
 !tests/benchmark/results/inprocess_baseline_damp050.json
 !tests/benchmark/results/inprocess_baseline_damp050_rows.json.gz
+!tests/benchmark/results/disagreement_classification.json
 
 # Backup sessions (generated at runtime)
 bitmod_backup/

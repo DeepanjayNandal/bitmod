@@ -27,8 +27,24 @@ denominated in rows of the supplied file — see its help text, and ADR-004.
 from __future__ import annotations
 
 import argparse
+import gzip
 import json
 from pathlib import Path
+
+
+def read_payload(path: Path) -> dict:
+    """Read a row dump, gzipped or not.
+
+    The 4,600-row dumps are committed gzipped: around 3.8 MB of JSON compresses
+    to roughly 0.3. Keeping them in the repo is the point — every row set this
+    project has derived a decision from until now lived only in a scratchpad,
+    which is why `threshold_sweep.json` cannot be regenerated and the damping
+    fits cannot be re-derived at all.
+    """
+    if path.suffix == ".gz":
+        with gzip.open(path, "rt", encoding="utf-8") as handle:
+            return json.load(handle)
+    return json.loads(path.read_text())
 
 
 def detect_schema(payload: dict) -> str:
@@ -47,7 +63,7 @@ def load(path: Path) -> list[dict]:
     Every row is scorable — the label says whether a serve would be right, for
     all of them.
     """
-    payload = json.loads(path.read_text())
+    payload = read_payload(path)
     rows = []
     for row in payload["rows"]:
         candidate = (row.get("best_candidate") or row.get("served_text") or "").strip()
@@ -82,7 +98,7 @@ def load_inprocess(path: Path, unlabelled: str) -> list[dict]:
     `expected_answers` is a set of acceptable answers, not one answer. See
     Recorder.add in run_inprocess_benchmark.py for why 5_link_traversal has two.
     """
-    payload = json.loads(path.read_text())
+    payload = read_payload(path)
     rows = []
     for row in payload["rows"]:
         expected_hit = row.get("expected_hit")
@@ -174,7 +190,7 @@ def main() -> None:
     args = parser.parse_args()
 
     path = Path(args.rows)
-    payload = json.loads(path.read_text())
+    payload = read_payload(path)
     schema = detect_schema(payload)
 
     if schema == "quora":

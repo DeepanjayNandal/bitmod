@@ -1066,6 +1066,13 @@ def store_answer(
     confidence: float | None = None,
     query_embedding: list[float] | None = None,
     namespace_id: str | None = None,
+    # None means the caller has no conversation concept, which is correct for
+    # core/bitmod/api.py and services/chat/app/main.py today — neither threads a
+    # per-request conversation identifier. Only the proxy path supplies one.
+    # The default is deliberate rather than incidental: an unset optional
+    # parameter is how namespace_id was silently dropped on two backends before
+    # 7a16597, so this one is written down.
+    conversation_id: str | None = None,
     max_age_seconds: int | None = None,
     max_cache_entries: int = DEFAULT_MAX_CACHE_ENTRIES,
     eviction_interval: int = DEFAULT_EVICTION_INTERVAL,
@@ -1097,6 +1104,7 @@ def store_answer(
         generation_ms=generation_ms,
         confidence=confidence,
         namespace_id=namespace_id,
+        conversation_id=conversation_id,
         max_age_seconds=max_age_seconds,
         estimated_cost=estimated_cost,
     )
@@ -1412,6 +1420,32 @@ def _similarity_to_confidence(similarity: float, layer: str = "semantic") -> flo
     return min(1.0, max(0.0, result))
 
 
+def _other_conversation(record, conversation_id: str | None) -> bool:
+    """True when this entry belongs to a DIFFERENT conversation than the caller.
+
+    Scoping here is deliberately weaker than the namespace check beside it, and
+    the difference is the point:
+
+        namespace   `if namespace_id and record.namespace_id != namespace_id`
+                    excludes on absence — a record with no namespace is not
+                    served to a namespaced caller. Namespace is a trust
+                    boundary; e9ee4ce established that it fails closed because
+                    a cache miss costs one generation and a cross-tenant read
+                    costs trust.
+
+        conversation this function. A record with conversation_id None means
+                    "we do not know which conversation wrote this" — every entry
+                    cached before the column existed — and is treated as a
+                    MATCH. Excluding on absence would make the whole pre-upgrade
+                    cache unreachable via semantic in a single deploy while the
+                    exact path kept serving the same entries.
+
+    A caller with no conversation_id is not requesting scoping and sees
+    everything, as with namespace.
+    """
+    return bool(conversation_id) and bool(record.conversation_id) and record.conversation_id != conversation_id
+
+
 def semantic_cache_search(
     backend: DatabaseBackend,
     session,
@@ -1421,6 +1455,7 @@ def semantic_cache_search(
     threshold: float | None = None,
     max_results: int | None = None,
     namespace_id: str | None = None,
+    conversation_id: str | None = None,
     vector_index: object | None = None,
     stats: dict | None = None,
 ) -> list[SemanticMatch]:
@@ -1471,6 +1506,8 @@ def semantic_cache_search(
                 if record and record.is_valid:
                     if namespace_id and record.namespace_id != namespace_id:
                         continue
+                    if _other_conversation(record, conversation_id):
+                        continue
                     record.answer_text = decrypt_if_needed(record.answer_text)
                     results.append(SemanticMatch(record=record, similarity=sim))
             return results
@@ -1510,6 +1547,8 @@ def semantic_cache_search(
     for cache_id, sim in matches:
         record = backend.cache_lookup_by_id(session, cache_id) if hasattr(backend, "cache_lookup_by_id") else None
         if record and record.is_valid:
+            if _other_conversation(record, conversation_id):
+                continue
             record.answer_text = decrypt_if_needed(record.answer_text)
             results.append(SemanticMatch(record=record, similarity=sim))
 

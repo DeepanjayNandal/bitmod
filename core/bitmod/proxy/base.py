@@ -602,6 +602,13 @@ class BitmodProxy:
                         threshold=cache_cfg.search_threshold,
                         max_results=cache_cfg.search_max_results,
                         namespace_id=namespace_id,
+                        # Scope candidates to this conversation. The semantic
+                        # layer is where cross-conversation collisions happen:
+                        # it accepted `filters` and never read it, so 185 of 187
+                        # measured collisions came through here. Entries with no
+                        # conversation_id are still served — see
+                        # _other_conversation.
+                        conversation_id=conversation_id,
                         stats=semantic_stats,
                     )
                     self._embed_circuit.track_success()
@@ -1280,6 +1287,13 @@ class BitmodProxy:
                 generation_ms=elapsed_ms,
                 query_embedding=query_embedding,
                 namespace_id=namespace_id,
+                # Without this the column is never populated, every record reads
+                # back conversation_id=None, and the semantic filter — which
+                # treats None as a match — excludes nothing. Its unit tests stay
+                # green throughout, because they construct records that carry an
+                # id. See tests/test_conversation_scoping.py::
+                # test_proxy_write_path_populates_conversation_id.
+                conversation_id=conversation_id,
                 estimated_cost=est_cost,
             )
 

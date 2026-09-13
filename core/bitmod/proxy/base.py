@@ -683,6 +683,8 @@ class BitmodProxy:
                         # cache both yield zero matches and call for opposite
                         # responses.
                         "candidates_scored": semantic_stats.get("candidates_scored", 0),
+                        "candidates_admitted": semantic_stats.get("candidates_admitted", 0),
+                        "conversation_excluded": semantic_stats.get("conversation_excluded", 0),
                         "best_sim_seen": round(semantic_stats.get("best_similarity_seen", 0.0), 3),
                         "threshold": cache_cfg.search_threshold,
                     },

@@ -1477,6 +1477,15 @@ def semantic_cache_search(
     if stats is not None:
         stats.setdefault("candidates_scored", 0)
         stats.setdefault("best_similarity_seen", 0.0)
+        # Candidates that cleared the similarity threshold and were then dropped
+        # for belonging to another conversation.
+        stats.setdefault("conversation_excluded", 0)
+        # The denominator conversation_excluded needs. candidates_scored counts
+        # every embedding compared — it increments before the `sim >= threshold`
+        # test, so it is cache size times queries and does not move with
+        # search_threshold. This counts what actually cleared the threshold and
+        # reached the filter, which is the pool a lower cutoff enlarges.
+        stats.setdefault("candidates_admitted", 0)
     cfg = _get_config()
     if threshold is None:
         threshold = cfg.search_threshold
@@ -1498,6 +1507,8 @@ def semantic_cache_search(
                 stats["candidates_scored"] = len(raw_matches)
                 stats["best_similarity_seen"] = max(sim for _, sim in raw_matches)
             matches_vi = [(cid, sim) for cid, sim in raw_matches if sim >= threshold][:max_results]
+            if stats is not None:
+                stats["candidates_admitted"] += len(matches_vi)
             results: list[SemanticMatch] = []
             for cache_id, sim in matches_vi:
                 record = (
@@ -1507,6 +1518,8 @@ def semantic_cache_search(
                     if namespace_id and record.namespace_id != namespace_id:
                         continue
                     if _other_conversation(record, conversation_id):
+                        if stats is not None:
+                            stats["conversation_excluded"] += 1
                         continue
                     record.answer_text = decrypt_if_needed(record.answer_text)
                     results.append(SemanticMatch(record=record, similarity=sim))
@@ -1542,12 +1555,16 @@ def semantic_cache_search(
 
     matches.sort(key=lambda x: x[1], reverse=True)
     matches = matches[:max_results]
+    if stats is not None:
+        stats["candidates_admitted"] += len(matches)
 
     results = []
     for cache_id, sim in matches:
         record = backend.cache_lookup_by_id(session, cache_id) if hasattr(backend, "cache_lookup_by_id") else None
         if record and record.is_valid:
             if _other_conversation(record, conversation_id):
+                if stats is not None:
+                    stats["conversation_excluded"] += 1
                 continue
             record.answer_text = decrypt_if_needed(record.answer_text)
             results.append(SemanticMatch(record=record, similarity=sim))

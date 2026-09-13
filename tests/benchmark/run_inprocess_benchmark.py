@@ -115,12 +115,6 @@ class Recorder:
                         "is_partial": bool(getattr(item, "is_partial", False)),
                     }
                 )
-        # The strongest candidate is recorded whether or not it served. A
-        # threshold sweep asks what would have happened at a threshold lower
-        # than the one this run used, and that is unanswerable from the served
-        # text alone: rows that missed here would serve there, and nothing would
-        # record what they served. recall_rows_with_guard.json has exactly this
-        # gap and cannot be swept because of it.
         # Whether session resolution rewrote the query or bailed, not merely
         # that it ran. Only REWRITTEN bypasses the qualification gate
         # (proxy/base.py:480), so without the action the bypass rate is
@@ -129,6 +123,12 @@ class Recorder:
             (s.get("action", "") for s in (result.trace or []) if s.get("mechanism") == "session_resolve"), ""
         )
 
+        # The strongest candidate is recorded whether or not it served. A
+        # threshold sweep asks what would have happened at a threshold lower
+        # than the one this run used, and that is unanswerable from the served
+        # text alone: rows that missed here would serve there, and nothing would
+        # record what they served. recall_rows_with_guard.json has exactly this
+        # gap and cannot be swept because of it.
         best_evidence = None
         if evidence is not None and hasattr(evidence, "best_single_answer"):
             best_evidence = evidence.best_single_answer()
@@ -137,6 +137,14 @@ class Recorder:
             for step in result.trace or []:
                 if step.get("action") in ("HIT", "FULL_HIT"):
                     served_by = step.get("mechanism", "")
+
+        # Pulled from the semantic_cache step rather than recomputed: both
+        # already reach the trace at proxy/base.py:685-686 and were being
+        # dropped, so scan cost had to be argued from code structure instead of
+        # measured. See HANDOFF item 25.
+        semantic_detail = next(
+            (s.get("detail") or {} for s in (result.trace or []) if s.get("mechanism") == "semantic_cache"), {}
+        )
 
         # A layer that produced no evidence may have found nothing, or may have
         # found candidates and rejected them all on threshold. Those are
@@ -165,6 +173,9 @@ class Recorder:
                 "turn_index": turn_index,
                 "history_len": history_len,
                 "session_resolution": session_resolution,
+                "candidates_scored": semantic_detail.get("candidates_scored", 0),
+                "candidates_admitted": semantic_detail.get("candidates_admitted", 0),
+                "conversation_excluded": semantic_detail.get("conversation_excluded", 0),
                 "hit": bool(result.hit),
                 "expected_hit": expected_hit,
                 "served_by": served_by,

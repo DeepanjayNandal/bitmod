@@ -122,6 +122,9 @@ class MySQLBackend(DatabaseBackend):
             # back as None — so namespace isolation, TTL expiry and both
             # eviction strategies were inert on this backend while the code
             # that used them looked correct.
+            # Retrieval scoping only — never part of the answer key. See
+            # AnswerCacheRecord.conversation_id.
+            Column("conversation_id", String(64), nullable=True),
             Column("namespace_id", String(64), nullable=True),
             Column("max_age_seconds", Integer, nullable=True),
             Column("last_served_at", DateTime, nullable=True),
@@ -175,6 +178,21 @@ class MySQLBackend(DatabaseBackend):
         )
 
         self._meta.create_all(self._engine)
+
+        # Schema upgrades for existing databases. create_all() creates missing
+        # TABLES and never alters an existing one. MySQL 8.4.11 rejects
+        # ADD COLUMN IF NOT EXISTS with a syntax error (1064) and raises 1060
+        # "Duplicate column name" on a repeat, so idempotency is try/except
+        # here rather than native as on Postgres. Both verified by execution.
+        with self._engine.connect() as conn:
+            for stmt in [
+                "ALTER TABLE answer_cache ADD COLUMN conversation_id VARCHAR(64) NULL",
+            ]:
+                try:
+                    conn.execute(text(stmt))
+                    conn.commit()
+                except Exception:  # noqa: S110 — column already exists (MySQL 1060)
+                    conn.rollback()
 
         # Add FULLTEXT index for search + additional indexes
         with self._engine.connect() as conn:
@@ -369,6 +387,7 @@ class MySQLBackend(DatabaseBackend):
                 generation_ms=record.generation_ms,
                 confidence=record.confidence,
                 namespace_id=record.namespace_id,
+                conversation_id=record.conversation_id,
                 max_age_seconds=record.max_age_seconds,
                 last_served_at=record.last_served_at,
                 estimated_cost=record.estimated_cost,
@@ -908,6 +927,7 @@ class MySQLBackend(DatabaseBackend):
             is_valid=row.is_valid,
             serve_count=row.serve_count,
             namespace_id=row.namespace_id,
+            conversation_id=row.conversation_id,
             max_age_seconds=row.max_age_seconds,
             last_served_at=row.last_served_at,
             estimated_cost=row.estimated_cost or 0.0,

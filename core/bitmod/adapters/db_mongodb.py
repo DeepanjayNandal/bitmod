@@ -198,6 +198,9 @@ class MongoDBBackend(DatabaseBackend):
                 "question_raw": record.question_raw,
                 "question_normalized": record.question_normalized,
                 "filters": record.filters,
+                # Retrieval scoping only — never part of the answer key. See
+                # AnswerCacheRecord.conversation_id.
+                "conversation_id": record.conversation_id,
                 "answer_text": record.answer_text,
                 "source_sections": record.source_sections,
                 "model_used": record.model_used,
@@ -343,6 +346,7 @@ class MongoDBBackend(DatabaseBackend):
             invalidated_at=doc.get("invalidated_at"),
             invalidation_reason=doc.get("invalidation_reason"),
             namespace_id=doc.get("namespace_id"),
+            conversation_id=doc.get("conversation_id"),
             max_age_seconds=doc.get("max_age_seconds"),
             last_served_at=doc.get("last_served_at"),
             estimated_cost=doc.get("estimated_cost") or 0.0,

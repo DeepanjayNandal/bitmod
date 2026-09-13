@@ -114,6 +114,19 @@ class AnswerCacheRecord:
     invalidation_reason: str | None = None
     created_at: datetime | None = None
     namespace_id: str | None = None  # Multi-tenant namespace isolation
+    # Which conversation wrote this entry. FOR RETRIEVAL SCOPING ONLY.
+    #
+    # THIS MUST NEVER ENTER compute_answer_key. Adding it to the key by analogy
+    # with namespace_id would fragment the exact key per conversation, which is
+    # the filters["_context"] behaviour measured as harmful: it makes the exact
+    # path miss entries the cache stored itself, pushing traffic to the semantic
+    # layer, which is where cross-conversation collisions happen.
+    #
+    # None means "we do not know which conversation wrote this" — every entry
+    # cached before this column existed. The retrieval filter treats None as a
+    # MATCH, not a mismatch: excluding on absence of evidence would make the
+    # whole pre-upgrade cache unreachable via semantic in a single deploy.
+    conversation_id: str | None = None
     max_age_seconds: int | None = None  # TTL — None means no expiry
     last_served_at: datetime | None = None  # LRU eviction tracking
     estimated_cost: float = 0.0  # Estimated generation cost in USD for cost-aware eviction

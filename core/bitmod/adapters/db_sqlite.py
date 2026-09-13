@@ -99,6 +99,7 @@ class SQLiteBackend(DatabaseBackend):
                 invalidation_reason TEXT,
                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
                 namespace_id TEXT DEFAULT NULL,
+                conversation_id TEXT DEFAULT NULL,
                 max_age_seconds INTEGER DEFAULT NULL,
                 last_served_at TEXT DEFAULT NULL,
                 estimated_cost REAL NOT NULL DEFAULT 0.0
@@ -360,6 +361,9 @@ class SQLiteBackend(DatabaseBackend):
             "ALTER TABLE answer_cache ADD COLUMN namespace_id TEXT DEFAULT NULL",
             "ALTER TABLE answer_cache ADD COLUMN max_age_seconds INTEGER DEFAULT NULL",
             "ALTER TABLE answer_cache ADD COLUMN last_served_at TEXT DEFAULT NULL",
+            # Retrieval scoping only — never part of the answer key. See
+            # AnswerCacheRecord.conversation_id.
+            "ALTER TABLE answer_cache ADD COLUMN conversation_id TEXT DEFAULT NULL",
         ]:
             try:
                 conn.execute(stmt)
@@ -624,7 +628,7 @@ class SQLiteBackend(DatabaseBackend):
             session.execute("DELETE FROM cache_embeddings WHERE cache_id = ?", (old_row["id"],))
             session.execute("DELETE FROM answer_cache WHERE id = ?", (old_row["id"],))
         session.execute(
-            "INSERT INTO answer_cache (id, answer_key, question_raw, question_normalized, filters, answer_text, source_sections, model_used, generation_ms, confidence, namespace_id, max_age_seconds, estimated_cost) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",  # noqa: E501
+            "INSERT INTO answer_cache (id, answer_key, question_raw, question_normalized, filters, answer_text, source_sections, model_used, generation_ms, confidence, namespace_id, conversation_id, max_age_seconds, estimated_cost) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",  # noqa: E501
             (
                 record.id,
                 record.answer_key,
@@ -637,6 +641,10 @@ class SQLiteBackend(DatabaseBackend):
                 record.generation_ms,
                 record.confidence,
                 record.namespace_id,
+                # Position matters: this tuple is matched to the column list
+                # above by order, not by name. conversation_id sits between
+                # namespace_id and max_age_seconds in both.
+                record.conversation_id,
                 record.max_age_seconds,
                 record.estimated_cost,
             ),
@@ -1112,6 +1120,11 @@ class SQLiteBackend(DatabaseBackend):
             last_served = row["last_served_at"]
         except (IndexError, KeyError):
             pass
+        conv_id = None
+        try:
+            conv_id = row["conversation_id"]
+        except (IndexError, KeyError):
+            pass
         est_cost = 0.0
         try:
             est_cost = row["estimated_cost"] or 0.0
@@ -1132,6 +1145,7 @@ class SQLiteBackend(DatabaseBackend):
             serve_count=row["serve_count"],
             created_at=row["created_at"],
             namespace_id=ns_id,
+            conversation_id=conv_id,
             max_age_seconds=max_age,
             last_served_at=last_served,
             estimated_cost=est_cost,

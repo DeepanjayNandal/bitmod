@@ -160,6 +160,9 @@ class PostgreSQLBackend(DatabaseBackend):
             # back as None — so namespace isolation, TTL expiry and both
             # eviction strategies were inert on this backend while the code
             # that used them looked correct.
+            # Retrieval scoping only — never part of the answer key. See
+            # AnswerCacheRecord.conversation_id.
+            Column("conversation_id", String, nullable=True),
             Column("namespace_id", String, nullable=True),
             Column("max_age_seconds", Integer, nullable=True),
             Column("last_served_at", DateTime, nullable=True),
@@ -213,6 +216,19 @@ class PostgreSQLBackend(DatabaseBackend):
         )
 
         self._meta.create_all(self._engine)
+
+        # Schema upgrades for existing databases. create_all() creates missing
+        # TABLES and never alters an existing one, so a column added to the
+        # Table() definition above is absent from any database created before
+        # it — and every insert naming it then fails. Postgres supports
+        # ADD COLUMN IF NOT EXISTS, so this is idempotent natively; MySQL does
+        # not and uses try/except instead. Verified against PostgreSQL 16.15.
+        with self._engine.connect() as conn:
+            for stmt in [
+                "ALTER TABLE answer_cache ADD COLUMN IF NOT EXISTS conversation_id VARCHAR NULL",
+            ]:
+                conn.execute(text(stmt))
+            conn.commit()
 
         # Create indexes that SQLAlchemy Table doesn't handle well
         with self._engine.connect() as conn:
@@ -451,6 +467,7 @@ class PostgreSQLBackend(DatabaseBackend):
                 generation_ms=record.generation_ms,
                 confidence=record.confidence,
                 namespace_id=record.namespace_id,
+                conversation_id=record.conversation_id,
                 max_age_seconds=record.max_age_seconds,
                 last_served_at=record.last_served_at,
                 estimated_cost=record.estimated_cost,
@@ -967,6 +984,7 @@ class PostgreSQLBackend(DatabaseBackend):
             is_valid=row.is_valid,
             serve_count=row.serve_count,
             namespace_id=row.namespace_id,
+            conversation_id=row.conversation_id,
             max_age_seconds=row.max_age_seconds,
             last_served_at=row.last_served_at,
             estimated_cost=row.estimated_cost or 0.0,

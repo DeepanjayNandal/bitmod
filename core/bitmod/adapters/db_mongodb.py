@@ -206,6 +206,16 @@ class MongoDBBackend(DatabaseBackend):
                 "is_valid": True,
                 "serve_count": 0,
                 "created_at": datetime.now(timezone.utc),
+                # These four were declared on SQLite and written by store_answer,
+                # but never persisted here. 7a16597 added them to PostgreSQL and
+                # MySQL and did not audit this backend. Without namespace_id on
+                # the document, cache_get_embeddings' $match on
+                # cache.namespace_id matched nothing, so every namespaced
+                # semantic lookup returned zero candidates.
+                "namespace_id": record.namespace_id,
+                "max_age_seconds": record.max_age_seconds,
+                "last_served_at": record.last_served_at,
+                "estimated_cost": record.estimated_cost,
             }
         )
 
@@ -326,6 +336,16 @@ class MongoDBBackend(DatabaseBackend):
             confidence=doc.get("confidence"),
             is_valid=doc.get("is_valid", True),
             serve_count=doc.get("serve_count", 0),
+            # created_at is written by cache_store, invalidated_at and
+            # invalidation_reason by cache_invalidate and cache_clear_all — all
+            # three were in Mongo already and dropped on the way out.
+            created_at=doc.get("created_at"),
+            invalidated_at=doc.get("invalidated_at"),
+            invalidation_reason=doc.get("invalidation_reason"),
+            namespace_id=doc.get("namespace_id"),
+            max_age_seconds=doc.get("max_age_seconds"),
+            last_served_at=doc.get("last_served_at"),
+            estimated_cost=doc.get("estimated_cost") or 0.0,
         )
 
     def _doc_to_block(self, doc: dict) -> ContentBlock:

@@ -126,7 +126,7 @@ def _lookup(backend, session, question: str, embedder) -> tuple[str, str, float]
     fuzzy = fuzzy_match(backend, session, question, filters={}, similarity_threshold=0.75, max_candidates=3)
     if fuzzy:
         ms = (time.perf_counter() - t0) * 1000
-        return "fuzzy", fuzzy[0].answer_text, ms
+        return "fuzzy", fuzzy[0].record.answer_text, ms
 
     sem = semantic_cache_search(backend, session, question, filters={}, embedder=embedder, threshold=0.75, max_results=3)
     if sem:

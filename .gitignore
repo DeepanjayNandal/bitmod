@@ -102,6 +102,11 @@ tests/stress/*.jsonl
 !tests/benchmark/results/support_heldout_warm_1500.json
 !tests/benchmark/results/support_heldout_warm_1500_rows.json.gz
 
+# The only artifact in this directory produced by REAL generation. Local
+# inference, so it cannot speak to the README's hosted figures — it is kept
+# because it is the sole provenance the cached-path numbers have.
+!tests/benchmark/results/latency_local_ollama.json
+
 # Backup sessions (generated at runtime)
 bitmod_backup/
 services/gateway/bitmod_backup/

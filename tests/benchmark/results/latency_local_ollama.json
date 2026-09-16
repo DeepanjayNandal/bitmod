@@ -1,0 +1,58 @@
+{
+  "measures": "wall-clock latency of the cached path and of the generating path",
+  "generation": "REAL \u2014 ollama/llama3.2 on http://localhost:11434",
+  "does_not_measure": [
+    "a hosted provider over a network. The generating figure here is LOCAL inference and is NOT comparable to the README's 12.5s, which describes a hosted model.",
+    "the speedup ratio, because its denominator is the hosted number this cannot produce",
+    "a deployment with a hosted embedder \u2014 that adds a round trip to the semantic path only, so the semantic figure here is a floor"
+  ],
+  "hardware_note": "single developer machine, unloaded; no attempt made to control for thermal or background load",
+  "embedder": "ollama/nomic-embed-text",
+  "run_config": {
+    "serve_threshold": 0.85,
+    "search_threshold": 0.6,
+    "accumulation_damping": 0.5
+  },
+  "timestamp": "2026-09-16T17:55:25.441122+00:00",
+  "provenance": {
+    "commit": "3c3c7874164df4574803c60d1d872c448129abb6",
+    "tree_sha256": "2b0cba65d93c928a",
+    "dirty": true,
+    "untracked_files": 1
+  },
+  "cold_real_generation_local": {
+    "n": 20,
+    "mean_ms": 4647.8,
+    "median_ms": 4209.3,
+    "min_ms": 1654.2,
+    "max_ms": 9738.0,
+    "p95_ms": 9738.0
+  },
+  "cached_exact": {
+    "n": 20,
+    "mean_ms": 0.2,
+    "median_ms": 0.2,
+    "min_ms": 0.2,
+    "max_ms": 0.7,
+    "p95_ms": 0.7
+  },
+  "cached_semantic": {
+    "n": 6,
+    "mean_ms": 42.5,
+    "median_ms": 42.2,
+    "min_ms": 38.6,
+    "max_ms": 45.8,
+    "p95_ms": 45.8
+  },
+  "cached_semantic_attempts": 20,
+  "cached_semantic_hit_rate": 0.3,
+  "warm_phrasings_per_intent": 8,
+  "generated_answer_chars": {
+    "n": 20,
+    "mean_ms": 1268.2,
+    "median_ms": 1145.0,
+    "min_ms": 387.0,
+    "max_ms": 2912.0,
+    "p95_ms": 2912.0
+  }
+}

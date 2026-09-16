@@ -4,9 +4,11 @@ The two runners must differ only in transport. Loading the corpus from one
 place means a disagreement between their numbers cannot be blamed on them
 having read different data.
 
-Two datasets, because no single one reaches every layer. That is a property of
+Three datasets, because no single one reaches every layer. That is a property of
 the pipeline, not a gap in the search: one layer wants paraphrase pairs, another
-wants multi-turn anaphora, and they cannot come from the same rows.
+wants multi-turn anaphora, and they cannot come from the same rows. The third
+(bitext, below) is a different question entirely — not "can the cache generalise"
+but "does it serve the wrong answer when the alternatives are genuinely close".
 
 sentence-transformers/quora-duplicates carries a human label per pair: 1 if the
 two questions mean the same thing, 0 if not. That gives ground truth in both
@@ -22,14 +24,23 @@ that atomic-fact extraction requires — which is what the previous stub answer
 ("Mock answer to: ...", 40 characters, no sentence terminator) could never
 satisfy.
 
+bitext/Bitext-customer-support-llm-chatbot-training-dataset is retail customer
+support. Each row is a user phrasing, an intent label, an answer, and tags
+describing how the phrasing varies. Many phrasings share one intent, so the
+paraphrase grouping comes from the dataset rather than from whoever wrote the
+benchmark — the objection that sank the hand-authored alternative.
+
 Fetched through the HuggingFace rows API rather than the parquet export, so no
 columnar dependency is needed and only the rows actually used are downloaded.
 """
 
 from __future__ import annotations
 
+import json
+import re
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import httpx
 
@@ -42,6 +53,11 @@ QRECC_DATASET = "voidful/qrecc"
 QRECC_CONFIG = "default"
 QRECC_SPLIT = "train"
 
+BITEXT_DATASET = "bitext/Bitext-customer-support-llm-chatbot-training-dataset"
+BITEXT_CONFIG = "default"
+BITEXT_SPLIT = "train"
+BITEXT_TOTAL_ROWS = 26872  # measured against /statistics, not assumed
+
 
 # ---------------------------------------------------------------------------
 # Dataset
@@ -50,14 +66,29 @@ QRECC_SPLIT = "train"
 
 def _get_with_retry(client: httpx.Client, params: dict, attempts: int = 4) -> dict:
     """The rows API returns transient 502s. A benchmark run is long enough that
-    losing one to a momentary gateway error wastes more time than retrying."""
+    losing one to a momentary gateway error wastes more time than retrying.
+
+    429 is handled separately from 502. A rate limit is not transient — backing
+    off by the server's own Retry-After is the difference between a fetch that
+    finishes and one that exhausts its attempts mid-corpus, which is what a
+    plain exponential backoff did on the first full bitext pull.
+    """
     last: Exception | None = None
     for attempt in range(attempts):
         try:
             response = client.get(HF_ROWS_API, params=params)
             response.raise_for_status()
             return response.json()  # type: ignore[no-any-return]
-        except (httpx.HTTPStatusError, httpx.TransportError) as exc:
+        except httpx.HTTPStatusError as exc:
+            last = exc
+            if attempt == attempts - 1:
+                break
+            wait = 2**attempt
+            if exc.response.status_code == 429:
+                retry_after = exc.response.headers.get("Retry-After")
+                wait = max(wait, float(retry_after) if retry_after else 5.0)
+            time.sleep(min(wait, 60))
+        except httpx.TransportError as exc:
             last = exc
             if attempt < attempts - 1:
                 time.sleep(2**attempt)
@@ -176,3 +207,162 @@ def fetch_conversations(target: int, min_turns: int = 4) -> list[Conversation]:
         conversation.turns.sort(key=lambda t: t.turn_no)
     usable.sort(key=lambda c: c.conversation_no)
     return usable[:target]
+
+
+# ---------------------------------------------------------------------------
+# Bitext — retail customer support, intent-grouped
+# ---------------------------------------------------------------------------
+
+# The dataset card's "Language Generation Tags" section, verbatim in meaning.
+# Twelve are documented; D (indirect speech) and G (regional variation) are
+# listed there as not used in this dataset and so are absent here.
+VARIATION_TAGS = {
+    "M": "morphological variation — inflection and derivation",
+    "L": "semantic variation — synonyms, hyphenation, compounding",
+    "B": "basic syntactic structure",
+    "I": "interrogative structure",
+    "C": "coordinated syntactic structure",
+    "N": "negation",
+    "P": "politeness variation",
+    "Q": "colloquial variation ('can u activ8 my SIM?')",
+    "W": "offensive language",
+    "K": "keyword mode ('activate SIM')",
+    "E": "use of abbreviations",
+    "Z": "errors and typos ('how can i activaet my card')",
+}
+
+# Every placeholder appearing in an `instruction`, measured across all 26,872
+# rows — there are exactly nine, so this map is complete rather than a sample.
+#
+# One fixed value per placeholder, NOT a varying one. A varying value would be
+# the more realistic workload, and it is deliberately not what this measures:
+# it would turn every repeat of a question into a different string and make the
+# benchmark a test of entity handling rather than of paraphrase retrieval.
+# The consequence is named in the runner's report — entity_guard is not
+# exercised by these entities, and no number here says anything about it.
+PLACEHOLDER_FILL = {
+    "Order Number": "12345",
+    "Account Type": "premium",
+    "Person Name": "Alex Morgan",
+    "Account Category": "standard",
+    "Refund Amount": "50",
+    "Currency Symbol": "$",
+    "Delivery City": "Springfield",
+    "Delivery Country": "United States",
+    "Invoice Number": "INV-9001",
+}
+
+_PLACEHOLDER_RE = re.compile(r"\{\{([^}]+)\}\}")
+
+
+def fill_placeholders(text: str) -> str:
+    """Substitute the fixed value for each `{{Placeholder}}`.
+
+    An unknown placeholder degrades to its own lowercased name rather than
+    raising. Responses carry placeholders this map does not cover (48% of
+    responses contain one, against 25% of instructions) and an answer reading
+    "your refund of company name" is a visible defect in an artifact, where a
+    crash mid-run is a lost run.
+    """
+    return _PLACEHOLDER_RE.sub(lambda m: PLACEHOLDER_FILL.get(m.group(1), m.group(1).lower()), text)
+
+
+@dataclass
+class SupportQuery:
+    """One user phrasing of one intent."""
+
+    instruction: str
+    intent: str
+    category: str
+    flags: str
+    row_index: int
+
+    @property
+    def variations(self) -> list[str]:
+        """The documented tags on this phrasing, unknown letters dropped."""
+        return [c for c in self.flags if c in VARIATION_TAGS]
+
+
+@dataclass
+class SupportIntent:
+    """One intent: its canonical answer, and every phrasing that should reach it."""
+
+    intent: str
+    category: str
+    canonical_instruction: str
+    canonical_answer: str
+    queries: list[SupportQuery] = field(default_factory=list)
+
+
+def _bitext_cache_dir() -> Path:
+    path = Path(__file__).resolve().parent / ".cache" / "bitext"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def fetch_support_corpus(cache_dir: Path | None = None) -> list[SupportIntent]:
+    """Every row, grouped by intent, with the first row of each intent canonical.
+
+    WHICH ROW IS CANONICAL IS ARBITRARY. It is the first occurrence in dataset
+    order — not the clearest phrasing, not the most representative, and not
+    chosen. Each of the ~1,000 rows sharing an intent carries its own generated
+    response, so the dataset has no canonical answer of its own; electing one is
+    something this benchmark does TO the dataset, and a reader has to be able to
+    tell that apart from a property of the data.
+
+    The whole corpus is fetched rather than sampled, so there is no sampling
+    design to defend. Pages are cached on disk because the rows API rate-limits
+    hard enough that a cold fetch of 269 pages takes tens of minutes; a second
+    run costs nothing.
+    """
+    cache = Path(cache_dir) if cache_dir else _bitext_cache_dir()
+    rows: list[dict] = []
+
+    with httpx.Client(timeout=90) as client:
+        for offset in range(0, BITEXT_TOTAL_ROWS, 100):
+            page_file = cache / f"{offset:06d}.json"
+            if page_file.exists():
+                rows.extend(json.loads(page_file.read_text()))
+                continue
+            payload = _get_with_retry(
+                client,
+                {
+                    "dataset": BITEXT_DATASET,
+                    "config": BITEXT_CONFIG,
+                    "split": BITEXT_SPLIT,
+                    "offset": offset,
+                    "length": 100,
+                },
+                attempts=8,
+            )
+            page = [item["row"] for item in payload.get("rows", [])]
+            page_file.write_text(json.dumps(page))
+            rows.extend(page)
+
+    intents: dict[str, SupportIntent] = {}
+    for index, row in enumerate(rows):
+        name = (row.get("intent") or "").strip()
+        instruction = fill_placeholders((row.get("instruction") or "").strip())
+        response = fill_placeholders((row.get("response") or "").strip())
+        if not name or not instruction or not response:
+            continue
+        entry = intents.get(name)
+        if entry is None:
+            entry = SupportIntent(
+                intent=name,
+                category=(row.get("category") or "").strip(),
+                canonical_instruction=instruction,
+                canonical_answer=response,
+            )
+            intents[name] = entry
+        entry.queries.append(
+            SupportQuery(
+                instruction=instruction,
+                intent=name,
+                category=entry.category,
+                flags=(row.get("flags") or "").strip(),
+                row_index=index,
+            )
+        )
+
+    return [intents[k] for k in sorted(intents)]

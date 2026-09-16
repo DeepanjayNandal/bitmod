@@ -1,0 +1,679 @@
+{
+  "harness": "in-process (_run_cache_pipeline called directly)",
+  "measures": "precision against a dense confusable answer set, and recall by rephrasing type",
+  "headline": "precision \u2014 see does_not_measure for why hit rate is context only",
+  "does_not_measure": [
+    "cache hit rate as a product figure \u2014 27 answers over ~1,500 queries makes it a corpus property",
+    "end-to-end latency or token savings \u2014 generation never runs",
+    "entity handling \u2014 placeholders are filled with one fixed value each, so entity_guard is unloaded",
+    "over-serving on out-of-domain queries, unless --hold-out-categories is used: otherwise every query has a correct answer in cache"
+  ],
+  "dataset": {
+    "name": "bitext/Bitext-customer-support-llm-chatbot-training-dataset",
+    "config": "default",
+    "split": "train",
+    "source": "https://datasets-server.huggingface.co/rows",
+    "total_rows": 26872,
+    "intents": 27,
+    "categories": 11,
+    "canonical_answer_rule": "first row of each intent in dataset order \u2014 ARBITRARY, not selected. Each row carries its own generated response, so the dataset has no canonical answer; electing one is something this benchmark does to the dataset, not a property of it.",
+    "provenance_caveat": "NLG-expanded from natural seed text under computational-linguist curation, per the dataset card. Curated variations, not logged production traffic \u2014 and not authored by this project, which is why it was chosen.",
+    "placeholders": "filled with one fixed value each; see dataset.PLACEHOLDER_FILL"
+  },
+  "arm": {
+    "seeded_intents": 27,
+    "held_out_categories": [],
+    "held_out_intents": [],
+    "cache_policy": "frozen \u2014 seeded once, never written again",
+    "zipf_exponent": 0.0,
+    "seed": 20260916
+  },
+  "embedder": "ollama/nomic-embed-text",
+  "run_config": {
+    "accumulation_damping": 0.5,
+    "calibrated_confidence": true,
+    "serve_threshold": 0.85,
+    "search_threshold": 0.6,
+    "entity_guard_enabled": true,
+    "fact_min_similarity": 0.65
+  },
+  "timestamp": "2026-09-16T13:32:41.764523+00:00",
+  "provenance": {
+    "commit": "7e95e9c91a6a7e29622128cac1cf4856059f8b05",
+    "tree_sha256": "0bbe2c3e2bbf2b71",
+    "dirty": true,
+    "untracked_files": 1
+  },
+  "duration_s": 77.1,
+  "summary": {
+    "queries_scored": 1500,
+    "served": 19,
+    "correct": 19,
+    "wrong": 0,
+    "missed": 1481,
+    "precision": 1.0,
+    "recall": 0.0127,
+    "hit_rate_context_only": 0.0127,
+    "wrong_per_1000_served": 0.0
+  },
+  "by_pass": {
+    "1_seed": {
+      "total": 27,
+      "hits": 0
+    },
+    "2_exact": {
+      "total": 27,
+      "hits": 27
+    },
+    "3_paraphrase": {
+      "total": 1500,
+      "hits": 19
+    }
+  },
+  "held_out": null,
+  "exact_match_check": {
+    "queries": 27,
+    "hits": 27,
+    "note": "byte-identical re-sends, excluded from every score. Expected ~100%; anything lower means the seeding pass did not populate the cache and no other number in this report is meaningful."
+  },
+  "retrieval_reach": {
+    "queries": 1500,
+    "no_candidate": 390,
+    "right_answer_retrieved": 824,
+    "right_answer_retrieved_rate": 0.5493,
+    "of_those_served": 19,
+    "found_but_not_served": 805,
+    "note": "found_but_not_served is the cost of serve_threshold on this workload: the correct answer was the top candidate and accumulated confidence did not clear the bar"
+  },
+  "threshold_sweep": [
+    {
+      "threshold": 0.5,
+      "served": 258,
+      "correct": 235,
+      "wrong": 23,
+      "precision": 0.9109,
+      "recall": 0.1567
+    },
+    {
+      "threshold": 0.55,
+      "served": 183,
+      "correct": 173,
+      "wrong": 10,
+      "precision": 0.9454,
+      "recall": 0.1153
+    },
+    {
+      "threshold": 0.6,
+      "served": 135,
+      "correct": 131,
+      "wrong": 4,
+      "precision": 0.9704,
+      "recall": 0.0873
+    },
+    {
+      "threshold": 0.65,
+      "served": 107,
+      "correct": 105,
+      "wrong": 2,
+      "precision": 0.9813,
+      "recall": 0.07
+    },
+    {
+      "threshold": 0.7,
+      "served": 79,
+      "correct": 79,
+      "wrong": 0,
+      "precision": 1.0,
+      "recall": 0.0527
+    },
+    {
+      "threshold": 0.75,
+      "served": 58,
+      "correct": 58,
+      "wrong": 0,
+      "precision": 1.0,
+      "recall": 0.0387
+    },
+    {
+      "threshold": 0.8,
+      "served": 35,
+      "correct": 35,
+      "wrong": 0,
+      "precision": 1.0,
+      "recall": 0.0233
+    },
+    {
+      "threshold": 0.85,
+      "served": 19,
+      "correct": 19,
+      "wrong": 0,
+      "precision": 1.0,
+      "recall": 0.0127
+    },
+    {
+      "threshold": 0.9,
+      "served": 12,
+      "correct": 12,
+      "wrong": 0,
+      "precision": 1.0,
+      "recall": 0.008
+    },
+    {
+      "threshold": 0.95,
+      "served": 1,
+      "correct": 1,
+      "wrong": 0,
+      "precision": 1.0,
+      "recall": 0.0007
+    }
+  ],
+  "confusion": [],
+  "confusion_projected": [
+    {
+      "threshold": 0.7,
+      "projected_serves": 79,
+      "projected_wrong": 0,
+      "basis": "projected from best_candidate, not measured \u2014 see confusion_at docstring",
+      "pairs": []
+    },
+    {
+      "threshold": 0.6,
+      "projected_serves": 135,
+      "projected_wrong": 4,
+      "basis": "projected from best_candidate, not measured \u2014 see confusion_at docstring",
+      "pairs": [
+        {
+          "asked": "change_shipping_address",
+          "served": "set_up_shipping_address",
+          "count": 2
+        },
+        {
+          "asked": "check_invoice",
+          "served": "get_invoice",
+          "count": 1
+        },
+        {
+          "asked": "create_account",
+          "served": "delete_account",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "threshold": 0.5,
+      "projected_serves": 258,
+      "projected_wrong": 23,
+      "basis": "projected from best_candidate, not measured \u2014 see confusion_at docstring",
+      "pairs": [
+        {
+          "asked": "change_shipping_address",
+          "served": "set_up_shipping_address",
+          "count": 12
+        },
+        {
+          "asked": "set_up_shipping_address",
+          "served": "change_shipping_address",
+          "count": 3
+        },
+        {
+          "asked": "check_invoice",
+          "served": "get_invoice",
+          "count": 2
+        },
+        {
+          "asked": "create_account",
+          "served": "delete_account",
+          "count": 2
+        },
+        {
+          "asked": "track_refund",
+          "served": "check_refund_policy",
+          "count": 2
+        },
+        {
+          "asked": "switch_account",
+          "served": "edit_account",
+          "count": 2
+        }
+      ]
+    }
+  ],
+  "by_variation": [
+    {
+      "tag": "K",
+      "meaning": "keyword mode ('activate SIM')",
+      "queries": 126,
+      "reached": 45,
+      "reach": 0.3571,
+      "mean_confidence": 0.2319,
+      "correct": 2,
+      "wrong": 0,
+      "recall": 0.0159,
+      "precision": 1.0
+    },
+    {
+      "tag": "W",
+      "meaning": "offensive language",
+      "queries": 61,
+      "reached": 29,
+      "reach": 0.4754,
+      "mean_confidence": 0.2146,
+      "correct": 0,
+      "wrong": 0,
+      "recall": 0.0,
+      "precision": null
+    },
+    {
+      "tag": "Z",
+      "meaning": "errors and typos ('how can i activaet my card')",
+      "queries": 280,
+      "reached": 135,
+      "reach": 0.4821,
+      "mean_confidence": 0.2111,
+      "correct": 1,
+      "wrong": 0,
+      "recall": 0.0036,
+      "precision": 1.0
+    },
+    {
+      "tag": "Q",
+      "meaning": "colloquial variation ('can u activ8 my SIM?')",
+      "queries": 500,
+      "reached": 269,
+      "reach": 0.538,
+      "mean_confidence": 0.2774,
+      "correct": 4,
+      "wrong": 0,
+      "recall": 0.008,
+      "precision": 1.0
+    },
+    {
+      "tag": "B",
+      "meaning": "basic syntactic structure",
+      "queries": 1500,
+      "reached": 824,
+      "reach": 0.5493,
+      "mean_confidence": 0.2906,
+      "correct": 19,
+      "wrong": 0,
+      "recall": 0.0127,
+      "precision": 1.0
+    },
+    {
+      "tag": "I",
+      "meaning": "interrogative structure",
+      "queries": 444,
+      "reached": 246,
+      "reach": 0.5541,
+      "mean_confidence": 0.2698,
+      "correct": 1,
+      "wrong": 0,
+      "recall": 0.0023,
+      "precision": 1.0
+    },
+    {
+      "tag": "C",
+      "meaning": "coordinated syntactic structure",
+      "queries": 151,
+      "reached": 85,
+      "reach": 0.5629,
+      "mean_confidence": 0.2973,
+      "correct": 0,
+      "wrong": 0,
+      "recall": 0.0,
+      "precision": null
+    },
+    {
+      "tag": "L",
+      "meaning": "semantic variation \u2014 synonyms, hyphenation, compounding",
+      "queries": 1360,
+      "reached": 768,
+      "reach": 0.5647,
+      "mean_confidence": 0.2924,
+      "correct": 17,
+      "wrong": 0,
+      "recall": 0.0125,
+      "precision": 1.0
+    },
+    {
+      "tag": "P",
+      "meaning": "politeness variation",
+      "queries": 66,
+      "reached": 39,
+      "reach": 0.5909,
+      "mean_confidence": 0.2858,
+      "correct": 0,
+      "wrong": 0,
+      "recall": 0.0,
+      "precision": null
+    },
+    {
+      "tag": "M",
+      "meaning": "morphological variation \u2014 inflection and derivation",
+      "queries": 304,
+      "reached": 182,
+      "reach": 0.5987,
+      "mean_confidence": 0.2737,
+      "correct": 3,
+      "wrong": 0,
+      "recall": 0.0099,
+      "precision": 1.0
+    },
+    {
+      "tag": "E",
+      "meaning": "use of abbreviations",
+      "queries": 113,
+      "reached": 70,
+      "reach": 0.6195,
+      "mean_confidence": 0.2668,
+      "correct": 1,
+      "wrong": 0,
+      "recall": 0.0088,
+      "precision": 1.0
+    },
+    {
+      "tag": "N",
+      "meaning": "negation",
+      "queries": 22,
+      "reached": 14,
+      "reach": 0.6364,
+      "mean_confidence": 0.3119,
+      "correct": 0,
+      "wrong": 0,
+      "recall": 0.0,
+      "precision": null
+    }
+  ],
+  "by_intent": [
+    {
+      "intent": "track_order",
+      "queries": 55,
+      "correct": 0,
+      "wrong": 0,
+      "recall": 0.0
+    },
+    {
+      "intent": "recover_password",
+      "queries": 55,
+      "correct": 0,
+      "wrong": 0,
+      "recall": 0.0
+    },
+    {
+      "intent": "contact_human_agent",
+      "queries": 56,
+      "correct": 0,
+      "wrong": 0,
+      "recall": 0.0
+    },
+    {
+      "intent": "edit_account",
+      "queries": 56,
+      "correct": 0,
+      "wrong": 0,
+      "recall": 0.0
+    },
+    {
+      "intent": "switch_account",
+      "queries": 55,
+      "correct": 0,
+      "wrong": 0,
+      "recall": 0.0
+    },
+    {
+      "intent": "payment_issue",
+      "queries": 55,
+      "correct": 0,
+      "wrong": 0,
+      "recall": 0.0
+    },
+    {
+      "intent": "change_order",
+      "queries": 56,
+      "correct": 0,
+      "wrong": 0,
+      "recall": 0.0
+    },
+    {
+      "intent": "create_account",
+      "queries": 56,
+      "correct": 0,
+      "wrong": 0,
+      "recall": 0.0
+    },
+    {
+      "intent": "check_invoice",
+      "queries": 56,
+      "correct": 0,
+      "wrong": 0,
+      "recall": 0.0
+    },
+    {
+      "intent": "newsletter_subscription",
+      "queries": 55,
+      "correct": 0,
+      "wrong": 0,
+      "recall": 0.0
+    },
+    {
+      "intent": "check_payment_methods",
+      "queries": 56,
+      "correct": 0,
+      "wrong": 0,
+      "recall": 0.0
+    },
+    {
+      "intent": "track_refund",
+      "queries": 55,
+      "correct": 0,
+      "wrong": 0,
+      "recall": 0.0
+    },
+    {
+      "intent": "complaint",
+      "queries": 56,
+      "correct": 0,
+      "wrong": 0,
+      "recall": 0.0
+    },
+    {
+      "intent": "review",
+      "queries": 55,
+      "correct": 0,
+      "wrong": 0,
+      "recall": 0.0
+    },
+    {
+      "intent": "place_order",
+      "queries": 55,
+      "correct": 0,
+      "wrong": 0,
+      "recall": 0.0
+    },
+    {
+      "intent": "check_cancellation_fee",
+      "queries": 56,
+      "correct": 0,
+      "wrong": 0,
+      "recall": 0.0
+    },
+    {
+      "intent": "delete_account",
+      "queries": 56,
+      "correct": 1,
+      "wrong": 0,
+      "recall": 0.0179
+    },
+    {
+      "intent": "check_refund_policy",
+      "queries": 56,
+      "correct": 1,
+      "wrong": 0,
+      "recall": 0.0179
+    },
+    {
+      "intent": "change_shipping_address",
+      "queries": 56,
+      "correct": 1,
+      "wrong": 0,
+      "recall": 0.0179
+    },
+    {
+      "intent": "get_refund",
+      "queries": 55,
+      "correct": 1,
+      "wrong": 0,
+      "recall": 0.0182
+    },
+    {
+      "intent": "registration_problems",
+      "queries": 55,
+      "correct": 1,
+      "wrong": 0,
+      "recall": 0.0182
+    },
+    {
+      "intent": "set_up_shipping_address",
+      "queries": 55,
+      "correct": 1,
+      "wrong": 0,
+      "recall": 0.0182
+    },
+    {
+      "intent": "get_invoice",
+      "queries": 55,
+      "correct": 1,
+      "wrong": 0,
+      "recall": 0.0182
+    },
+    {
+      "intent": "cancel_order",
+      "queries": 56,
+      "correct": 2,
+      "wrong": 0,
+      "recall": 0.0357
+    },
+    {
+      "intent": "contact_customer_service",
+      "queries": 56,
+      "correct": 2,
+      "wrong": 0,
+      "recall": 0.0357
+    },
+    {
+      "intent": "delivery_options",
+      "queries": 56,
+      "correct": 3,
+      "wrong": 0,
+      "recall": 0.0536
+    },
+    {
+      "intent": "delivery_period",
+      "queries": 56,
+      "correct": 5,
+      "wrong": 0,
+      "recall": 0.0893
+    }
+  ],
+  "layer_coverage": [
+    {
+      "layer": "exact",
+      "contributed": 28,
+      "decisive": 28,
+      "blocked": 0,
+      "served": 28,
+      "exercised": true,
+      "queries_where_it_ran": 1554,
+      "best_similarity_seen": null,
+      "note": "answer-key match; contributes 1.0 and returns immediately"
+    },
+    {
+      "layer": "semantic",
+      "contributed": 1115,
+      "decisive": 18,
+      "blocked": 0,
+      "served": 18,
+      "exercised": true,
+      "queries_where_it_ran": 1526,
+      "best_similarity_seen": null,
+      "note": "embedding similarity, graded by _similarity_to_confidence"
+    },
+    {
+      "layer": "composable",
+      "contributed": 0,
+      "decisive": 0,
+      "blocked": 0,
+      "served": 0,
+      "exercised": false,
+      "queries_where_it_ran": 1526,
+      "best_similarity_seen": null,
+      "note": "fires only on comparison phrasing \u2014 decompose_query is a regex over compare/vs/versus/differences between, so questions with separable parts that do not use those words are never decomposed (see BACKLOG item 7)"
+    },
+    {
+      "layer": "fuzzy",
+      "contributed": 5,
+      "decisive": 0,
+      "blocked": 0,
+      "served": 0,
+      "exercised": true,
+      "queries_where_it_ran": 1526,
+      "best_similarity_seen": 0.933,
+      "note": "token overlap or edit distance, graded by measured similarity"
+    },
+    {
+      "layer": "similarity_link",
+      "contributed": 0,
+      "decisive": 0,
+      "blocked": 0,
+      "served": 0,
+      "exercised": false,
+      "queries_where_it_ran": 1526,
+      "best_similarity_seen": null,
+      "note": "traverses links learned from semantic near-misses in the link_learn_min..link_learn_max band; needs a query to be revisited after the link exists, so a single pass over distinct queries cannot reach it"
+    },
+    {
+      "layer": "atomic_facts",
+      "contributed": 929,
+      "decisive": 4,
+      "blocked": 0,
+      "served": 0,
+      "exercised": true,
+      "queries_where_it_ran": 1526,
+      "best_similarity_seen": null,
+      "note": "embedding search over facts extracted from cached ANSWER text, not from ingested documents; needs answers of at least fact_min_answer_length (100) chars whose sentences survive a 30-char floor"
+    },
+    {
+      "layer": "session",
+      "contributed": 0,
+      "decisive": 0,
+      "blocked": 0,
+      "served": 0,
+      "exercised": false,
+      "queries_where_it_ran": 1526,
+      "best_similarity_seen": null,
+      "note": "contributes 0.0 by design. The Batch 2 rewrite removed the flat +0.25 and made this layer resolve the query against history rather than vote on it, so it is carried as context for a miss. It will always read contributed N, decisive 0, and that is the layer working correctly"
+    },
+    {
+      "layer": "serve_verify",
+      "contributed": 0,
+      "decisive": 0,
+      "blocked": 0,
+      "served": 0,
+      "exercised": false,
+      "queries_where_it_ran": 0,
+      "best_similarity_seen": null,
+      "note": "penalty, not a match \u2014 subtracts confidence when a served candidate fails source verification, so it appears under 'blocked', never 'decisive'"
+    },
+    {
+      "layer": "promotion_verify",
+      "contributed": 0,
+      "decisive": 0,
+      "blocked": 0,
+      "served": 0,
+      "exercised": false,
+      "queries_where_it_ran": 0,
+      "best_similarity_seen": null,
+      "note": "penalty, and off by default (promotion_config.enabled); silent unless LLM promotion verification is switched on"
+    }
+  ]
+}

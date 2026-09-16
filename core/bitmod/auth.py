@@ -5,12 +5,18 @@ Provides:
 - JWT token creation and verification
 - FastAPI dependency for auth middleware
 
-Usage is optional -- all functions gracefully handle missing configuration.
-Enable auth by setting environment variables:
+AUTH IS ON BY DEFAULT. BITMOD_AUTH_ENABLED defaults to "true", so a deployment
+that sets nothing at all still rejects unauthenticated requests with 401. This
+paragraph previously read "usage is optional / enable auth by setting
+BITMOD_AUTH_ENABLED=1", which said the reverse and was acted on downstream.
 
-    BITMOD_AUTH_ENABLED=1
-    BITMOD_JWT_SECRET=<random-256-bit-secret>
-    BITMOD_API_KEYS=key1,key2,key3
+    BITMOD_AUTH_ENABLED=0                      turn auth OFF (explicit opt-out)
+    BITMOD_JWT_SECRET=<random-256-bit-secret>  required for JWT verification
+    BITMOD_API_KEYS=key1,key2,key3             accepted as `Authorization: ApiKey <key>`
+
+The other functions here do handle missing configuration without raising —
+that part was true and is why the wrong sentence was plausible. Tolerating an
+absent secret is not the same as defaulting to open.
 
 Or generate keys programmatically:
 
@@ -86,6 +92,8 @@ def _audit(event_type: str, **kwargs) -> None:  # noqa: ANN003
 # Configuration (from environment)
 # ---------------------------------------------------------------------------
 
+# Default "true": unset means ENFORCED, not open. Anything other than
+# 1/true/yes turns auth off, so opting out has to be deliberate.
 _AUTH_ENABLED = os.getenv("BITMOD_AUTH_ENABLED", "true").lower() in ("1", "true", "yes")
 _JWT_SECRET = os.getenv("BITMOD_JWT_SECRET", "")
 _JWT_ALGORITHM = os.getenv("BITMOD_JWT_ALGORITHM", "HS256").upper()
@@ -548,8 +556,16 @@ def require_auth(scopes: list[str] | None = None):
         1. Bearer <jwt_token>
         2. ApiKey <api_key>
 
-    If BITMOD_AUTH_ENABLED is not set, allows all requests with a
-    default anonymous user.
+    AUTH IS ON WHEN BITMOD_AUTH_ENABLED IS UNSET. The default at the top of
+    this module is the string "true", so an unconfigured deployment ENFORCES
+    auth and unauthenticated requests get 401. To allow anonymous access the
+    variable must be set explicitly to 0, false or no.
+
+    This docstring previously said the opposite — that an unset variable
+    allowed all requests — and the claim was believed: the README's "changes
+    only its base URL, nothing else" pitch was written against it, and the
+    documented API examples are all unauthenticated curl commands that return
+    401 against a default deployment.
     """
     api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
 

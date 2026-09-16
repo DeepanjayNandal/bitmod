@@ -20,6 +20,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "core"))
 from bitmod.adapters.db_sqlite import SQLiteBackend
 from bitmod.adapters.embed_ollama import OllamaEmbeddingAdapter
 from bitmod.cache_engine import (
+    _get_config,
     compute_answer_key,
     fuzzy_match,
     normalize_query_fuzzy,
@@ -115,7 +116,18 @@ NEW_QUESTIONS = [
 # ---------------------------------------------------------------------------
 
 def _lookup(backend, session, question: str, embedder) -> tuple[str, str, float]:
-    """Return (hit_type, answer_text, elapsed_ms)."""
+    """Return (hit_type, answer_text, elapsed_ms).
+
+    Thresholds come from CacheConfig, not from this file. They used to be
+    hardcoded at 0.75 for both layers, which is below the shipping
+    fuzzy_threshold (0.85) and well below semantic_threshold (0.88) — so the
+    demo served on evidence the product rejects, and advertised the result.
+
+    Concretely, "Can I schedule a delivery time?" matched "How long does
+    delivery take?" at 0.7977 and was served: a wrong answer to a question with
+    nothing cached for it, produced by a threshold the product does not use.
+    """
+    config = _get_config()
     t0 = time.perf_counter()
 
     result = try_cache(backend, session, question, filters={})
@@ -123,12 +135,27 @@ def _lookup(backend, session, question: str, embedder) -> tuple[str, str, float]
         ms = (time.perf_counter() - t0) * 1000
         return "exact", result.answer_text, ms
 
-    fuzzy = fuzzy_match(backend, session, question, filters={}, similarity_threshold=0.75, max_candidates=3)
+    fuzzy = fuzzy_match(
+        backend,
+        session,
+        question,
+        filters={},
+        similarity_threshold=config.fuzzy_threshold,
+        max_candidates=config.fuzzy_max_candidates,
+    )
     if fuzzy:
         ms = (time.perf_counter() - t0) * 1000
         return "fuzzy", fuzzy[0].record.answer_text, ms
 
-    sem = semantic_cache_search(backend, session, question, filters={}, embedder=embedder, threshold=0.75, max_results=3)
+    sem = semantic_cache_search(
+        backend,
+        session,
+        question,
+        filters={},
+        embedder=embedder,
+        threshold=config.semantic_threshold,
+        max_results=config.search_max_results,
+    )
     if sem:
         ms = (time.perf_counter() - t0) * 1000
         label = f"semantic · {sem[0].similarity:.2f} similarity"

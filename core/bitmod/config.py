@@ -3,6 +3,15 @@
 import os
 from dataclasses import dataclass, field
 
+# Where an unconfigured Bitmod points, and what it asks that endpoint for.
+#
+# These two belong together. The URL has always defaulted to a local Ollama;
+# the model defaulted to "" and so an out-of-the-box Bitmod() sent
+# {"model": ""} and got back 400 "model is required". A default endpoint with
+# no default model is not a default — it is a half-configured one.
+DEFAULT_LLM_URL = "http://localhost:11434/v1"
+DEFAULT_LOCAL_MODEL = "llama3.2"
+
 
 @dataclass
 class DatabaseConfig:
@@ -57,7 +66,7 @@ class LLMConfig:
     """
 
     # --- Universal config (just set these 3) ---
-    url: str = field(default_factory=lambda: os.getenv("BITMOD_LLM_URL", "http://localhost:11434/v1"))
+    url: str = field(default_factory=lambda: os.getenv("BITMOD_LLM_URL", DEFAULT_LLM_URL))
     api_key: str = field(default_factory=lambda: os.getenv("BITMOD_LLM_API_KEY", ""), repr=False)
     model: str = field(default_factory=lambda: os.getenv("BITMOD_LLM_MODEL", ""))
 
@@ -133,8 +142,23 @@ class LLMConfig:
         return "auto"
 
     def resolve_model(self) -> str:
-        """Resolve the model to use. Universal > legacy > empty."""
-        return self.model or self.primary_model or ""
+        """Resolve the model to use. Universal > legacy > default-when-local.
+
+        The fallback is deliberately NOT unconditional. If the URL still points
+        at the default local Ollama, nothing has been configured and naming
+        that server's usual model is the only way `Bitmod()` can work with zero
+        setup, which the class docstring promises.
+
+        If the URL has been changed, the caller is talking to something else and
+        we cannot guess its model names — "llama3.2" would be a confusing error
+        from a hosted provider where "" is at least a clear one. So a configured
+        endpoint with no configured model still returns empty and lets that
+        provider reject it on its own terms.
+        """
+        explicit = self.model or self.primary_model
+        if explicit:
+            return explicit
+        return DEFAULT_LOCAL_MODEL if self.url == DEFAULT_LLM_URL else ""
 
 
 @dataclass

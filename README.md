@@ -216,11 +216,13 @@ bitmod ingest ./docs/
 bitmod query "What is our refund policy?"
 ```
 
-### Option B: Docker (one command)
+### Option B: Docker
 
 ```bash
 git clone https://github.com/DeepanjayNandal/bitmod.git
 cd bitmod
+
+cp .env.example .env                                 # required — compose will not start without it
 
 docker compose up                                    # SQLite + FastAPI (default)
 docker compose --profile ollama up                   # + local Ollama (no API keys)

@@ -865,12 +865,12 @@ async def chat(request: ChatRequest, raw_request: Request = None):
         )
         if fuzzy_hits:
             # Use best fuzzy hit as context
-            fuzzy_context = fuzzy_hits[0].answer_text
+            fuzzy_context = fuzzy_hits[0].record.answer_text
             _step(
                 "fuzzy_match",
                 "HIT",
                 {
-                    "matched_key": fuzzy_hits[0].answer_key[:16] + "...",
+                    "matched_key": fuzzy_hits[0].record.answer_key[:16] + "...",
                     "candidates": len(fuzzy_hits),
                     "threshold": 0.80,
                     "used_as": "context_for_llm",

@@ -1,0 +1,42 @@
+{
+  "harness": "HTTP through the running gateway (POST /v1/chat)",
+  "measures": "what a client sees: cached latency, and generating latency for the configured provider",
+  "base_url": "http://localhost:8000",
+  "provider": "ollama/llama3.2 via host.docker.internal (LOCAL inference, not a hosted provider)",
+  "does_not_measure": [
+    "the README's '12.5s avg (GPT-4o / Claude)'. The cold figure describes whichever provider this gateway is configured with, recorded under 'provider' below.",
+    "any hosted provider unless 'provider' says so \u2014 check it before quoting the cold number or the speedup",
+    "token savings; nothing here tokenizes"
+  ],
+  "cached_paths_are_not_one_number": "exact and semantic are reported separately and never averaged. Exact can return before the query is embedded; semantic cannot. An average over them is set by the traffic mix, not by the cache.",
+  "timestamp": "2026-09-17T13:51:00.910411+00:00",
+  "provenance": {
+    "commit": "3b902591925ff00dfad30fad0607a66178ffc705",
+    "tree_sha256": "6ad3d8197c1d9acc",
+    "dirty": true,
+    "untracked_files": 1
+  },
+  "cold_real_generation": {
+    "n": 10,
+    "mean_ms": 3369.1,
+    "median_ms": 3561.3,
+    "min_ms": 669.7,
+    "max_ms": 8574.3,
+    "p95_ms": 8574.3
+  },
+  "cached_exact": {
+    "n": 10,
+    "mean_ms": 59.4,
+    "median_ms": 68.4,
+    "min_ms": 28.0,
+    "max_ms": 82.5,
+    "p95_ms": 82.5
+  },
+  "cached_semantic": {
+    "n": 0
+  },
+  "cached_semantic_served": 0,
+  "cached_semantic_attempts": 10,
+  "speedup_cold_over_exact": 56.7,
+  "speedup_condition": "ratio of the two measured means above; inherits the cold path's provider condition entirely"
+}

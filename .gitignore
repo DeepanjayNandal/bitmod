@@ -106,6 +106,10 @@ tests/stress/*.jsonl
 # inference, so it cannot speak to the README's hosted figures — it is kept
 # because it is the sole provenance the cached-path numbers have.
 !tests/benchmark/results/latency_local_ollama.json
+# The same question asked over real HTTP through the gateway. Kept alongside
+# the in-process one because the gap between them IS the HTTP stack, which is
+# what the README's cached figure turns out to include.
+!tests/benchmark/results/latency_http_gateway.json
 
 # Backup sessions (generated at runtime)
 bitmod_backup/

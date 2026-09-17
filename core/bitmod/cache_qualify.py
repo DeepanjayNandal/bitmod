@@ -40,9 +40,28 @@ _CONTEXT_DEPENDENT_PATTERNS = re.compile(
     r"|the same thing|like before|as you said|you mentioned"
     r"|you just said|earlier you said|back to that"
     # Conversational commands
-    r"|yes|no|ok|sure|right|exactly|correct|wrong"
+    #
+    # The bare acknowledgements that used to live here — yes, no, ok, sure,
+    # right, exactly, correct, wrong — moved to _BARE_ACKNOWLEDGEMENT below.
+    # Inside this group they were surrounded by \b...\b and so matched ANYWHERE
+    # in a sentence, which is not what a one-word reply means.
     r"|summarize this|summarize that|put it together"
     r")\b",
+    re.IGNORECASE,
+)
+
+# A whole message that is only an acknowledgement. "ok" on its own answers the
+# previous turn and means nothing without it; "Is it ok to return opened
+# items?" is a standalone question that happens to contain the word.
+#
+# Anchored at both ends deliberately. These eight tokens sat in the alternation
+# above, where \b(...)\b matched them mid-sentence, and the result was a rule
+# that fired 71 times across 24,635 real support instructions and was wrong
+# every time — that corpus contains no bare acknowledgement at all.
+#
+# "okay" precedes "ok" so the longer form wins the alternation.
+_BARE_ACKNOWLEDGEMENT = re.compile(
+    r"^(yes|no|okay|ok|sure|right|exactly|correct|wrong)\W*$",
     re.IGNORECASE,
 )
 
@@ -171,6 +190,13 @@ def is_context_dependent(query: str, history: list | None = None) -> bool:
 
     # Very short queries with history are almost always context-dependent
     if history and len(history) > 0 and word_count <= 3:
+        return True
+
+    # A message that is nothing but an acknowledgement. Checked before the
+    # substantive-word escape below, because "correct" has one substantive word
+    # and would otherwise fall through to False — a bare "correct" genuinely
+    # does depend on what it is agreeing with.
+    if _BARE_ACKNOWLEDGEMENT.match(q):
         return True
 
     # Anaphora only makes a query context-dependent while the query carries too

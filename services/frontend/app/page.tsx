@@ -53,10 +53,10 @@ export default function HomePage() {
             <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-card/50 px-4 py-3 font-mono text-sm backdrop-blur-sm">
               <Terminal className="h-4 w-4 text-muted-foreground shrink-0" />
               <code className="flex-1 text-left">
-                <span className="text-accent">pip install</span>{" "}
-                <span className="text-foreground font-semibold">bitmod</span>
+                <span className="text-accent">docker compose</span>{" "}
+                <span className="text-foreground font-semibold">up</span>
               </code>
-              <CopyButton text="pip install bitmod" />
+              <CopyButton text="docker compose up" />
             </div>
           </div>
 

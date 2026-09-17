@@ -103,7 +103,6 @@ export function Footer() {
         {/* Bottom bar */}
         <div className="mt-12 border-t border-border/40 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
           <p>&copy; {new Date().getFullYear()} BitMod. Apache 2.0 License.</p>
-          <p>Patent Pending.</p>
         </div>
       </div>
     </footer>

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
   Send, Bot, User, Zap, Database, Clock, Loader2,
-  Layers, Search, Brain, GitBranch, FileCode,
+  Layers, Search, Brain, GitBranch, FileCode, ShieldCheck,
   MessageSquare, ChevronDown, ChevronRight, BookOpen,
   CheckCircle, XCircle, ArrowRight, History,
   Plus, X,
@@ -698,11 +698,6 @@ export default function PlaygroundPage() {
                             </>
                           )
                         ) : null}
-                        {msg.token_usage?.pricing_stale ? (
-                          <Badge variant="outline" className="text-[10px] text-yellow-500 border-yellow-500/30">
-                            pricing from {msg.token_usage.pricing_updated || "unknown"}
-                          </Badge>
-                        ) : null}
                       </div>
                     )}
 
@@ -792,15 +787,24 @@ export default function PlaygroundPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-[10px]">
+              {/*
+                The nine layers, in pipeline order, matching the Cache Layer
+                Breakdown table in README.md. This panel previously listed
+                "Agent Reasoning" and "Agent Tool Call", neither of which
+                exists anywhere in the engine, and omitted four that do:
+                normalization, source verification, similarity links and
+                atomic facts. Keep this list and that table in step.
+              */}
               {[
-                { icon: Brain, label: "Intent Detection", desc: "Classify query type" },
-                { icon: Database, label: "Exact Cache", desc: "SHA-256 key match" },
-                { icon: Search, label: "Semantic Cache", desc: "Embedding similarity" },
+                { icon: Zap, label: "Normalization", desc: "Lowercase, stopwords, SHA-256" },
+                { icon: Database, label: "Exact Match", desc: "Composite key lookup" },
+                { icon: ShieldCheck, label: "Source Verification", desc: "Per-section hash check" },
+                { icon: Search, label: "Semantic", desc: "Embedding similarity" },
                 { icon: GitBranch, label: "Composable", desc: "Decompose & partial hit" },
-                { icon: Search, label: "Fuzzy Match", desc: "Similar query suggestions" },
-                { icon: Brain, label: "Agent Reasoning", desc: "LLM plans next action" },
-                { icon: Search, label: "Agent Tool Call", desc: "Search, retrieve, explore" },
-                { icon: Zap, label: "LLM Generation", desc: "Forward to provider" },
+                { icon: Search, label: "Fuzzy Match", desc: "Token overlap & edit distance" },
+                { icon: GitBranch, label: "Similarity Links", desc: "2-hop near-miss graph" },
+                { icon: Brain, label: "Atomic Facts", desc: "Embedding search over facts" },
+                { icon: Brain, label: "Session Context", desc: "Prior turns as evidence" },
               ].map(({ icon: Icon, label, desc }) => (
                 <div key={label} className="flex items-center gap-2 text-muted-foreground">
                   <Icon className="h-3 w-3 shrink-0" />

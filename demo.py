@@ -2,8 +2,20 @@
 """
 BitMod Demo
 ===========
-Shows the cache working on real questions: which queries hit, which layer
-served them, the answer, the latency — then the full 50-query benchmark.
+Shows the cache working on real questions: which queries hit, which layers
+contributed, the accumulated confidence, the latency — then the full 50-query
+benchmark.
+
+Every query goes through `_run_cache_pipeline`, the same entry point the proxy
+and chat services use, at the shipping CacheConfig. All nine layers run, with
+real evidence accumulation, damping, the serve threshold and the qualification
+gate. Nothing here re-implements the cache or picks its own thresholds.
+
+That matters because this script previously did the opposite. It called
+try_cache, fuzzy_match and semantic_cache_search directly with thresholds
+hardcoded at 0.75, which is below the shipping fuzzy_threshold (0.85) and
+semantic_threshold (0.88) — so it demonstrated a cache the product does not
+ship, and served at least one wrong answer as a result.
 
 Usage:
     cd bitmod
@@ -19,15 +31,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "core"))
 
 from bitmod.adapters.db_sqlite import SQLiteBackend
 from bitmod.adapters.embed_ollama import OllamaEmbeddingAdapter
-from bitmod.cache_engine import (
-    _get_config,
-    compute_answer_key,
-    fuzzy_match,
-    normalize_query_fuzzy,
-    semantic_cache_search,
-    store_answer,
-    try_cache,
-)
+from bitmod.cache_engine import _get_config
+from bitmod.proxy import BitmodProxy
+from bitmod.router import LLMRouter
 
 # ---------------------------------------------------------------------------
 # 30 customer support Q&A pairs seeded into cache
@@ -70,14 +76,20 @@ QA_PAIRS = [
 # Showcase queries — hand-picked to demonstrate each cache layer + a miss
 # ---------------------------------------------------------------------------
 
+# Five queries chosen to show a different path each. The outcomes in the
+# comments were MEASURED against the shipping config, not assumed — the
+# previous list was annotated "fuzzy or semantic hit" for three queries that
+# miss.
+#
+# These are illustrative only. The 50-query benchmark below runs
+# QA_PAIRS + PARAPHRASES + NEW_QUESTIONS and does not include this list, so
+# nothing here moves the reported hit rate.
 SHOWCASE = [
-    "What is your refund policy?",      # exact hit
-    "How do I track my order?",         # exact hit
-    "What is the refund policy?",       # fuzzy or semantic hit
-    "Is my payment info safe?",         # fuzzy or semantic hit
-    "How long does shipping take?",     # fuzzy or semantic hit
-    "Do you have a mobile app?",        # miss
-    "Can I schedule a delivery time?",  # miss
+    "What is your refund policy?",        # exact, confidence 1.00
+    "Do you offer free shiping?",         # typo -> semantic 0.88
+    "How do I use a discount code?",      # semantic 0.84 + atomic_facts, crosses 0.85 only once combined
+    "How can I contact customer support?",  # three layers agreeing
+    "Do you have a mobile app?",          # nothing cached for it — correct miss
 ]
 
 # ---------------------------------------------------------------------------
@@ -115,54 +127,77 @@ NEW_QUESTIONS = [
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _lookup(backend, session, question: str, embedder) -> tuple[str, str, float]:
-    """Return (hit_type, answer_text, elapsed_ms).
+# Display only. Neither value affects what the cache decides — the pipeline has
+# already accumulated and thresholded by the time these are read.
+_MIN_SHOWN_CONFIDENCE = 0.05  # below this a contribution cannot move a decision
+_MAX_SHOWN_LAYERS = 3  # keeps the per-query line readable on a screen share
 
-    Thresholds come from CacheConfig, not from this file. They used to be
-    hardcoded at 0.75 for both layers, which is below the shipping
-    fuzzy_threshold (0.85) and well below semantic_threshold (0.88) — so the
-    demo served on evidence the product rejects, and advertised the result.
 
-    Concretely, "Can I schedule a delivery time?" matched "How long does
-    delivery take?" at 0.7977 and was served: a wrong answer to a question with
-    nothing cached for it, produced by a threshold the product does not use.
+class _UnusedLLM:
+    """Placeholder. `_run_cache_pipeline` never calls a model.
+
+    BitmodProxy requires a router, and the pipeline is pure retrieval — it was
+    checked, not assumed: no reference to the router appears anywhere in
+    `_run_cache_pipeline`. If that ever changes, this raises rather than
+    silently making the demo depend on a live model.
     """
-    config = _get_config()
+
+    async def generate(self, *args, **kwargs):
+        raise AssertionError("_run_cache_pipeline is retrieval-only; the demo never generates")
+
+
+def _ask(proxy, question: str):
+    """One query through the real pipeline. Returns (result, elapsed_ms)."""
     t0 = time.perf_counter()
+    result = proxy._run_cache_pipeline(question, [{"role": "user", "content": question}])
+    return result, (time.perf_counter() - t0) * 1000
 
-    result = try_cache(backend, session, question, filters={})
-    if result:
-        ms = (time.perf_counter() - t0) * 1000
-        return "exact", result.answer_text, ms
 
-    fuzzy = fuzzy_match(
-        backend,
-        session,
-        question,
-        filters={},
-        similarity_threshold=config.fuzzy_threshold,
-        max_candidates=config.fuzzy_max_candidates,
-    )
-    if fuzzy:
-        ms = (time.perf_counter() - t0) * 1000
-        return "fuzzy", fuzzy[0].record.answer_text, ms
+def _layer_summary(result) -> tuple[str, float]:
+    """The contributing layers and the accumulated total.
 
-    sem = semantic_cache_search(
-        backend,
-        session,
-        question,
-        filters={},
-        embedder=embedder,
-        threshold=config.semantic_threshold,
-        max_results=config.search_max_results,
-    )
-    if sem:
-        ms = (time.perf_counter() - t0) * 1000
-        label = f"semantic · {sem[0].similarity:.2f} similarity"
-        return label, sem[0].record.answer_text, ms
+    Reads `evidence.evidences` — the layers that actually produced evidence —
+    rather than the trace, which lists every layer that RAN including the ones
+    that found nothing. Printing the latter for fifty queries is a wall nobody
+    reads; the interesting line is which layers agreed and how much that came to.
 
-    ms = (time.perf_counter() - t0) * 1000
-    return "miss", "", ms
+    Returns ("", 0.0) for a miss, a single "layer 0.93" for one contributor, and
+    "a 0.81 + b 0.72" when several combined. That last case is the whole point
+    of a nine-layer cache and is invisible in a hit/miss count.
+    """
+    evidence = getattr(result, "evidence", None)
+    items = list(getattr(evidence, "evidences", []) or []) if evidence is not None else []
+    if not items:
+        return "", 0.0
+
+    # One entry per LAYER, not per candidate. A layer that returns three
+    # candidates produces three evidence items, and printing
+    # "semantic 0.92 + semantic 0.06 + semantic 0.05" reads as three layers
+    # agreeing when it is one layer with a ranked list. Best confidence per
+    # layer is what "which layers contributed" actually means.
+    best: dict[str, float] = {}
+    for item in items:
+        if item.confidence and item.confidence > _MIN_SHOWN_CONFIDENCE:
+            best[item.layer] = max(best.get(item.layer, 0.0), float(item.confidence))
+
+    ranked = sorted(best.items(), key=lambda kv: -kv[1])
+    parts = [f"{layer} {confidence:.2f}" for layer, confidence in ranked[:_MAX_SHOWN_LAYERS]]
+    if len(ranked) > _MAX_SHOWN_LAYERS:
+        parts.append(f"+{len(ranked) - _MAX_SHOWN_LAYERS} more")
+    return " + ".join(parts), float(getattr(evidence, "total_confidence", 0.0))
+
+
+def _served_by(result) -> str:
+    """The single layer credited with the serve, for the summary counters."""
+    evidence = getattr(result, "evidence", None)
+    if evidence is not None and hasattr(evidence, "best_single_answer"):
+        best = evidence.best_single_answer()
+        if best is not None and getattr(best, "layer", None):
+            return str(best.layer)
+    for step in result.trace or []:
+        if step.get("action") in ("HIT", "FULL_HIT"):
+            return str(step.get("mechanism", "")) or "cache"
+    return "cache"
 
 
 def _preview(text: str, width: int = 72) -> str:
@@ -170,14 +205,17 @@ def _preview(text: str, width: int = 72) -> str:
     return text[:width] + "..." if len(text) > width else text
 
 
-def _hit_type_for_stats(hit_type: str) -> str:
-    if hit_type == "exact":
-        return "exact_hit"
-    if hit_type == "fuzzy":
-        return "fuzzy_hit"
-    if hit_type == "miss":
-        return "miss"
-    return "semantic_hit"
+def _show(question: str, result, ms: float, note: str = "") -> None:
+    """One query, one or two lines. The format a reader actually parses."""
+    print()
+    print(f'  Q: "{question}"{note}')
+    if not result.hit:
+        print("  ✗  CACHE MISS    no cached answer — LLM would be called")
+        return
+    layers, confidence = _layer_summary(result)
+    detail = f"{layers}   confidence {confidence:.2f}" if layers else _served_by(result)
+    print(f"  ✓  CACHE HIT     {detail}   {ms:.0f}ms")
+    print(f'     "{_preview(result.answer_text or "")}"')
 
 
 # ---------------------------------------------------------------------------
@@ -190,27 +228,44 @@ def main():
 
     try:
         backend = SQLiteBackend(db_path)
+        backend.initialize()
         print("\nConnecting to Ollama embeddings...", end="", flush=True)
         embedder = OllamaEmbeddingAdapter(model="nomic-embed-text")
-        print(" ready.\n")
+        print(" ready.")
 
-        # Seed
+        # The real entry point, at the shipping configuration.
+        proxy = BitmodProxy(
+            backend=backend,
+            llm_router=LLMRouter(primary=_UnusedLLM()),
+            default_model="gpt-4o",
+        )
+        proxy._embedder = embedder
+
+        config = _get_config()
+        print(
+            f"Pipeline: serve_threshold {config.serve_threshold}, "
+            f"search_threshold {config.search_threshold}, "
+            f"damping {config.accumulation_damping}"
+        )
+
+        # Seed through the proxy's own write path, so entries carry the filters
+        # and context the pipeline will look for. Seeding with store_answer
+        # directly would cache rows the retrieval side cannot fully use.
         print(f"Seeding {len(QA_PAIRS)} Q&A pairs into cache...", end="", flush=True)
-        with backend.session() as session:
-            for question, answer in QA_PAIRS:
-                embedding = embedder.embed(question)
-                store_answer(
-                    backend, session,
-                    answer_key=compute_answer_key(question),
-                    question_raw=question,
-                    question_normalized=normalize_query_fuzzy(question),
-                    filters={},
-                    answer_text=answer,
-                    source_sections=[],
-                    model_used="gpt-4o",
-                    generation_ms=1800,
-                    query_embedding=embedding,
-                )
+        for question, answer in QA_PAIRS:
+            messages = [{"role": "user", "content": question}]
+            result = proxy._run_cache_pipeline(question, messages)
+            proxy._store_response(
+                user_message=question,
+                answer_text=answer,
+                model_used="gpt-4o",
+                elapsed_ms=1800,
+                filters=result.filters or {},
+                norm=result.norm,
+                answer_key=result.answer_key,
+                evidence=result.evidence,
+                messages_for_context=messages,
+            )
         print(" done.")
 
         W = 58
@@ -221,52 +276,39 @@ def main():
         print("  BitMod Cache Demo — Live Query Results")
         print("=" * W)
 
-        with backend.session() as session:
-            for question in SHOWCASE:
-                hit_type, answer_text, ms = _lookup(backend, session, question, embedder)
-
-                print()
-                print(f"  Q: \"{question}\"")
-                if hit_type == "miss":
-                    print(f"  ✗  CACHE MISS    no cached answer — LLM would be called")
-                else:
-                    print(f"  ✓  CACHE HIT     {hit_type}    {ms:.0f}ms")
-                    print(f"     \"{_preview(answer_text)}\"")
+        for question in SHOWCASE:
+            result, ms = _ask(proxy, question)
+            _show(question, result, ms)
 
         # ── Cache learning ──────────────────────────────────────────────────
-        LEARN_Q = "Can I pay with cryptocurrency?"
-        LEARN_A = "We do not currently accept cryptocurrency. We accept Visa, Mastercard, Amex, PayPal, and UPI."
+        learn_q = "Can I pay with cryptocurrency?"
+        learn_a = "We do not currently accept cryptocurrency. We accept Visa, Mastercard, Amex, PayPal, and UPI."
 
         print()
         print("-" * W)
         print("  Cache Learning — miss then store then hit")
         print("-" * W)
 
-        with backend.session() as session:
-            hit_type, _, _ = _lookup(backend, session, LEARN_Q, embedder)
-            print()
-            print(f"  Q: \"{LEARN_Q}\"")
-            print(f"  ✗  CACHE MISS    LLM called, response stored.")
+        messages = [{"role": "user", "content": learn_q}]
+        result, ms = _ask(proxy, learn_q)
+        print()
+        print(f'  Q: "{learn_q}"')
+        print("  ✗  CACHE MISS    LLM called, response stored.")
 
-            embedding = embedder.embed(LEARN_Q)
-            store_answer(
-                backend, session,
-                answer_key=compute_answer_key(LEARN_Q),
-                question_raw=LEARN_Q,
-                question_normalized=normalize_query_fuzzy(LEARN_Q),
-                filters={},
-                answer_text=LEARN_A,
-                source_sections=[],
-                model_used="gpt-4o",
-                generation_ms=3400,
-                query_embedding=embedding,
-            )
+        proxy._store_response(
+            user_message=learn_q,
+            answer_text=learn_a,
+            model_used="gpt-4o",
+            elapsed_ms=3400,
+            filters=result.filters or {},
+            norm=result.norm,
+            answer_key=result.answer_key,
+            evidence=result.evidence,
+            messages_for_context=messages,
+        )
 
-            hit_type, answer_text, ms = _lookup(backend, session, LEARN_Q, embedder)
-            print()
-            print(f"  Q: \"{LEARN_Q}\"  [same question again]")
-            print(f"  ✓  CACHE HIT     {hit_type}    {ms:.0f}ms")
-            print(f"     \"{_preview(answer_text)}\"")
+        result, ms = _ask(proxy, learn_q)
+        _show(learn_q, result, ms, note="  [same question again]")
 
         # ── Full benchmark ───────────────────────────────────────────────────
         print()
@@ -280,25 +322,35 @@ def main():
             + [(q, "new") for q in NEW_QUESTIONS]
         )
 
-        counts = {"exact_hit": 0, "fuzzy_hit": 0, "semantic_hit": 0, "miss": 0}
+        counts: dict[str, int] = {}
         by_type: dict[str, list[str]] = {"exact": [], "paraphrase": [], "new": []}
+        multi_layer = 0
 
-        with backend.session() as session:
-            for question, qtype in all_queries:
-                hit_type, _, _ = _lookup(backend, session, question, embedder)
-                stat = _hit_type_for_stats(hit_type)
-                counts[stat] += 1
-                by_type[qtype].append(stat)
+        for question, qtype in all_queries:
+            result, _ = _ask(proxy, question)
+            if result.hit:
+                served = _served_by(result)
+                counts[served] = counts.get(served, 0) + 1
+                evidence = getattr(result, "evidence", None)
+                contributors = [
+                    e for e in (getattr(evidence, "evidences", []) or []) if e.confidence
+                ]
+                if len(contributors) > 1:
+                    multi_layer += 1
+            else:
+                counts["miss"] = counts.get("miss", 0) + 1
+            by_type[qtype].append("miss" if not result.hit else "hit")
 
         total = len(all_queries)
-        hits = total - counts["miss"]
+        misses = counts.get("miss", 0)
+        hits = total - misses
         hit_rate = hits / total * 100
 
         print()
-        print(f"  Exact hits    : {counts['exact_hit']}")
-        print(f"  Fuzzy hits    : {counts['fuzzy_hit']}")
-        print(f"  Semantic hits : {counts['semantic_hit']}")
-        print(f"  Misses        : {counts['miss']}")
+        for layer in sorted(k for k in counts if k != "miss"):
+            print(f"  {layer + ' hits':<16}: {counts[layer]}")
+        print(f"  {'Misses':<16}: {misses}")
+        print(f"  {'Multi-layer':<16}: {multi_layer}  (more than one layer contributed)")
         print()
         print(f"  ✓ Cache hit rate: {hit_rate:.0f}%")
         print()

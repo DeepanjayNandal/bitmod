@@ -61,6 +61,12 @@ const SECURITY_LAYERS = [
 
 const SECURITY_FEATURES = [
   {
+    title: "Authentication On By Default",
+    desc: "BITMOD_AUTH_ENABLED defaults to true, so an unconfigured deployment rejects unauthenticated requests with 401. Set it to 0 to allow anonymous access — opting out is explicit. Note that /v1/chat is unauthenticated while /v1/chat/completions, the drop-in proxy path, is not, and /v1/admin/* additionally requires a key with admin scope.",
+    icon: Lock,
+    color: "text-[#7ee787]",
+  },
+  {
     title: "API Key Management",
     desc: "Database-backed key storage with SHA-256 hashing. Keys are never stored in plaintext — only their hashes are persisted, making key extraction from a database breach impossible.",
     icon: Key,

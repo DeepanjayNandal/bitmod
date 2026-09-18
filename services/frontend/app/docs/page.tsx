@@ -33,7 +33,6 @@ const docsSidebarSections = [
       { href: "#ingestion", label: "Document Ingestion" },
       { href: "#cache-engine", label: "Cache Engine" },
       { href: "#docker", label: "Docker Deployment" },
-      { href: "#messaging", label: "Messaging Platforms" },
       { href: "#integrations", label: "Integrations" },
     ],
   },
@@ -1170,52 +1169,6 @@ with backend.session() as session:
         </section>
 
         <Separator />
-
-        {/* Messaging Platforms */}
-        <section>
-          <SectionHeader
-            id="messaging"
-            title="Messaging Platforms"
-            description="Send messages to Telegram, Discord, Slack, WhatsApp, or Matrix. Telegram also supports receiving messages via long polling."
-          />
-
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              { name: "Telegram", env: "TELEGRAM_BOT_TOKEN", desc: "Send and receive messages via long polling. Create via @BotFather." },
-              { name: "Discord", env: "DISCORD_BOT_TOKEN", desc: "Send messages to channels via REST API. Create at discord.com/developers." },
-              { name: "Slack", env: "SLACK_BOT_TOKEN", desc: "Send messages via Slack Web API webhook. Bot token (xoxb-...)." },
-              { name: "WhatsApp", env: "WHATSAPP_TOKEN + WHATSAPP_PHONE_NUMBER_ID", desc: "Send text messages via Meta Cloud API." },
-              { name: "Matrix", env: "MATRIX_HOMESERVER + MATRIX_ACCESS_TOKEN", desc: "Send messages to rooms via Matrix protocol." },
-            ].map((platform) => (
-              <Card key={platform.name} className="border-border/40 bg-card/50">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">{platform.name}</CardTitle>
-                  <CardDescription className="text-xs">{platform.desc}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <code className="text-xs font-mono text-primary break-all">{platform.env}</code>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          <div className="mt-6">
-            <CodeBlock filename="messaging_example.py">{`import asyncio
-from bitmod.messaging_bridge import MessagingBridge
-from bitmod.adapters.msg_telegram import TelegramAdapter
-from bitmod.adapters.msg_slack import SlackAdapter
-
-# Create bridge with your database and LLM backends
-bridge = MessagingBridge(backend=my_backend, llm=my_llm)
-
-# Register platforms
-bridge.register(TelegramAdapter(token="your-telegram-bot-token"))
-bridge.register(SlackAdapter(token="xoxb-your-slack-token"))
-
-# Start all listeners — messages are routed through BitMod's cache pipeline
-asyncio.run(bridge.start_all())`}</CodeBlock>
-          </div>
-        </section>
 
         {/* Plug-and-Play Integrations */}
         <section>

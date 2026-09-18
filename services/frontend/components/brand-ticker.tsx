@@ -9,7 +9,6 @@ import {
   Server,
   Box,
   Cpu,
-  MessageSquare,
   Search,
   Layers,
 } from "lucide-react"
@@ -45,9 +44,6 @@ const allProviders: TickerItem[] = [
   // Integrations
   { name: "LangChain", icon: Layers, logo: "/logos/langchain.svg" },
   { name: "LlamaIndex", icon: Layers, logo: "/logos/llamaindex.svg" },
-  { name: "Slack", icon: MessageSquare, logo: "/logos/slack.svg" },
-  { name: "Discord", icon: MessageSquare, logo: "/logos/discord.svg" },
-  { name: "Telegram", icon: MessageSquare, logo: "/logos/telegram.svg" },
   { name: "VS Code", icon: Cpu, logo: "/logos/vscode.svg" },
   { name: "LM Studio", icon: Box, logo: "/logos/lmstudio.svg" },
   { name: "Open WebUI", icon: Server, logo: "/logos/openwebui.svg" },

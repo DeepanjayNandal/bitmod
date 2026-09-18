@@ -4,14 +4,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
-  ArrowRight, Brain, Database, Search, Cloud, Server,
-  MessageSquare, Code, Terminal, Plug, ExternalLink,
+  ArrowRight, Brain, Database, Search, Cloud, Server, Code, Terminal, ExternalLink,
   Cpu, Globe, Boxes
 } from "lucide-react"
 
 export const metadata: Metadata = {
   title: "Integrations | BitMod",
-  description: "Connect BitMod to any LLM provider, 4 databases, 3 vector stores, 4 embedding providers, and 5 messaging platforms. Universal, zero vendor lock-in.",
+  description: "Connect BitMod to any LLM provider, 4 databases, 3 vector stores, and 4 embedding providers. Universal, zero vendor lock-in.",
 }
 
 /* ------------------------------------------------------------------ */
@@ -206,14 +205,6 @@ response = openai.chat.completions.create(
   },
 ]
 
-const CHAT_PLATFORMS = [
-  { name: "Slack",            desc: "Webhook-based message sending via Slack Web API",         color: "bg-[#4A154B]" },
-  { name: "Discord",          desc: "REST API message sending to channels",                    color: "bg-[#5865F2]" },
-  { name: "WhatsApp",         desc: "Text message sending via Meta Cloud API",                 color: "bg-[#25D366]" },
-  { name: "Telegram",         desc: "Message sending and receiving via Bot API long polling",   color: "bg-[#26A5E4]" },
-  { name: "Matrix",           desc: "Room-based messaging via Matrix protocol",                color: "bg-[#0DBD8B]" },
-]
-
 /* ------------------------------------------------------------------ */
 /*  Page                                                               */
 /* ------------------------------------------------------------------ */
@@ -249,26 +240,24 @@ export default function IntegrationsPage() {
         </div>
       </section>
 
-      {/* ── Two Integration Modes ──────────────────────────────── */}
+      {/* ── How integration works ──────────────────────────────── */}
       <section className="border-y border-border/40 bg-card/20">
         <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Two ways to integrate.{" "}
+              One URL.{" "}
               <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                 Same engine.
               </span>
             </h2>
             <p className="mt-3 text-lg text-muted-foreground">
-              Use BitMod as a transparent proxy or embed it directly as a native library.
+              BitMod is a transparent proxy. Point your existing SDK at it and caching happens underneath.
             </p>
           </div>
 
-          <div className="mx-auto max-w-5xl grid gap-8 sm:grid-cols-2">
-            {/* Proxy Mode */}
+          <div className="mx-auto max-w-2xl">
             <Card className="group relative overflow-hidden border-primary/30 bg-primary/5 hover:border-primary/50 transition-all duration-300 hover:shadow-lg">
               <CardHeader>
-                <Badge variant="secondary" className="w-fit mb-2">Available Now</Badge>
                 <div className="flex items-center gap-3 mb-2">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                     <Globe className="h-5 w-5 text-primary" />
@@ -302,49 +291,6 @@ export default function IntegrationsPage() {
                   <pre className="text-[11px] font-mono text-[#e6edf3]"><code>{`client = OpenAI(
   base_url="http://localhost:8000/v1"
 )  # Done. Caching is automatic.`}</code></pre>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Native Mode */}
-            <Card className="group relative overflow-hidden border-accent/30 bg-accent/5 hover:border-accent/50 transition-all duration-300 hover:shadow-lg">
-              <CardHeader>
-                <Badge variant="accent" className="w-fit mb-2">Coming Soon</Badge>
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10">
-                    <Plug className="h-5 w-5 text-accent" />
-                  </div>
-                  <CardTitle className="text-xl">Native Mode</CardTitle>
-                </div>
-                <CardDescription>
-                  First-class plugins that embed directly into your framework. Deeper integration, richer features, tighter control.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3 text-sm text-muted-foreground">
-                  <div className="flex items-start gap-2">
-                    <div className="h-1.5 w-1.5 rounded-full bg-accent mt-1.5 shrink-0" />
-                    <span>LangChain <code className="text-xs bg-muted/30 px-1 py-0.5 rounded">BitModChatModel</code> &mdash; caching built into the chain</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <div className="h-1.5 w-1.5 rounded-full bg-accent mt-1.5 shrink-0" />
-                    <span>LlamaIndex <code className="text-xs bg-muted/30 px-1 py-0.5 rounded">BitModLLM</code> &mdash; native LLM interface</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <div className="h-1.5 w-1.5 rounded-full bg-accent mt-1.5 shrink-0" />
-                    <span>MCP Server &mdash; Claude Desktop, Cursor, and IDE tools use BitMod as a tool</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <div className="h-1.5 w-1.5 rounded-full bg-accent mt-1.5 shrink-0" />
-                    <span>Cache hit/miss status, compression controls, and metrics in your UI</span>
-                  </div>
-                </div>
-                <div className="mt-4 rounded-lg border border-border/60 bg-[#0d1117] p-3">
-                  <pre className="text-[11px] font-mono text-[#e6edf3]"><code>{`from langchain_bitmod import BitModChatModel
-
-llm = BitModChatModel(
-  model="claude-3-5-sonnet"
-)  # Native caching + metrics`}</code></pre>
                 </div>
               </CardContent>
             </Card>
@@ -508,6 +454,7 @@ llm = BitModChatModel(
           </h2>
           <p className="mt-3 text-lg text-muted-foreground">
             Point your existing tools at BitMod&apos;s proxy. No SDK changes, no wrapper libraries.
+            Every tool below works by setting <code className="text-xs bg-muted/30 px-1 py-0.5 rounded">base_url</code> to <code className="text-xs bg-muted/30 px-1 py-0.5 rounded">http://localhost:8000/v1</code> &mdash; there is no BitMod adapter to install, because none is needed.
           </p>
         </div>
 
@@ -536,36 +483,6 @@ llm = BitModChatModel(
               </div>
             </div>
           ))}
-        </div>
-      </section>
-
-      {/* ── Chat Platforms ───────────────────────────────────────── */}
-      <section id="messaging" className="scroll-mt-20 border-y border-border/40 bg-card/20">
-        <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <Badge variant="accent" className="mb-4">Chat Platforms</Badge>
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Send messages to any platform
-            </h2>
-            <p className="mt-3 text-lg text-muted-foreground">
-              Lightweight adapters for sending messages. Telegram also supports receiving via long polling.
-            </p>
-          </div>
-
-          <div className="mx-auto max-w-5xl grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            {CHAT_PLATFORMS.map((cp) => (
-              <div
-                key={cp.name}
-                className="arch-node group rounded-xl border border-border/40 bg-card/50 p-5 text-center hover:border-border/80 transition-all duration-300 hover:shadow-lg"
-              >
-                <div className={`mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg ${cp.color}`}>
-                  <MessageSquare className="h-5 w-5 text-white" />
-                </div>
-                <div className="text-sm font-semibold text-foreground">{cp.name}</div>
-                <div className="mt-1 text-xs text-muted-foreground leading-snug">{cp.desc}</div>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 

@@ -20,83 +20,86 @@ const CACHE_LAYERS = [
   {
     num: 1,
     name: "Normalization",
-    desc: "Lowercase, remove punctuation, strip stopwords",
+    desc: "Lowercase, strip stopwords, SHA-256 composite key",
     icon: FileText,
-    color: "text-[#79c0ff]",
-    borderColor: "border-[#79c0ff]/20",
-    bgColor: "bg-[#79c0ff]/5",
+    color: "text-[#79c0ff]", borderColor: "border-[#79c0ff]/20", bgColor: "bg-[#79c0ff]/5",
   },
   {
     num: 2,
-    name: "Exact Cache Match",
-    desc: "SHA-256 composite key lookup with double-verification",
+    name: "Exact Match",
+    desc: "O(1) key lookup against the normalized composite key",
     icon: Hash,
-    color: "text-[#ffa657]",
-    borderColor: "border-[#ffa657]/20",
-    bgColor: "bg-[#ffa657]/5",
+    color: "text-[#ffa657]", borderColor: "border-[#ffa657]/20", bgColor: "bg-[#ffa657]/5",
   },
   {
     num: 3,
-    name: "Double Verification",
-    desc: "Serve-time source version validation before returning cached answer",
+    name: "Source Verification",
+    desc: "Per-section SHA-256 check; any mismatch invalidates the answer",
     icon: ShieldCheck,
-    color: "text-[#7ee787]",
-    borderColor: "border-[#7ee787]/20",
-    bgColor: "bg-[#7ee787]/5",
+    color: "text-[#7ee787]", borderColor: "border-[#7ee787]/20", bgColor: "bg-[#7ee787]/5",
   },
   {
     num: 4,
-    name: "TTL Expiration Check",
-    desc: "Entries with max_age_seconds expire automatically",
-    icon: Clock,
-    color: "text-[#d2a8ff]",
-    borderColor: "border-[#d2a8ff]/20",
-    bgColor: "bg-[#d2a8ff]/5",
+    name: "Semantic Similarity",
+    desc: "Embedding cosine search, threshold >= 0.88",
+    icon: Search,
+    color: "text-[#d2a8ff]", borderColor: "border-[#d2a8ff]/20", bgColor: "bg-[#d2a8ff]/5",
   },
   {
     num: 5,
-    name: "Fuzzy Query Matching",
-    desc: "Order-independent token matching for approximate hits",
-    icon: SpellCheck,
-    color: "text-[#ff7b72]",
-    borderColor: "border-[#ff7b72]/20",
-    bgColor: "bg-[#ff7b72]/5",
-  },
-  {
-    num: 6,
-    name: "Semantic Cache Matching",
-    desc: "Embedding-based similarity search, threshold >= 0.88",
-    icon: Search,
-    color: "text-[#79c0ff]",
-    borderColor: "border-[#79c0ff]/20",
-    bgColor: "bg-[#79c0ff]/5",
-  },
-  {
-    num: 7,
     name: "Composable Decomposition",
     desc: "Break complex queries into sub-caches, reassemble answers",
     icon: Puzzle,
-    color: "text-[#ffa657]",
-    borderColor: "border-[#ffa657]/20",
-    bgColor: "bg-[#ffa657]/5",
+    color: "text-[#ff7b72]", borderColor: "border-[#ff7b72]/20", bgColor: "bg-[#ff7b72]/5",
+  },
+  {
+    num: 6,
+    name: "Fuzzy Match",
+    desc: "Order-independent token overlap and edit distance, >= 0.85",
+    icon: SpellCheck,
+    color: "text-[#79c0ff]", borderColor: "border-[#79c0ff]/20", bgColor: "bg-[#79c0ff]/5",
+  },
+  {
+    num: 7,
+    name: "Similarity Link Traversal",
+    desc: "Two-hop graph of near-misses learned across earlier queries",
+    icon: RefreshCw,
+    color: "text-[#ffa657]", borderColor: "border-[#ffa657]/20", bgColor: "bg-[#ffa657]/5",
   },
   {
     num: 8,
-    name: "Temporal Query Handling",
-    desc: "Permanently valid historical queries, exempt from invalidation",
-    icon: Clock,
-    color: "text-[#7ee787]",
-    borderColor: "border-[#7ee787]/20",
-    bgColor: "bg-[#7ee787]/5",
+    name: "Atomic Fact Search",
+    desc: "Embedding search over facts extracted from cached answers",
+    icon: ScanEye,
+    color: "text-[#7ee787]", borderColor: "border-[#7ee787]/20", bgColor: "bg-[#7ee787]/5",
   },
   {
     num: 9,
+    name: "Session Context",
+    desc: "Prior turns of the same conversation injected as partial evidence. Semantic retrieval is scoped to the conversation that wrote the entry, so a follow-up in one conversation cannot be answered from another's cached reply.",
+    icon: MessageSquare,
+    color: "text-[#d2a8ff]", borderColor: "border-[#d2a8ff]/20", bgColor: "bg-[#d2a8ff]/5",
+  },
+]
+
+// Not pipeline layers. These run around the cache rather than inside the
+// lookup path, and were previously listed among the nine — which both
+// overstated the pipeline and pushed three real layers off the page.
+const CACHE_MANAGEMENT = [
+  {
+    name: "TTL Expiration",
+    desc: "Entries carry an optional max_age_seconds and expire on read. No global default is configured, so entries written by the proxy and chat service never expire.",
+    icon: Clock,
+  },
+  {
+    name: "Temporal Queries",
+    desc: "Answers about a fixed point in time stay valid and are exempt from invalidation.",
+    icon: Clock,
+  },
+  {
     name: "LRU Eviction",
-    desc: "Remove least-recently-used entries when max_entries exceeded",
-    icon: RefreshCw,
-    color: "text-[#d2a8ff]",
-    borderColor: "border-[#d2a8ff]/20",
-    bgColor: "bg-[#d2a8ff]/5",
+    desc: "Least-recently-used entries are dropped once max_entries is exceeded. Implemented on SQLite only — the PostgreSQL, MySQL and MongoDB backends do not evict.",
+    icon: Database,
   },
 ]
 
@@ -227,6 +230,35 @@ export default function CacheEnginePage() {
               </p>
             </div>
           </div>
+        </div>
+      </section>
+
+      <Separator />
+
+      {/* Cache management — deliberately not counted among the nine */}
+      <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+        <div className="text-center mb-12">
+          <Badge variant="secondary" className="mb-4">Cache Management</Badge>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            Around the pipeline, not in it
+          </h2>
+          <p className="mt-3 text-lg text-muted-foreground">
+            These run alongside the lookup path. They are not cache layers and are not counted among the nine.
+          </p>
+        </div>
+
+        <div className="mx-auto max-w-5xl grid gap-6 sm:grid-cols-3">
+          {CACHE_MANAGEMENT.map((m) => (
+            <Card key={m.name} className="border-border/40 bg-card/50">
+              <CardHeader>
+                <m.icon className="h-8 w-8 text-muted-foreground mb-2" />
+                <CardTitle className="text-lg">{m.name}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription className="text-sm leading-relaxed">{m.desc}</CardDescription>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </section>
 

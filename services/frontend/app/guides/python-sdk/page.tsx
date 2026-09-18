@@ -44,23 +44,23 @@ export default function PythonSdkGuide() {
               <h2 className="text-xl font-semibold">Installation</h2>
             </div>
             <p className="text-muted-foreground mb-4">
-              Install the SDK from PyPI. The base package has no dependencies beyond <code className="text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded text-xs font-mono">httpx</code>.
+              The SDK is not published to PyPI. Install it from the repository; the base package has no dependencies beyond <code className="text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded text-xs font-mono">httpx</code>.
             </p>
             <CodeBlock filename="terminal">
-{`pip install bitmod-client`}
+{`git clone https://github.com/DeepanjayNandal/bitmod.git\ncd bitmod/sdk/python\npip install -e .`}
             </CodeBlock>
             <p className="text-sm text-muted-foreground mt-3 mb-3">
               To use the drop-in provider proxies, install the optional extras:
             </p>
             <CodeBlock filename="terminal">
 {`# OpenAI proxy support
-pip install bitmod-client[openai]
+pip install -e ".[openai]"
 
 # Anthropic proxy support
-pip install bitmod-client[anthropic]
+pip install -e ".[anthropic]"
 
 # Both
-pip install bitmod-client[openai,anthropic]`}
+pip install -e ".[openai,anthropic]"`}
             </CodeBlock>
             <p className="text-sm text-muted-foreground mt-3">
               Requires Python 3.10 or newer.
@@ -416,7 +416,7 @@ response = await async_oai.chat.completions.create(
 )`}
             </CodeBlock>
             <p className="text-sm text-muted-foreground mt-3">
-              Requires <code className="text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded text-xs font-mono">pip install bitmod-client[openai]</code>. The client sets <code className="text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded text-xs font-mono">base_url</code> to the BitMod proxy endpoint and passes your BitMod key via the <code className="text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded text-xs font-mono">X-Bitmod-Key</code> header.
+              Requires the <code className="text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded text-xs font-mono">openai</code> extra. The client sets <code className="text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded text-xs font-mono">base_url</code> to the BitMod proxy endpoint and passes your BitMod key via the <code className="text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded text-xs font-mono">X-Bitmod-Key</code> header.
             </p>
           </section>
 
@@ -452,7 +452,7 @@ message = await async_claude.messages.create(
 )`}
             </CodeBlock>
             <p className="text-sm text-muted-foreground mt-3">
-              Requires <code className="text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded text-xs font-mono">pip install bitmod-client[anthropic]</code>.
+              Requires the <code className="text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded text-xs font-mono">anthropic</code> extra.
             </p>
           </section>
 

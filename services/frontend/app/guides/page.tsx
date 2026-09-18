@@ -47,7 +47,6 @@ const guidesSidebarSections = [
       { href: "/integrations#dev-tools", label: "LM Studio + BitMod" },
       { href: "/integrations#dev-tools", label: "LangChain Integration" },
       { href: "/integrations#dev-tools", label: "VS Code (Continue.dev)" },
-      { href: "/integrations#messaging", label: "Messaging Platforms" },
     ],
   },
 ]
@@ -205,14 +204,6 @@ const sections = [
         difficulty: "Beginner" as const,
         time: "3 min",
         href: "/integrations#dev-tools",
-      },
-      {
-        icon: MessageSquare,
-        title: "Messaging Platforms",
-        description: "Connect Telegram, Discord, Slack, WhatsApp, or Matrix to BitMod's AI pipeline.",
-        difficulty: "Intermediate" as const,
-        time: "10 min",
-        href: "/integrations#messaging",
       },
     ],
   },

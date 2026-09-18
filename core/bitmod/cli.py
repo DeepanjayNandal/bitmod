@@ -2295,8 +2295,6 @@ def cmd_update(args: argparse.Namespace) -> int:
         print(f"    {_cyan('pip install --upgrade bitmod')}")
         print()
 
-        # Also check for changelog
-        print(f"  {_dim('Changelog: https://github.com/DeepanjayNandal/bitmod/releases')}")
     elif _parse_version(latest) == _parse_version(current):
         print(f"  {_green('+')} You are on the latest version ({current}).")
     else:

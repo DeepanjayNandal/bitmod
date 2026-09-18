@@ -301,8 +301,9 @@ export default function HomePage() {
             </span>
           </h2>
           <p className="mt-4 text-lg text-muted-foreground">
-            Anthropic and OpenAI cache your prompt prefix &mdash; you still pay for every response.
-            BitMod serves the answer from your own infrastructure in under 5ms.
+            Anthropic and OpenAI cache your prompt prefix, which discounts input tokens only &mdash;
+            the model still runs and you are billed for every response it generates.
+            BitMod returns a stored answer without calling the model at all, in ~80ms measured over HTTP.
             Use both for maximum savings.
           </p>
           <div className="mt-8 grid grid-cols-3 gap-4 text-sm">

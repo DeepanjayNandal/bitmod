@@ -148,20 +148,6 @@ export default function CostReductionPage() {
 
           <Card className="group relative overflow-hidden border-border/40 bg-card/50 hover:border-border/80 transition-all duration-300 hover:shadow-lg">
             <CardHeader>
-              <Layers className="h-10 w-10 text-accent mb-2" />
-              <CardTitle className="text-lg">Agent Plan Replay <Badge className="ml-2 bg-yellow-500/15 text-yellow-400 border-yellow-500/30 text-[10px]">Coming Soon</Badge></CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription className="text-sm leading-relaxed">
-                Multi-step AI agent workflows will be cached as deterministic execution plans.
-                On repeat, the plan replays with zero LLM reasoning calls.
-                Cryptographic integrity will ensure plans only replay when inputs match.
-              </CardDescription>
-            </CardContent>
-          </Card>
-
-          <Card className="group relative overflow-hidden border-border/40 bg-card/50 hover:border-border/80 transition-all duration-300 hover:shadow-lg">
-            <CardHeader>
               <FileDown className="h-10 w-10 text-primary mb-2" />
               <CardTitle className="text-lg">Block Compression</CardTitle>
             </CardHeader>

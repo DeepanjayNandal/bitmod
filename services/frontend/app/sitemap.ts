@@ -9,7 +9,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${baseUrl}/architecture`, lastModified: buildDate, changeFrequency: "monthly", priority: 0.9 },
     { url: `${baseUrl}/docs`, lastModified: buildDate, changeFrequency: "weekly", priority: 0.9 },
     { url: `${baseUrl}/cache-engine`, lastModified: buildDate, changeFrequency: "monthly", priority: 0.8 },
-    { url: `${baseUrl}/assembly-engine`, lastModified: buildDate, changeFrequency: "monthly", priority: 0.6 },
     { url: `${baseUrl}/playground`, lastModified: buildDate, changeFrequency: "monthly", priority: 0.7 },
     { url: `${baseUrl}/guides`, lastModified: buildDate, changeFrequency: "weekly", priority: 0.8 },
     { url: `${baseUrl}/guides/getting-started`, lastModified: buildDate, changeFrequency: "monthly", priority: 0.8 },

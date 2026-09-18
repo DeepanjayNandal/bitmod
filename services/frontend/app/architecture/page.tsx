@@ -5,8 +5,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import {
   ArrowRight, ArrowDown, Database, Brain, Server, Globe, Shield,
-  Layers, Zap, FileText, Search, Package, Cpu, HardDrive, Lock,
-  MessageSquare, Cloud, Box, Terminal
+  Layers, Zap, FileText, Search, Package, Cpu, HardDrive, Lock, Cloud, Box, Terminal
 } from "lucide-react"
 
 export const metadata: Metadata = {
@@ -109,7 +108,7 @@ export default function ArchitecturePage() {
             label="BitMod — Intelligent Cache Layer"
             color="bg-primary/10 text-primary"
             accent="text-primary"
-            description="Drop-in proxy + 9-layer cache engine. Intercepts every LLM request. Cache hits are served in <5ms without touching the LLM. Misses pass through transparently. Your SDK doesn't know it's there."
+            description="Drop-in proxy + 9-layer cache engine. Intercepts every LLM request. Cache hits are served in ~70-90ms over HTTP without touching the LLM — the cache lookup itself is under 1ms, the rest is the HTTP stack. Misses pass through transparently. Your SDK doesn't know it's there."
             items={[
               "9-Layer Cache Pipeline",
               "Multi-Format Proxy",
@@ -407,7 +406,7 @@ export default function ArchitecturePage() {
             {
               step: "3a",
               title: "Cache hit — serve immediately",
-              detail: "If confidence exceeds the threshold, the cached answer is returned in <5ms. Response headers show X-Bitmod-Cache-Hit: true and the estimated savings.",
+              detail: "If confidence exceeds the threshold, the cached answer is returned in ~70-90ms over HTTP; the lookup itself is under 1ms. Response headers show X-Bitmod-Cache-Hit: true and the estimated savings.",
               color: "text-green-400",
               bg: "bg-green-500/10",
             },
@@ -444,6 +443,21 @@ export default function ArchitecturePage() {
             </div>
           ))}
         </div>
+
+        <p className="mx-auto mt-8 max-w-3xl text-center text-xs text-muted-foreground">
+          Latency figures measured over HTTP through the gateway, n=10, against self-hosted
+          ollama/llama3.1:8b &mdash;{" "}
+          <a
+            href="https://github.com/DeepanjayNandal/bitmod/blob/main/tests/benchmark/results/latency_http_llama31_8b.json"
+            className="text-primary hover:underline"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            latency_http_llama31_8b.json
+          </a>
+          . Semantic retrieval is scoped to the conversation that wrote the entry, so a follow-up in
+          one conversation cannot be answered from another&apos;s cached reply.
+        </p>
       </section>
 
       {/* Modules Breakdown */}
@@ -460,7 +474,7 @@ export default function ArchitecturePage() {
                 icon: Layers,
                 title: "Cache Engine",
                 count: "9 layers",
-                items: ["Normalization", "Exact Match", "Double Verification", "TTL Check", "Fuzzy Match", "Semantic Match", "Composable Decomposition", "Temporal Handling", "LRU Eviction"],
+                items: ["Normalization", "Exact Match", "Source Verification", "Semantic Similarity", "Composable Decomposition", "Fuzzy Match", "Similarity Links", "Atomic Facts", "Session Context"],
                 color: "text-primary",
               },
               {
@@ -497,13 +511,6 @@ export default function ArchitecturePage() {
                 count: "7 formats",
                 items: ["PDF", "DOCX", "HTML", "Markdown", "CSV", "JSON", "Plain Text"],
                 color: "text-orange-400",
-              },
-              {
-                icon: MessageSquare,
-                title: "Messaging",
-                count: "5 platforms",
-                items: ["Telegram", "Discord", "Slack", "WhatsApp", "Matrix"],
-                color: "text-pink-400",
               },
               {
                 icon: Shield,

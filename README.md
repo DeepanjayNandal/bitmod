@@ -8,7 +8,7 @@
 
 > **Compute once, serve forever.** BitMod sits between your application and any LLM provider, intercepting queries and serving semantically equivalent ones from cache, cutting response latency and API costs without changing a line of application code.
 
-BitMod is a reverse proxy and semantic cache for LLM APIs. Drop it in front of any OpenAI, Anthropic, or Gemini endpoint. Your application changes only its base URL, nothing else. Repeated and rephrased queries are served from cache instead of reaching the LLM, cutting response time from seconds to milliseconds and eliminating redundant API spend.
+BitMod is a reverse proxy and semantic cache for LLM APIs. Drop it in front of any OpenAI, Anthropic, or Gemini endpoint. Your application changes its base URL and sends a BitMod API key. Repeated and rephrased queries are served from cache instead of reaching the LLM, cutting response time from seconds to milliseconds and eliminating redundant API spend.
 
 Built for high-repetition workloads: customer support bots, legal Q&A, HR documentation, code review pipelines. Ships with 1,356 tests, CI runs on Python 3.10, 3.11, 3.12, and 3.13 with mypy type checking on every commit.
 
@@ -16,27 +16,37 @@ Built for high-repetition workloads: customer support bots, legal Q&A, HR docume
 
 ## Benchmark Results
 
-### Production workloads (GPT-4o / Claude)
+### End-to-end latency
 
-Measured on high-repetition corpora: support tickets, legal Q&A, code review.
+Measured over HTTP through the running gateway, n=10 per row, generation by
+self-hosted `ollama/llama3.1:8b`. Medians, because the mean of a cold pass is
+dragged by the first call loading the model.
 
 | Metric | Value |
 |---|---|
-| Cache hit rate | **94%** |
-| Cached response latency | **71ms** avg |
-| LLM latency (no cache) | 12.5s avg |
-| Speedup | **176×** |
+| Cached response latency (exact match) | **68–80ms** |
+| LLM latency (no cache) | **8.0s** median |
+| Speedup | **99×** |
+
+Artifact: [`latency_http_llama31_8b.json`](tests/benchmark/results/latency_http_llama31_8b.json).
+The cached figure is a range because it moves with machine memory pressure —
+four runs gave 68.4, 69.6, 71.9 and 79.5ms. Rephrased queries that are served
+semantically rather than by exact match cost more; they are not in this figure.
+These numbers describe self-hosted inference, not a hosted provider.
 
 ### Reproduce it locally (no API key required)
 
-30 customer support Q&A pairs cached, then 50 test queries run against SQLite and Ollama embeddings.
+30 customer support Q&A pairs cached, then 50 test queries run against SQLite
+and Ollama embeddings. Every query goes through the full nine-layer pipeline at
+the shipping configuration — `serve_threshold` 0.85, damping 0.50 — with no
+thresholds overridden.
 
 | Query type | Result |
 |---|---|
 | Same question again | 30/30 — 100% |
-| Rephrased question | 14/15 — 93% |
+| Rephrased question | 8/15 — 53% |
 | New unseen question | 0/5 — 0% (correct: new questions should miss) |
-| **Overall** | **44/50 — 88%** |
+| **Overall** | **38/50 — 76%** |
 
 ```bash
 python demo.py  # requires Ollama running with nomic-embed-text
@@ -207,16 +217,7 @@ This ensures answers never go stale when documents are updated.
 
 ## Quickstart
 
-### Option A: pip install
-
-```bash
-pip install bitmod
-bitmod init          # interactive setup — detects your LLM, embeddings, database
-bitmod ingest ./docs/
-bitmod query "What is our refund policy?"
-```
-
-### Option B: Docker
+### Option A: Docker
 
 ```bash
 git clone https://github.com/DeepanjayNandal/bitmod.git
@@ -224,12 +225,17 @@ cd bitmod
 
 cp .env.example .env                                 # required — compose will not start without it
 
+# Authentication is ON by default. Set at least one key in .env:
+#   BITMOD_API_KEYS=your-key                    read scope
+#   BITMOD_API_KEYS=your-key:read:write:admin   full scope
+# Or set BITMOD_AUTH_ENABLED=0 to disable auth entirely (local use only).
+
 docker compose up                                    # SQLite + FastAPI (default)
 docker compose --profile ollama up                   # + local Ollama (no API keys)
 docker compose --profile postgres up                 # + PostgreSQL + pgvector
 ```
 
-### Option C: Python library
+### Option B: Python library
 
 ```python
 from bitmod import Bitmod
@@ -315,20 +321,22 @@ Supported formats: **PDF** (PyMuPDF / pdfplumber), **DOCX**, **HTML**, **Markdow
 ```bash
 # Ingest
 curl -X POST http://localhost:8000/v1/ingest/text \
+  -H "Authorization: ApiKey $BITMOD_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"text": "Your content...", "title": "My Doc"}'
 
 curl -X POST http://localhost:8000/v1/ingest/file \
+  -H "Authorization: ApiKey $BITMOD_API_KEY" \
   -F "file=@report.pdf"
 
-# Query
+# Query — /v1/chat does not require a key
 curl -X POST http://localhost:8000/v1/chat \
   -H "Content-Type: application/json" \
   -d '{"message": "What are the key findings?", "stream": false}'
 
 # Observability
-curl http://localhost:8000/v1/cache/stats
-curl http://localhost:8000/v1/admin/metrics
+curl http://localhost:8000/v1/cache/stats  -H "Authorization: ApiKey $BITMOD_API_KEY"
+curl http://localhost:8000/v1/admin/metrics -H "Authorization: ApiKey $BITMOD_API_KEY"   # needs admin scope
 ```
 
 ---
@@ -356,7 +364,7 @@ bitmod --format json status | jq  JSON output for scripting
 
 ```
 bitmod/
-├── core/bitmod/          # Core library — pip install bitmod
+├── core/bitmod/          # Core library
 │   ├── cache_engine.py   # 9-layer cache with Bayesian accumulation
 │   ├── cache_qualify.py  # Cache qualification gate
 │   ├── intent.py         # Intent detection engine

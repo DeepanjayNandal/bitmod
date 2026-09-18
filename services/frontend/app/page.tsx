@@ -68,7 +68,7 @@ export default function HomePage() {
               </Link>
             </Button>
             <Button size="xl" variant="outline" asChild>
-              <a href="https://github.com/BitModerator/bitmod" target="_blank" rel="noopener noreferrer">
+              <a href="https://github.com/DeepanjayNandal/bitmod" target="_blank" rel="noopener noreferrer">
                 <GithubIcon className="mr-2 h-5 w-5" /> View on GitHub
               </a>
             </Button>

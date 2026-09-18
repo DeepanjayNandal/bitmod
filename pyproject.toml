@@ -121,7 +121,7 @@ recommended = [
 
 [project.urls]
 Homepage = "https://bitmod.io"
-Repository = "https://github.com/BitModerator/bitmod"
+Repository = "https://github.com/DeepanjayNandal/bitmod"
 Documentation = "https://docs.bitmod.io"
 
 [project.scripts]

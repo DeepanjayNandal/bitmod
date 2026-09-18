@@ -61,7 +61,7 @@ export function Navbar() {
             </Link>
           ))}
           <a
-            href="https://github.com/BitModerator/bitmod"
+            href="https://github.com/DeepanjayNandal/bitmod"
             target="_blank"
             rel="noopener noreferrer"
             className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"

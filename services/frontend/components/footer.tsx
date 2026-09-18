@@ -27,7 +27,7 @@ const footerLinks = {
 const socialLinks = [
   {
     label: "GitHub",
-    href: "https://github.com/BitModerator/bitmod",
+    href: "https://github.com/DeepanjayNandal/bitmod",
     icon: GithubIcon,
   },
 ]

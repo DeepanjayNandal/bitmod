@@ -18,7 +18,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 FROM python:3.13-slim
 
-LABEL org.opencontainers.image.source="https://github.com/BitModerator/bitmod"
+LABEL org.opencontainers.image.source="https://github.com/DeepanjayNandal/bitmod"
 LABEL org.opencontainers.image.description="BitMod Chat Service"
 LABEL org.opencontainers.image.licenses="Proprietary"
 

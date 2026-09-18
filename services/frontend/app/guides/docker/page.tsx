@@ -65,7 +65,7 @@ docker compose version  # Docker Compose v2.20+`}
               Clone the repository and create your environment file before starting any services:
             </p>
             <CodeBlock filename="terminal">
-{`git clone https://github.com/BitModerator/bitmod.git
+{`git clone https://github.com/DeepanjayNandal/bitmod.git
 cd bitmod
 cp .env.example .env`}
             </CodeBlock>

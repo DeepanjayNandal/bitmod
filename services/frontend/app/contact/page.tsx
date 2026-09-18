@@ -218,19 +218,19 @@ export default function ContactPage() {
                     {
                       title: "Good First Issues",
                       desc: "Beginner-friendly issues to pick up.",
-                      href: "https://github.com/BitModerator/bitmod/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22",
+                      href: "https://github.com/DeepanjayNandal/bitmod/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22",
                       internal: false,
                     },
                     {
                       title: "Open Issues",
                       desc: "Browse all open issues on GitHub.",
-                      href: "https://github.com/BitModerator/bitmod/issues",
+                      href: "https://github.com/DeepanjayNandal/bitmod/issues",
                       internal: false,
                     },
                     {
                       title: "Security Policy",
                       desc: "Responsible disclosure process.",
-                      href: "https://github.com/BitModerator/bitmod/blob/main/SECURITY.md",
+                      href: "https://github.com/DeepanjayNandal/bitmod/blob/main/SECURITY.md",
                       internal: false,
                     },
                   ].map((link) => (
@@ -379,7 +379,7 @@ export default function ContactPage() {
                   {category.destination === "github" ? (
                     <Button type="button" asChild>
                       <a
-                        href={`https://github.com/BitModerator/bitmod/issues/new?labels=${category.id === "bug" ? "bug" : "enhancement"}&title=${encodeURIComponent(formData.message.split("\n")[0] || "")}&body=${encodeURIComponent(`**From:** ${formData.name} (${formData.email})\n\n${formData.message}`)}`}
+                        href={`https://github.com/DeepanjayNandal/bitmod/issues/new?labels=${category.id === "bug" ? "bug" : "enhancement"}&title=${encodeURIComponent(formData.message.split("\n")[0] || "")}&body=${encodeURIComponent(`**From:** ${formData.name} (${formData.email})\n\n${formData.message}`)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                       >

@@ -566,7 +566,7 @@ bitmod serve`}
                     <h3 className="font-semibold mb-1">Still stuck?</h3>
                     <p className="text-sm text-muted-foreground">
                       Include the output of <code className="text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded text-xs font-mono">bitmod doctor</code> and <code className="text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded text-xs font-mono">bitmod status</code> when{" "}
-                      <a href="https://github.com/BitModerator/bitmod/issues" className="text-primary hover:underline">opening a GitHub issue</a>.
+                      <a href="https://github.com/DeepanjayNandal/bitmod/issues" className="text-primary hover:underline">opening a GitHub issue</a>.
                       This gives maintainers the full picture of your environment.
                     </p>
                   </div>

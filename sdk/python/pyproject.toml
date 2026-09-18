@@ -35,7 +35,7 @@ dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "respx>=0.21"]
 [project.urls]
 Homepage = "https://bitmod.io"
 Documentation = "https://docs.bitmod.io/sdk/python"
-Repository = "https://github.com/BitModerator/bitmod"
+Repository = "https://github.com/DeepanjayNandal/bitmod"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/bitmod_client"]

@@ -545,7 +545,7 @@ export default function SecurityPage() {
             </Link>
           </Button>
           <Button size="xl" variant="outline" asChild>
-            <Link href="https://github.com/BitModerator/bitmod/blob/main/SECURITY.md">
+            <Link href="https://github.com/DeepanjayNandal/bitmod/blob/main/SECURITY.md">
               SECURITY.md
             </Link>
           </Button>

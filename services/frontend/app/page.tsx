@@ -32,7 +32,7 @@ export default function HomePage() {
           <HeroWordmark className="mb-8" />
 
           <Badge variant="secondary" className="relative z-20 mb-6 px-4 py-1.5 text-sm">
-            Open Source &middot; Apache 2.0
+            Open Source &middot; MIT
           </Badge>
 
           <h1 className="text-5xl font-extrabold tracking-tight sm:text-7xl lg:text-8xl">
@@ -270,7 +270,7 @@ export default function HomePage() {
             {
               icon: Package,
               title: "docker compose up",
-              description: "Run from source or the Docker image. Admin dashboard, cache analytics, and monitoring built in. Apache 2.0 licensed.",
+              description: "Run from source or the Docker image. Admin dashboard, cache analytics, and monitoring built in. MIT licensed.",
               color: "text-pink-500",
             },
           ].map((feature) => (

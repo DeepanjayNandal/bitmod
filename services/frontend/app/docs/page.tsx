@@ -460,7 +460,7 @@ export default function DocsPage() {
               </div>
               <div className="rounded-lg border border-border/30 bg-muted/10 p-3 text-center">
                 <span className="text-xs font-semibold text-muted-foreground">Core Library</span>
-                <span className="text-[10px] text-muted-foreground ml-2 font-mono">pip install bitmod</span>
+                <span className="text-[10px] text-muted-foreground ml-2 font-mono">pip install -e .</span>
                 <div className="mt-2 flex flex-wrap justify-center gap-1.5">
                   {["cache_engine", "proxy", "router", "blocks", "intent", "roles", "tags", "auth", "tool_layer", "ingestion", "adapters"].map((mod) => (
                     <span key={mod} className="rounded-md bg-muted/30 border border-border/20 px-2 py-0.5 text-[9px] font-mono text-muted-foreground">
@@ -486,14 +486,13 @@ export default function DocsPage() {
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-semibold mb-3">1. Install</h3>
-              <CodeBlock filename="terminal">{`# Minimal install (SQLite, works everywhere)
-pip install bitmod
+              <CodeBlock filename="terminal">{`# Docker — the documented path
+git clone https://github.com/DeepanjayNandal/bitmod.git
+cd bitmod && cp .env.example .env
+docker compose up
 
-# Recommended (PostgreSQL + Anthropic + local embeddings)
-pip install bitmod[recommended]
-
-# Everything
-pip install bitmod[all]`}</CodeBlock>
+# Or from source
+pip install -e .`}</CodeBlock>
             </div>
 
             <div>

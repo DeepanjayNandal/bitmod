@@ -37,7 +37,7 @@ export default function DeveloperExperiencePage() {
           </h1>
 
           <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground sm:text-xl">
-            Zero-config defaults. <code className="text-accent font-mono">pip install bitmod</code> and you&apos;re
+            Zero-config defaults. <code className="text-accent font-mono">docker compose up</code> and you&apos;re
             running. SQLite backend, local embeddings, no server, no account, no API keys for local mode.
           </p>
         </div>

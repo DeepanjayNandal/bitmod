@@ -44,13 +44,16 @@ export default function GettingStartedGuide() {
               <h2 className="text-xl font-semibold">Install BitMod</h2>
             </div>
             <p className="text-muted-foreground mb-4">
-              BitMod is distributed as a Python package. Install it with pip:
+              Clone the repository and start it with Docker Compose:
             </p>
             <CodeBlock filename="terminal">
-{`pip install bitmod`}
+{`git clone https://github.com/DeepanjayNandal/bitmod.git
+cd bitmod
+cp .env.example .env
+docker compose up`}
             </CodeBlock>
             <p className="text-sm text-muted-foreground mt-3">
-              Requires Python 3.10 or newer. This installs the <code className="text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded text-xs font-mono">bitmod</code> CLI and the core cache engine. For the remote SDK, install <code className="text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded text-xs font-mono">pip install bitmod-client</code> separately.
+              Requires Docker, or Python 3.10 or newer to run from source with <code className="text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded text-xs font-mono">pip install -e .</code>.
             </p>
           </section>
 

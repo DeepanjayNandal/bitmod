@@ -58,7 +58,7 @@ const phases = [
       { label: "Docker Compose with profiles (default, ollama, postgres, full)", done: true },
       { label: "Next.js admin dashboard with live metrics + interactive playground", done: true },
       { label: "5 messaging platform integrations (Slack, Discord, Telegram, WhatsApp, Matrix)", done: true },
-      { label: "PyPI packaging — pip install bitmod with optional dependency groups", done: true },
+      { label: "PyPI packaging with optional dependency groups", done: false },
       { label: "GitHub Actions CI/CD + trusted OIDC publishing", done: true },
     ],
   },

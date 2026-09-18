@@ -50,7 +50,7 @@ export default function TroubleshootingGuide() {
               <Card className="border-border/40 bg-card/50">
                 <CardContent className="p-6">
                   <h3 className="font-semibold mb-2">
-                    <code className="text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded text-xs font-mono">pip install bitmod</code> fails
+                    <code className="text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded text-xs font-mono">pip install -e .</code> fails
                   </h3>
                   <p className="text-sm text-muted-foreground mb-3">
                     BitMod requires Python 3.10 or newer. Check your version and upgrade if needed:

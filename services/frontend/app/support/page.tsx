@@ -59,7 +59,7 @@ const helpChannels = [
 const faqs = [
   {
     question: "How do I install BitMod?",
-    answer: "pip install bitmod — works on Python 3.10+. One command and you're ready to go.",
+    answer: "Clone the repo and run docker compose up. Requires Python 3.10+ if you run from source instead.",
   },
   {
     question: "Which LLMs are supported?",

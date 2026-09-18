@@ -3,7 +3,7 @@ import Link from "next/link"
 
 export const metadata: Metadata = {
   title: "BitMod — Modular AI Data Infrastructure",
-  description: "Compute once, serve forever. Open-source 9-layer intelligent cache for LLM apps. Universal provider support, 4 databases, zero lock-in. pip install bitmod.",
+  description: "Compute once, serve forever. Open-source 9-layer intelligent cache for LLM apps. Universal provider support, 4 databases, zero lock-in. Run it with docker compose up.",
 }
 import { Button } from "@/components/ui/button"
 import { HeroWordmark } from "@/components/hero-wordmark"
@@ -269,8 +269,8 @@ export default function HomePage() {
             },
             {
               icon: Package,
-              title: "pip install bitmod",
-              description: "Python package, Docker image, or clone the repo. Admin dashboard, cache analytics, and monitoring built in. Apache 2.0 licensed.",
+              title: "docker compose up",
+              description: "Run from source or the Docker image. Admin dashboard, cache analytics, and monitoring built in. Apache 2.0 licensed.",
               color: "text-pink-500",
             },
           ].map((feature) => (

@@ -11,7 +11,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${baseUrl}/cache-engine`, lastModified: buildDate, changeFrequency: "monthly", priority: 0.8 },
     { url: `${baseUrl}/assembly-engine`, lastModified: buildDate, changeFrequency: "monthly", priority: 0.6 },
     { url: `${baseUrl}/playground`, lastModified: buildDate, changeFrequency: "monthly", priority: 0.7 },
-    { url: `${baseUrl}/roadmap`, lastModified: buildDate, changeFrequency: "weekly", priority: 0.7 },
     { url: `${baseUrl}/guides`, lastModified: buildDate, changeFrequency: "weekly", priority: 0.8 },
     { url: `${baseUrl}/guides/getting-started`, lastModified: buildDate, changeFrequency: "monthly", priority: 0.8 },
     { url: `${baseUrl}/guides/api-reference`, lastModified: buildDate, changeFrequency: "monthly", priority: 0.8 },
@@ -27,9 +26,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${baseUrl}/solutions/developer-experience`, lastModified: buildDate, changeFrequency: "monthly", priority: 0.7 },
     { url: `${baseUrl}/security`, lastModified: buildDate, changeFrequency: "monthly", priority: 0.5 },
     { url: `${baseUrl}/support`, lastModified: buildDate, changeFrequency: "monthly", priority: 0.5 },
-    { url: `${baseUrl}/contributing`, lastModified: buildDate, changeFrequency: "monthly", priority: 0.4 },
-    { url: `${baseUrl}/changelog`, lastModified: buildDate, changeFrequency: "weekly", priority: 0.5 },
-    { url: `${baseUrl}/sponsor`, lastModified: buildDate, changeFrequency: "monthly", priority: 0.5 },
     { url: `${baseUrl}/contact`, lastModified: buildDate, changeFrequency: "monthly", priority: 0.6 },
   ]
 }

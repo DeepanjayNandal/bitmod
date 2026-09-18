@@ -419,7 +419,7 @@ BITMOD_JWT_ALGORITHM=RS256`}
               <h2 className="text-xl font-semibold">Kubernetes</h2>
             </div>
             <p className="text-muted-foreground mb-4">
-              A Kubernetes deployment guide with Helm charts is on the roadmap. For now, Docker Compose is the recommended deployment method. See the <Link href="/roadmap" className="text-primary hover:underline">roadmap</Link> for updates.
+              There is no Kubernetes deployment guide or Helm chart. Docker Compose is the only supported deployment method.
             </p>
           </section>
 

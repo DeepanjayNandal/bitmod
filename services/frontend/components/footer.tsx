@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { GithubIcon, TwitterIcon } from "@/components/icons"
+import { GithubIcon } from "@/components/icons"
 import { TerminalWordmarkNav } from "@/components/terminal-logo"
 
 const footerLinks = {
@@ -22,13 +22,6 @@ const footerLinks = {
     { label: "Support", href: "/support" },
     { label: "Contact", href: "/contact" },
   ],
-  Community: [
-    { label: "Contributing", href: "/contributing" },
-    { label: "Code of Conduct", href: "/code-of-conduct" },
-    { label: "Changelog", href: "/changelog" },
-    { label: "Roadmap", href: "/roadmap" },
-    { label: "Sponsor", href: "/sponsor" },
-  ],
 }
 
 const socialLinks = [
@@ -36,11 +29,6 @@ const socialLinks = [
     label: "GitHub",
     href: "https://github.com/BitModerator/bitmod",
     icon: GithubIcon,
-  },
-  {
-    label: "X",
-    href: "https://x.com/BITM0D",
-    icon: TwitterIcon,
   },
 ]
 

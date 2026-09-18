@@ -216,12 +216,6 @@ export default function ContactPage() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   {[
                     {
-                      title: "Contributing Guide",
-                      desc: "Code standards, PR process, and how to get started.",
-                      href: "/contributing",
-                      internal: true,
-                    },
-                    {
                       title: "Good First Issues",
                       desc: "Beginner-friendly issues to pick up.",
                       href: "https://github.com/BitModerator/bitmod/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22",

@@ -86,8 +86,6 @@ const faqs = [
 const quickLinks = [
   { label: "Docs", href: "/docs" },
   { label: "Guides", href: "/guides" },
-  { label: "Roadmap", href: "/roadmap" },
-  { label: "Changelog", href: "/changelog", external: false },
   { label: "Security", href: "/security" },
   { label: "Contact", href: "/contact" },
 ]
@@ -194,21 +192,12 @@ export default function SupportPage() {
           <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
             {quickLinks.map((link) => (
               <Card key={link.label} className="border-border/40 bg-card/50 hover:border-border/80 transition-all duration-300 hover:shadow-lg group">
-                {link.external ? (
-                  <a href={link.href} target="_blank" rel="noopener noreferrer" className="block">
-                    <CardContent className="flex items-center justify-between py-6">
-                      <span className="font-medium">{link.label}</span>
-                      <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                    </CardContent>
-                  </a>
-                ) : (
-                  <Link href={link.href} className="block">
-                    <CardContent className="flex items-center justify-between py-6">
-                      <span className="font-medium">{link.label}</span>
-                      <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                    </CardContent>
-                  </Link>
-                )}
+                <Link href={link.href} className="block">
+                  <CardContent className="flex items-center justify-between py-6">
+                    <span className="font-medium">{link.label}</span>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                  </CardContent>
+                </Link>
               </Card>
             ))}
           </div>

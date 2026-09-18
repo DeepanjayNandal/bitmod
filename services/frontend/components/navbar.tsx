@@ -29,7 +29,6 @@ const navLinks = [
   { href: "/integrations", label: "Integrations" },
   { href: "/playground", label: "Playground" },
   { href: "/security", label: "Security" },
-  { href: "/roadmap", label: "Roadmap" },
   { href: "/admin", label: "Admin" },
 ]
 

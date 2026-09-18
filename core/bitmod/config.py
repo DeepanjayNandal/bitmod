@@ -568,6 +568,7 @@ def _apply_overrides(config: "BitmodConfig", overrides: dict) -> None:
         "cache_search_threshold": ("cache", "search_threshold"),
         "cache_max_entries": ("cache", "max_entries"),
         "cache_eviction_interval": ("cache", "eviction_interval"),
+        "cache_link_cleanup_days": ("cache", "link_cleanup_days"),
     }
 
     env_map: dict[str, str] = {
@@ -605,6 +606,7 @@ def _apply_overrides(config: "BitmodConfig", overrides: dict) -> None:
         "cache_search_threshold": "BITMOD_CACHE_SEARCH_THRESHOLD",
         "cache_max_entries": "BITMOD_CACHE_MAX_ENTRIES",
         "cache_eviction_interval": "BITMOD_CACHE_EVICTION_INTERVAL",
+        "cache_link_cleanup_days": "BITMOD_CACHE_LINK_CLEANUP_DAYS",
     }
 
     for key, value in overrides.items():

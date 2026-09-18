@@ -1449,7 +1449,11 @@ async def _generate(
                 )
         else:
             model_name = config.llm.primary_model
-            if role_config and role_config.model_tier == "fallback":
+            # `and fallback` matches the selection guard above. Without it this
+            # named the fallback model whenever the ROLE was fallback-tier, even
+            # with no fallback client configured — so generation ran on the
+            # primary and the response named a model that never executed.
+            if role_config and role_config.model_tier == "fallback" and fallback:
                 model_name = config.llm.fallback_model or model_name
             return response.content, sources_collected, model_name, response.usage or {}, agent_steps
 
@@ -1656,7 +1660,11 @@ async def _stream_generate(
             logger.debug("Query embedding failed for stream cache store, storing without embedding", exc_info=True)
 
     model_used = config.llm.primary_model
-    if role_config and role_config.model_tier == "fallback":
+    # `and fallback` matches the selection guard in _stream_generate. This value
+    # is persisted as the cached entry's model_used, so without the guard every
+    # answer cached under a fallback-tier role is labelled with a model that
+    # never generated it — permanently, and served back on every later hit.
+    if role_config and role_config.model_tier == "fallback" and fallback:
         model_used = config.llm.fallback_model or model_used
 
     try:

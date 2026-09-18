@@ -140,6 +140,18 @@ class _UnusedLLM:
     checked, not assumed: no reference to the router appears anywhere in
     `_run_cache_pipeline`. If that ever changes, this raises rather than
     silently making the demo depend on a live model.
+
+    DO NOT REPLACE THIS WITH A REAL MODEL. Generation is stubbed on purpose and
+    the demo is better for it: the run is deterministic, finishes in seconds,
+    and every number it prints is a property of the cache rather than of
+    whatever model happened to be installed. Wiring a real provider in would
+    add minutes of runtime and several seconds of per-call variance while
+    telling a reader nothing about hit rate, layer attribution or confidence.
+
+    Latency IS measured with a real model, in a harness built for it:
+    tests/benchmark/measure_latency_http.py drives the running gateway over
+    HTTP, and the summary below points at its artifact. That is the right place
+    for it, because latency is the one figure a stub cannot produce honestly.
     """
 
     async def generate(self, *args, **kwargs):
@@ -363,6 +375,14 @@ def main():
         print(f"    Same questions again  : {rate(by_type['exact'])}")
         print(f"    Rephrased questions   : {rate(by_type['paraphrase'])}")
         print(f"    New unseen questions  : {rate(by_type['new'])}  ← correct, should miss")
+        print()
+
+        # Latency is deliberately NOT measured here — see the note on the stub
+        # above. These figures come from the HTTP harness, and the file is named
+        # so a reader can check them rather than take them on trust.
+        print("  End-to-end latency measured separately over HTTP:")
+        print("    ~80ms cached vs ~8.0s cold (ollama/llama3.1:8b, n=10) — 99x")
+        print("    tests/benchmark/results/latency_http_llama31_8b.json")
         print()
         print("=" * W)
         print()

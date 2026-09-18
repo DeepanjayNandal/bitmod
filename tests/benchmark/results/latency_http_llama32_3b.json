@@ -1,0 +1,67 @@
+{
+  "harness": "HTTP through the running gateway (POST /v1/chat)",
+  "measures": "what a client sees: cached latency, and generating latency for the configured provider",
+  "base_url": "http://localhost:8000",
+  "provider": "ollama/llama3.2 (3.2B, Q4_K_M, 2.0GB) on localhost via host.docker.internal \u2014 LOCAL inference, not a hosted provider",
+  "model_rationale": "Measured for COMPARISON ONLY and should not be the figure anyone publishes. 3.2B is not a production self-hosting choice; it exists here to show how much the cold path moves with model size. The comparable 8B run is llama3.1:8b. 70B was checked and skipped: Q4 needs roughly 40GB against 18GB physical, so it would time paging rather than inference.",
+  "does_not_measure": [
+    "the README's '12.5s avg (GPT-4o / Claude)'. The cold figure describes whichever provider this gateway is configured with, recorded under 'provider' below.",
+    "any hosted provider unless 'provider' says so \u2014 check it before quoting the cold number or the speedup",
+    "token savings; nothing here tokenizes"
+  ],
+  "cached_paths_are_not_one_number": "exact and semantic are reported separately and never averaged. Exact can return before the query is embedded; semantic cannot. An average over them is set by the traffic mix, not by the cache.",
+  "timestamp": "2026-09-18T06:58:20.098766+00:00",
+  "provenance": {
+    "commit": "d731deca54c18ddcfb7a84a6f7cd523d24db6255",
+    "tree_sha256": "26b5cc0eda863f3c",
+    "dirty": true,
+    "untracked_files": 0
+  },
+  "cold_real_generation": {
+    "n": 10,
+    "mean_ms": 5731.8,
+    "median_ms": 3751.0,
+    "min_ms": 767.5,
+    "max_ms": 30580.8,
+    "p95_ms": 30580.8
+  },
+  "cold_per_call_ms": [
+    30580.8,
+    767.5,
+    4162.9,
+    5738.7,
+    781.1,
+    3881.9,
+    3620.1,
+    1140.7,
+    5160.5,
+    1483.8
+  ],
+  "cached_exact_per_call_ms": [
+    42.5,
+    75.6,
+    36.4,
+    32.8,
+    67.3,
+    102.4,
+    72.0,
+    85.6,
+    38.3,
+    77.6
+  ],
+  "cached_exact": {
+    "n": 10,
+    "mean_ms": 63.0,
+    "median_ms": 69.6,
+    "min_ms": 32.8,
+    "max_ms": 102.4,
+    "p95_ms": 102.4
+  },
+  "cached_semantic": {
+    "n": 0
+  },
+  "cached_semantic_served": 0,
+  "cached_semantic_attempts": 10,
+  "speedup_cold_over_exact": 91.0,
+  "speedup_condition": "ratio of the two measured means above; inherits the cold path's provider condition entirely"
+}

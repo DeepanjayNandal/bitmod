@@ -110,6 +110,11 @@ tests/stress/*.jsonl
 # the in-process one because the gap between them IS the HTTP stack, which is
 # what the README's cached figure turns out to include.
 !tests/benchmark/results/latency_http_gateway.json
+# Two models over the same HTTP path. Both are kept because the pair IS the
+# finding: the cold figure is a statement about the model, and quoting one
+# without the other invites exactly the substitution this set exists to stop.
+!tests/benchmark/results/latency_http_llama32_3b.json
+!tests/benchmark/results/latency_http_llama31_8b.json
 
 # Backup sessions (generated at runtime)
 bitmod_backup/

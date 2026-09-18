@@ -122,6 +122,15 @@ def main() -> None:
             "meaningless without it, and a default would let it be omitted silently."
         ),
     )
+    parser.add_argument(
+        "--model-rationale",
+        required=True,
+        help=(
+            "REQUIRED. Why THIS model. A cold-path figure is a statement about a model as much as about the "
+            "product, and a 3B model makes generation look cheaper than any real deployment. Recording the "
+            "reason stops a reader having to guess whether the model was chosen for realism or for the number."
+        ),
+    )
     parser.add_argument("--out", default="")
     args = parser.parse_args()
 
@@ -174,6 +183,7 @@ def main() -> None:
         "measures": "what a client sees: cached latency, and generating latency for the configured provider",
         "base_url": args.base_url,
         "provider": args.provider,
+        "model_rationale": args.model_rationale,
         "does_not_measure": [
             (
                 "the README's '12.5s avg (GPT-4o / Claude)'. The cold figure describes whichever provider this "
@@ -189,6 +199,8 @@ def main() -> None:
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "provenance": provenance(),
         "cold_real_generation": cold_summary,
+        "cold_per_call_ms": [round(x, 1) for x in cold],
+        "cached_exact_per_call_ms": [round(x, 1) for x in exact],
         "cached_exact": exact_summary,
         "cached_semantic": semantic_summary,
         "cached_semantic_served": semantic_served,

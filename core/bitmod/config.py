@@ -383,6 +383,12 @@ class CacheConfig:
     # wrong ones. A single match this weak scores 0.148 and can never serve
     # alone; it earns its place by combining.
     search_threshold: float = field(default_factory=lambda: float(os.getenv("BITMOD_CACHE_SEARCH_THRESHOLD", "0.60")))
+    # Default TTL applied to every cached answer, in seconds. 0 means NEVER
+    # EXPIRE, which is the historical behaviour and therefore the default —
+    # setting this is opt-in, and an upgrade does not start expiring anyone's
+    # cache. /guides/cache-setup already documented `cache_default_ttl: 0` as
+    # "never expire", so the convention is matched rather than invented.
+    default_ttl: int = field(default_factory=lambda: int(os.getenv("BITMOD_CACHE_DEFAULT_TTL", "0")))
     max_entries: int = field(default_factory=lambda: int(os.getenv("BITMOD_CACHE_MAX_ENTRIES", "100000")))
     eviction_interval: int = field(default_factory=lambda: int(os.getenv("BITMOD_CACHE_EVICTION_INTERVAL", "100")))
     max_answer_length: int = field(default_factory=lambda: int(os.getenv("BITMOD_CACHE_MAX_ANSWER_LENGTH", "100000")))
@@ -566,6 +572,7 @@ def _apply_overrides(config: "BitmodConfig", overrides: dict) -> None:
         "cache_fuzzy_threshold": ("cache", "fuzzy_threshold"),
         "cache_composable_threshold": ("cache", "composable_threshold"),
         "cache_search_threshold": ("cache", "search_threshold"),
+        "cache_default_ttl": ("cache", "default_ttl"),
         "cache_max_entries": ("cache", "max_entries"),
         "cache_eviction_interval": ("cache", "eviction_interval"),
         "cache_link_cleanup_days": ("cache", "link_cleanup_days"),
@@ -604,6 +611,7 @@ def _apply_overrides(config: "BitmodConfig", overrides: dict) -> None:
         "cache_fuzzy_threshold": "BITMOD_CACHE_FUZZY_THRESHOLD",
         "cache_composable_threshold": "BITMOD_CACHE_COMPOSABLE_THRESHOLD",
         "cache_search_threshold": "BITMOD_CACHE_SEARCH_THRESHOLD",
+        "cache_default_ttl": "BITMOD_CACHE_DEFAULT_TTL",
         "cache_max_entries": "BITMOD_CACHE_MAX_ENTRIES",
         "cache_eviction_interval": "BITMOD_CACHE_EVICTION_INTERVAL",
         "cache_link_cleanup_days": "BITMOD_CACHE_LINK_CLEANUP_DAYS",

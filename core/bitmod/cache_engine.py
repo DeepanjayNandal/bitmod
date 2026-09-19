@@ -1081,7 +1081,24 @@ def store_answer(
     """Store a new answer in the cache, optionally with a query embedding for semantic lookup.
 
     When namespace_id is set, the cache entry is scoped to that namespace.
-    max_age_seconds sets a TTL on this entry (None = no expiry).
+
+    max_age_seconds sets a TTL on this entry. THE SEMANTICS OF None CHANGED
+    DELIBERATELY and this is written down so it does not read as a bug later:
+
+        None  ->  ask the config (cache.default_ttl); this is the default
+        0     ->  never expire, explicitly, whatever the config says
+        N     ->  expire N seconds after creation
+
+    Before this, None meant "never expire" and nothing else could be said. TTL
+    was implemented on all four backends with 21 passing tests and NO
+    production caller — every write from the library, the proxy and the chat
+    service passed nothing, so no cached answer had ever expired. Routing the
+    default through config here covers all three write paths without touching
+    any of their seven call sites, matching how _maybe_evict already resolves
+    its own defaults.
+
+    cache.default_ttl is 0 out of the box, so behaviour is unchanged unless
+    somebody sets it.
     estimated_cost is the approximate USD cost of generating this answer.
     Triggers opportunistic eviction every eviction_interval writes.
     """
@@ -1092,6 +1109,14 @@ def store_answer(
             MAX_ANSWER_LENGTH,
         )
         answer_text = answer_text[:MAX_ANSWER_LENGTH]
+    # None means "not specified by the caller", so the configured default
+    # decides. 0 from either source means never expire and is stored as NULL,
+    # which is what _is_expired reads as "no TTL".
+    if max_age_seconds is None:
+        max_age_seconds = _get_config().default_ttl
+    if max_age_seconds is not None and max_age_seconds <= 0:
+        max_age_seconds = None
+
     stored_text = encrypt_if_enabled(answer_text)
     record = AnswerCacheRecord(
         answer_key=answer_key,

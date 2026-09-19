@@ -1196,7 +1196,12 @@ class BitmodProxy:
         layers: list[str],
         latency_ms: int,
     ) -> None:
-        """Log a cache pipeline decision to the audit system. Never raises."""
+        """Record what the pipeline decided, for anyone asking why later.
+
+        Never raises. Audit logging is a side effect of answering a request and
+        must not be able to fail one, so everything here is inside a try that
+        swallows. The query is truncated to 200 characters before it is written.
+        """
         try:
             self._audit.log_event(
                 event_type,
@@ -1368,7 +1373,18 @@ class BitmodProxy:
         answer_text: str,
         namespace_id: str | None = None,
     ) -> None:
-        """Decompose an answer into atomic facts with quality scoring and deduplication."""
+        """Break a fresh answer into reusable facts, so later questions can borrow them.
+
+        This is what fills layer 8. An answer about refunds contains sentences
+        that a different question about refunds could reuse without regenerating
+        anything, and those get stored separately from the answer itself.
+
+        Two gates before it runs. Answers shorter than fact_min_answer_length
+        (100 characters) are skipped, because a one-line answer has nothing to
+        decompose. And store_atomic_fact is reached through hasattr: SQLite has
+        it, PostgreSQL, MySQL and MongoDB do not, so on those three no facts are
+        ever stored and layer 8 stays empty and silent.
+        """
         if not hasattr(self._backend, "store_atomic_fact"):
             return
         cache_cfg = get_cache_config()
@@ -1528,7 +1544,18 @@ class BitmodProxy:
         messages: list[dict],
         fuzzy_context: str | None = None,
     ) -> list[LLMMessage]:
-        """Convert provider-format messages to Bitmod LLMMessage list."""
+        """Flatten provider-shaped messages into our own, and fold in any fuzzy hint.
+
+        Anthropic sends content as a list of blocks; OpenAI sends a string. Both
+        arrive here and leave as plain LLMMessage.
+
+        If there is fuzzy context, it is sanitised and inserted as a system
+        message SECOND TO LAST, immediately before the user's own turn. It is
+        wrapped in <retrieved_data> tags and labelled as data not to be obeyed,
+        because it is text from another user's cached answer. Position matters:
+        the hint has to sit close enough to be relevant and still leave the
+        user's question as the final word.
+        """
         llm_messages = []
         for msg in messages:
             content = msg.get("content", "")

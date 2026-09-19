@@ -1074,8 +1074,13 @@ def store_answer(
     # 7a16597, so this one is written down.
     conversation_id: str | None = None,
     max_age_seconds: int | None = None,
-    max_cache_entries: int = DEFAULT_MAX_CACHE_ENTRIES,
-    eviction_interval: int = DEFAULT_EVICTION_INTERVAL,
+    # None, NOT the DEFAULT_* literals. _maybe_evict resolves these from
+    # CacheConfig when they arrive as None — and a literal default here meant
+    # they never arrived as None from any production caller, so cache.max_entries
+    # and cache.eviction_interval were resolved correctly and then discarded one
+    # frame later. Eviction ran at 100,000 regardless of configuration.
+    max_cache_entries: int | None = None,
+    eviction_interval: int | None = None,
     estimated_cost: float = 0.0,
 ) -> AnswerCacheRecord:
     """Store a new answer in the cache, optionally with a query embedding for semantic lookup.

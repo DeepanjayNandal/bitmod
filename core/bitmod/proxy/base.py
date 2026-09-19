@@ -153,7 +153,17 @@ _MODEL_PROVIDER_MAP: dict[str, str] = {
 
 
 def _detect_provider_from_model(model: str) -> str | None:
-    """Auto-detect LLM provider from model name."""
+    """Work out who to send this to from the model name alone.
+
+    Used only on the user-keyed path, where a caller brings their own API key and
+    never tells us which provider it belongs to. An exact lookup first, then
+    prefix rules: gpt-/o1/o3/o4 to OpenAI, claude- to Anthropic, gemini- to
+    Gemini, grok to xAI, mistral or codestral to Mistral, and llama/phi/qwen to
+    Ollama on the assumption that those are running locally.
+
+    Returns None when nothing matches, which the caller treats as "fall back to
+    the server-configured router" rather than as an error.
+    """
     # Exact match
     if model in _MODEL_PROVIDER_MAP:
         return _MODEL_PROVIDER_MAP[model]
@@ -235,7 +245,14 @@ _INJECTION_PATTERNS = re.compile(
 
 
 def _sanitize_fuzzy_context(text: str) -> str:
-    """Strip instruction-like patterns from fuzzy cache context to mitigate indirect prompt injection."""
+    """Blank out anything that reads like an instruction before it reaches a prompt.
+
+    Fuzzy context is text from a DIFFERENT user's cached answer, injected into
+    this user's prompt as a hint. That is a path for one person's content to give
+    orders to another person's model, so instruction-shaped phrases are replaced
+    with [FILTERED] on the way through. Mitigation, not a guarantee; it is a
+    regex against a natural-language attack.
+    """
     return _INJECTION_PATTERNS.sub("[FILTERED]", text)
 
 
@@ -1196,7 +1213,14 @@ class BitmodProxy:
             logger.debug("Audit logging failed for pipeline decision", exc_info=True)
 
     def _can_verify_today(self) -> bool:
-        """Check if we haven't exceeded the daily verification cap."""
+        """Is there budget left today to spend an LLM call checking a cached answer?
+
+        Verification costs a real model call, so it is capped per day and the
+        counter resets when the date rolls over. The cap counts ATTEMPTS, not
+        successes: _verify_cached_answer increments before it calls out, so a
+        run of failures still uses the budget up. That is deliberate, since a
+        failing provider should not be retried fifty times.
+        """
         global _promotion_count, _promotion_date  # noqa: PLW0603
         from datetime import date
 
@@ -1208,7 +1232,16 @@ class BitmodProxy:
             return _promotion_count < self._promotion_config.max_daily_verifications
 
     def _verify_cached_answer(self, question: str, cached_answer: str) -> bool:
-        """Ask the LLM whether a cached answer is still accurate. Returns True if verified."""
+        """Ask the model whether a cached answer is still good. True means serve it.
+
+        FAILS OPEN ON PURPOSE. If the verification call raises, this returns True
+        and the cached answer is served anyway. The alternative is letting a
+        provider outage turn every cache hit into a miss, which costs money and
+        latency to avoid a risk that was speculative in the first place.
+
+        Off by default: PromotionConfig.enabled is False, so nothing reaches this
+        unless somebody switches it on.
+        """
         global _promotion_count  # noqa: PLW0603
         with _promotion_lock:
             _promotion_count += 1
@@ -1225,7 +1258,17 @@ class BitmodProxy:
             return True  # on error, serve the cached answer (safe default)
 
     def _reinforce_links(self, evidence: PipelineEvidence) -> None:
-        """Increment strength on similarity links that contributed to a successful cache serve."""
+        """Reward the links that just helped, so good ones get stronger over time.
+
+        When a serve was carried in part by similarity-link traversal, the links
+        that contributed get their strength bumped. That is how the near-miss
+        graph learns which connections are worth keeping.
+
+        SQLite only. increment_similarity_link_strength is reached through hasattr
+        and the other three backends do not have it, so on PostgreSQL, MySQL and
+        MongoDB links are created and traversed but never reinforced, and every
+        link keeps whatever strength it was born with.
+        """
         if not hasattr(self._backend, "increment_similarity_link_strength"):
             return
         link_ids = [

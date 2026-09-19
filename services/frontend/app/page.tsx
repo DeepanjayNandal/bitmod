@@ -84,7 +84,7 @@ export default function HomePage() {
               { value: "9", label: "Cache Layers", icon: Layers },
               { value: "Any", label: "LLM Provider", icon: Brain },
               { value: "4", label: "DB Backends", icon: Database },
-              { value: "<1ms", label: "Cache Latency", icon: Zap },
+              { value: "~80ms", label: "Cached Response", icon: Zap },
               { value: "100%", label: "Open Source", icon: Package },
             ].map((stat) => (
               <div key={stat.label} className="text-center">
@@ -139,7 +139,7 @@ export default function HomePage() {
             Three steps to start saving
           </h2>
           <p className="mt-3 text-lg text-muted-foreground">
-            Install, initialize, query. See your savings immediately.
+            Clone, initialize, query. See your savings immediately.
           </p>
         </div>
 
@@ -152,11 +152,13 @@ export default function HomePage() {
                 <div className="h-3 w-3 rounded-full bg-yellow-500/80" />
                 <div className="h-3 w-3 rounded-full bg-green-500/80" />
               </div>
-              <span className="text-xs text-muted-foreground ml-2 font-mono">Step 1 — Install</span>
+              <span className="text-xs text-muted-foreground ml-2 font-mono">Step 1 — Clone and install</span>
             </div>
             <pre className="p-6 text-sm font-mono leading-relaxed overflow-x-auto">
               <code>
-                <span className="text-[#a5d6ff]">pip install</span> <span className="text-[#e6edf3] font-semibold">bitmod</span>
+                <span className="text-[#a5d6ff]">git clone</span> <span className="text-[#e6edf3] font-semibold">https://github.com/DeepanjayNandal/bitmod.git</span>{"\n"}
+                <span className="text-[#a5d6ff]">cd</span> <span className="text-[#e6edf3] font-semibold">bitmod</span>{"\n"}
+                <span className="text-[#a5d6ff]">pip install</span> <span className="text-[#e6edf3] font-semibold">-e .</span>
               </code>
             </pre>
           </div>
@@ -222,7 +224,7 @@ export default function HomePage() {
             {
               icon: Zap,
               title: "9-Layer Intelligent Cache",
-              description: "Exact match, semantic similarity, composable decomposition, fuzzy matching — all running before any LLM is called. Patent-pending pipeline with SHA-256 keying and source verification.",
+              description: "Exact match, semantic similarity, composable decomposition, fuzzy matching — all running before any LLM is called. SHA-256 composite keying with per-section source verification.",
               color: "text-yellow-500",
             },
             {
@@ -345,13 +347,13 @@ export default function HomePage() {
               <div className="space-y-2">
                 <div><span className="text-[#79c0ff]">1.</span> <span className="text-[#7ee787]">normalization</span> <span className="text-[#8b949e]">{"# lowercase, strip stopwords"}</span></div>
                 <div><span className="text-[#79c0ff]">2.</span> <span className="text-[#7ee787]">exact_cache</span> <span className="text-[#8b949e]">{"# SHA-256 composite key lookup"}</span></div>
-                <div><span className="text-[#79c0ff]">3.</span> <span className="text-[#7ee787]">double_verify</span> <span className="text-[#8b949e]">{"# source version validation"}</span></div>
-                <div><span className="text-[#79c0ff]">4.</span> <span className="text-[#ffa657]">ttl_check</span> <span className="text-[#8b949e]">{"# max_age_seconds expiry"}</span></div>
-                <div><span className="text-[#79c0ff]">5.</span> <span className="text-[#ffa657]">fuzzy_match</span> <span className="text-[#8b949e]">{"# order-independent tokens"}</span></div>
-                <div><span className="text-[#79c0ff]">6.</span> <span className="text-[#ffa657]">semantic_cache</span> <span className="text-[#8b949e]">{"# embedding similarity"}</span></div>
-                <div><span className="text-[#79c0ff]">7.</span> <span className="text-[#d2a8ff]">composable</span> <span className="text-[#8b949e]">{"# decompose & reassemble"}</span></div>
-                <div><span className="text-[#79c0ff]">8.</span> <span className="text-[#d2a8ff]">temporal</span> <span className="text-[#8b949e]">{"# permanent historical queries"}</span></div>
-                <div><span className="text-[#79c0ff]">9.</span> <span className="text-[#ff7b72]">lru_eviction</span> <span className="text-[#8b949e]">{"# evict least-recently-used"}</span></div>
+                <div><span className="text-[#79c0ff]">3.</span> <span className="text-[#7ee787]">source_verify</span> <span className="text-[#8b949e]">{"# per-section SHA-256 check"}</span></div>
+                <div><span className="text-[#79c0ff]">4.</span> <span className="text-[#ffa657]">semantic_cache</span> <span className="text-[#8b949e]">{"# embedding similarity"}</span></div>
+                <div><span className="text-[#79c0ff]">5.</span> <span className="text-[#ffa657]">composable</span> <span className="text-[#8b949e]">{"# decompose & reassemble"}</span></div>
+                <div><span className="text-[#79c0ff]">6.</span> <span className="text-[#ffa657]">fuzzy_match</span> <span className="text-[#8b949e]">{"# order-independent tokens"}</span></div>
+                <div><span className="text-[#79c0ff]">7.</span> <span className="text-[#d2a8ff]">similarity_links</span> <span className="text-[#8b949e]">{"# 2-hop near-miss graph"}</span></div>
+                <div><span className="text-[#79c0ff]">8.</span> <span className="text-[#d2a8ff]">atomic_facts</span> <span className="text-[#8b949e]">{"# facts extracted from answers"}</span></div>
+                <div><span className="text-[#79c0ff]">9.</span> <span className="text-[#ff7b72]">session_context</span> <span className="text-[#8b949e]">{"# prior turns, conversation-scoped"}</span></div>
               </div>
             </div>
             {/* Right: Multi-format proxy */}

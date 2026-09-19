@@ -1,0 +1,67 @@
+{
+  "harness": "HTTP through the running gateway (POST /v1/chat)",
+  "measures": "what a client sees: cached latency, and generating latency for the configured provider",
+  "base_url": "http://localhost:8000",
+  "provider": "ollama/llama3.1:8b (Q4_K_M) \u2014 LOCAL inference, not a hosted provider",
+  "model_rationale": "8B is what a self-hosted deployment runs.",
+  "does_not_measure": [
+    "the README's '12.5s avg (GPT-4o / Claude)'. The cold figure describes whichever provider this gateway is configured with, recorded under 'provider' below.",
+    "any hosted provider unless 'provider' says so \u2014 check it before quoting the cold number or the speedup",
+    "token savings; nothing here tokenizes"
+  ],
+  "cached_paths_are_not_one_number": "exact and semantic are reported separately and never averaged. Exact can return before the query is embedded; semantic cannot. An average over them is set by the traffic mix, not by the cache.",
+  "timestamp": "2026-09-19T09:18:00.718948+00:00",
+  "provenance": {
+    "commit": "da5b2bb137839df91a2e1ccce012ce1f8e245d79",
+    "tree_sha256": "e3b0c44298fc1c14",
+    "dirty": false,
+    "untracked_files": 0
+  },
+  "cold_real_generation": {
+    "n": 10,
+    "mean_ms": 8081.4,
+    "median_ms": 8076.7,
+    "min_ms": 5154.7,
+    "max_ms": 11361.7,
+    "p95_ms": 11361.7
+  },
+  "cold_per_call_ms": [
+    10212.5,
+    8174.0,
+    5154.7,
+    8090.7,
+    8634.7,
+    8062.7,
+    11361.7,
+    7600.4,
+    7540.7,
+    5981.8
+  ],
+  "cached_exact_per_call_ms": [
+    146.2,
+    91.1,
+    74.8,
+    105.0,
+    74.7,
+    76.4,
+    32.7,
+    67.1,
+    87.4,
+    89.7
+  ],
+  "cached_exact": {
+    "n": 10,
+    "mean_ms": 84.5,
+    "median_ms": 81.9,
+    "min_ms": 32.7,
+    "max_ms": 146.2,
+    "p95_ms": 146.2
+  },
+  "cached_semantic": {
+    "n": 0
+  },
+  "cached_semantic_served": 0,
+  "cached_semantic_attempts": 10,
+  "speedup_cold_over_exact": 95.6,
+  "speedup_condition": "ratio of the two measured means above; inherits the cold path's provider condition entirely"
+}

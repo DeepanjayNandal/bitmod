@@ -115,6 +115,11 @@ tests/stress/*.jsonl
 # without the other invites exactly the substitution this set exists to stop.
 !tests/benchmark/results/latency_http_llama32_3b.json
 !tests/benchmark/results/latency_http_llama31_8b.json
+# Second 8B run, three days later, on a clean cache. Kept as a SECOND DATA
+# POINT rather than a replacement: the pair is what makes the README's cached
+# and speedup figures ranges instead of points, and it is the run the
+# docs/latency_run.png screenshot shows.
+!tests/benchmark/results/latency_http_llama31_8b_run2.json
 
 # Backup sessions (generated at runtime)
 bitmod_backup/

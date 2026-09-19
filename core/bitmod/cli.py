@@ -2200,9 +2200,6 @@ def cmd_backup(args: argparse.Namespace) -> int:
 # bitmod update
 # ---------------------------------------------------------------------------
 
-_VERSION_CACHE_PATH = Path("~/.bitmod/.version_check").expanduser()
-_VERSION_CHECK_INTERVAL = 86400  # 24 hours
-
 
 def _fetch_latest_version() -> str | None:
     """Fetch the latest bitmod version from PyPI. Returns version string or None."""
@@ -2233,47 +2230,6 @@ def _parse_version(v: str) -> tuple[int, ...]:
     return tuple(parts)
 
 
-def _check_version_background() -> str | None:
-    """Check for updates (cached, runs at most once per 24h). Returns alert string or None."""
-    import json
-
-    try:
-        current = _get_version()
-
-        # Check cache first
-        if _VERSION_CACHE_PATH.exists():
-            try:
-                cache = json.loads(_VERSION_CACHE_PATH.read_text())
-                checked_at = cache.get("checked_at", 0)
-                if time.time() - checked_at < _VERSION_CHECK_INTERVAL:
-                    latest = cache.get("latest", "")
-                    if latest and _parse_version(latest) > _parse_version(current):
-                        return f"Update available: {current} -> {latest}  (run: pip install --upgrade bitmod)"
-                    return None
-            except (json.JSONDecodeError, KeyError):
-                pass
-
-        # Fetch fresh
-        latest = _fetch_latest_version()
-        if latest:
-            _VERSION_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-            _VERSION_CACHE_PATH.write_text(
-                json.dumps(
-                    {
-                        "latest": latest,
-                        "checked_at": time.time(),
-                        "current": current,
-                    }
-                )
-            )
-            if _parse_version(latest) > _parse_version(current):
-                return f"Update available: {current} -> {latest}  (run: pip install --upgrade bitmod)"
-
-        return None
-    except Exception:
-        return None
-
-
 def cmd_update(args: argparse.Namespace) -> int:
     """Check for updates and optionally install them."""
     current = _get_version()
@@ -2299,20 +2255,6 @@ def cmd_update(args: argparse.Namespace) -> int:
         print(f"  {_green('+')} You are on the latest version ({current}).")
     else:
         print(f"  {_dim('You are running a newer version than PyPI (' + current + ' > ' + latest + ')')}")
-
-    # Update the cache
-    import json
-
-    _VERSION_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    _VERSION_CACHE_PATH.write_text(
-        json.dumps(
-            {
-                "latest": latest,
-                "checked_at": time.time(),
-                "current": current,
-            }
-        )
-    )
 
     return 0
 
@@ -2995,23 +2937,6 @@ def main() -> None:
     if handler is None:
         parser.print_help()
         sys.exit(1)
-
-    # Background version check (non-blocking, cached for 24h)
-    # Skip in JSON/quiet mode to avoid polluting output
-    if args.command not in ("update", "completions") and not _is_json() and not _QUIET:
-        import threading
-
-        _version_result: list[str | None] = [None]
-
-        def _bg_version_check() -> None:
-            _version_result[0] = _check_version_background()
-
-        _vt = threading.Thread(target=_bg_version_check, daemon=True)
-        _vt.start()
-        _vt.join(timeout=1.0)
-        if not _vt.is_alive() and _version_result[0]:
-            print(f"  {_yellow('!')} {_version_result[0]}")
-            print()
 
     try:
         exit_code = handler(args)

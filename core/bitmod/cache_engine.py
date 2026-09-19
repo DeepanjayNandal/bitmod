@@ -1308,10 +1308,15 @@ def invalidate_by_section(backend: DatabaseBackend, session, section_id: str) ->
 def get_cache_stats(backend: DatabaseBackend, session, namespace_id: str | None = None) -> dict:
     """Hit rates and entry counts, for one namespace or for everything.
 
-    Careful with the namespace argument: namespace_cache_stats is reached through
-    hasattr and only SQLite implements it. Ask the other three backends for one
-    namespace's numbers and you silently get the numbers for all of them, which
-    looks like a working answer and is not.
+    The namespace argument falls back rather than failing: namespace_cache_stats
+    is reached through hasattr and only SQLite implements it, so on the other
+    three backends asking for one namespace returns the totals for all of them.
+
+    Nothing currently takes that path. Both callers in the gateway pass no
+    namespace, and the per-namespace endpoint goes through
+    NamespaceManager.get_cache_stats, which calls namespace_cache_stats directly
+    and raises AttributeError on those backends instead. The fallback here is a
+    trap laid for a future caller, not a live wrong answer.
     """
     if namespace_id and hasattr(backend, "namespace_cache_stats"):
         return backend.namespace_cache_stats(session, namespace_id)

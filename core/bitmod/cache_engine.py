@@ -989,7 +989,18 @@ def predict_future_hits(record: AnswerCacheRecord) -> float:
 
 
 def evict_expired_cache(backend: DatabaseBackend, session) -> int:
-    """Delete cache entries whose TTL has elapsed. Returns count deleted."""
+    """Sweep out entries whose TTL has already elapsed. Returns how many went.
+
+    This is housekeeping, not enforcement. An expired entry is already caught on
+    the way out: try_cache checks _is_expired on every hit and invalidates there,
+    on every backend. What this sweep adds is reclaiming the space without
+    waiting for somebody to ask the question again.
+
+    It only runs on SQLite. cache_delete_expired is reached through hasattr and
+    the other three backends do not implement it, so on PostgreSQL, MySQL and
+    MongoDB expired rows sit there until their key is queried. Expiry still
+    works everywhere; only the cleanup is uneven.
+    """
     if hasattr(backend, "cache_delete_expired"):
         count: int = backend.cache_delete_expired(session)
         if count > 0:
@@ -1277,7 +1288,12 @@ def semantic_cache_match(
 
 
 def invalidate_by_section(backend: DatabaseBackend, session, section_id: str) -> int:
-    """Invalidate all cached answers that reference a changed section."""
+    """Drop every cached answer built from a source section that changed.
+
+    One hop, not a graph walk. It finds answers whose source manifest names this
+    section and invalidates those. Nothing follows the answers onward to see what
+    else depended on them, because nothing records that.
+    """
     count = backend.cache_invalidate_by_section(session, section_id)
     if count > 0:
         logger.info("Invalidated %d cached answers referencing section %s", count, section_id)
@@ -1290,7 +1306,13 @@ def invalidate_by_section(backend: DatabaseBackend, session, section_id: str) ->
 
 
 def get_cache_stats(backend: DatabaseBackend, session, namespace_id: str | None = None) -> dict:
-    """Get cache performance statistics, optionally scoped to a namespace."""
+    """Hit rates and entry counts, for one namespace or for everything.
+
+    Careful with the namespace argument: namespace_cache_stats is reached through
+    hasattr and only SQLite implements it. Ask the other three backends for one
+    namespace's numbers and you silently get the numbers for all of them, which
+    looks like a working answer and is not.
+    """
     if namespace_id and hasattr(backend, "namespace_cache_stats"):
         return backend.namespace_cache_stats(session, namespace_id)
     return backend.cache_stats(session)

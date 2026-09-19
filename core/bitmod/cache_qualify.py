@@ -41,8 +41,8 @@ _CONTEXT_DEPENDENT_PATTERNS = re.compile(
     r"|you just said|earlier you said|back to that"
     # Conversational commands
     #
-    # The bare acknowledgements that used to live here — yes, no, ok, sure,
-    # right, exactly, correct, wrong — moved to _BARE_ACKNOWLEDGEMENT below.
+    # The bare acknowledgements that used to live here (yes, no, ok, sure,
+    # right, exactly, correct, wrong) moved to _BARE_ACKNOWLEDGEMENT below.
     # Inside this group they were surrounded by \b...\b and so matched ANYWHERE
     # in a sentence, which is not what a one-word reply means.
     r"|summarize this|summarize that|put it together"
@@ -55,11 +55,13 @@ _CONTEXT_DEPENDENT_PATTERNS = re.compile(
 # items?" is a standalone question that happens to contain the word.
 #
 # Anchored at both ends deliberately. These eight tokens sat in the alternation
-# above, where \b(...)\b matched them mid-sentence, and the result was a rule
-# that fired 71 times across 24,635 real support instructions and was wrong
-# every time — that corpus contains no bare acknowledgement at all.
+# above, where \b(...)\b matched them mid-sentence. Across 24,635 real support
+# instructions that produced 71 false flags, every one of them on the word
+# "correct"; the other seven never fired once. None were right, because that
+# corpus contains no bare acknowledgement at all.
 #
-# "okay" precedes "ok" so the longer form wins the alternation.
+# Both anchors matter more than the ordering: with \W*$ at the end, "ok" cannot
+# match "okay" whichever one comes first in the alternation.
 _BARE_ACKNOWLEDGEMENT = re.compile(
     r"^(yes|no|okay|ok|sure|right|exactly|correct|wrong)\W*$",
     re.IGNORECASE,
@@ -192,10 +194,10 @@ def is_context_dependent(query: str, history: list | None = None) -> bool:
     if history and len(history) > 0 and word_count <= 3:
         return True
 
-    # A message that is nothing but an acknowledgement. Checked before the
-    # substantive-word escape below, because "correct" has one substantive word
-    # and would otherwise fall through to False — a bare "correct" genuinely
-    # does depend on what it is agreeing with.
+    # A message that is nothing but an acknowledgement. This has to come before
+    # every rule below it: "correct" and "ok" carry no subject of their own, so
+    # nothing further down will catch them and the function would answer False.
+    # A bare "correct" does depend on whatever it is agreeing with.
     if _BARE_ACKNOWLEDGEMENT.match(q):
         return True
 

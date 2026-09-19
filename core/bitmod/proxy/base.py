@@ -394,15 +394,30 @@ class BitmodProxy:
         conversation_id: str | None = None,
         user_id: str | None = None,
     ) -> _CacheResult:
-        """Run the cohesive cache pipeline. Accumulates evidence from ALL layers.
+        """Ask every layer what it thinks, then decide once, instead of first-hit-wins.
 
-        Instead of winner-take-all (first hit serves), every layer contributes
-        evidence. A probabilistic confidence score determines whether to serve
-        from cache or forward to the LLM with accumulated context.
+        A normal cache stops at the first thing that matches. This one keeps
+        going: each layer adds a piece of evidence with its own confidence, the
+        pieces are combined, and a single threshold at the end decides whether to
+        serve from cache or hand the question to the LLM with whatever was found
+        attached as context. A semantic match at 0.84 does not serve on its own;
+        the same match plus a supporting atomic fact does.
 
-        When namespace_id is set, all cache operations are scoped to that namespace.
-        If the namespace allows public_fallback and no hit is found, the pipeline
-        retries without namespace scoping.
+        TWO LAYERS DO STOP EARLY, and both are certainties rather than guesses.
+        Exact match returns at once when the composite key hits and its sources
+        still verify, because there is nothing a later layer could add to a
+        confidence of 1.0. Composable returns when every sub-query of a
+        decomposed question was answered from cache. Everything else runs to the
+        end.
+
+        The numbering is pipeline order, not execution order in one place:
+        session resolution (⑨) runs near the top, because rewriting a follow-up
+        into a standalone question changes the key that every layer below it
+        looks up.
+
+        With namespace_id set, every lookup is scoped to that namespace. If the
+        namespace permits public_fallback and nothing was found, the whole
+        pipeline runs a second time unscoped.
         """
         # --- Optional OTEL tracing ---
         tracer = get_tracer()

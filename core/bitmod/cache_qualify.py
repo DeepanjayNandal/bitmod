@@ -186,7 +186,33 @@ def substantive_words(query: str) -> list[str]:
 
 
 def is_context_dependent(query: str, history: list | None = None) -> bool:
-    """Detect if a query depends on conversation history to be meaningful."""
+    """Can this question be answered on its own, or does it point at an earlier turn?
+
+    "Where was he born?" needs the previous turn to name who "he" is. Serving a
+    cached answer to it would answer somebody else's question. So the gate asks
+    this before the exact and composable layers are allowed to serve, and a True
+    here sends the query to the LLM instead.
+
+    THE ORDER OF THE RULES IS THE POINT, and getting it wrong is what broke this
+    function before. They run:
+
+      1. Very short, and there is a conversation to point back at. Three words or
+         fewer with history present. Without history the same query is fine, so
+         this rule is skipped entirely on a first turn.
+      2. The whole message is an acknowledgement. "ok", "correct", "yes". These
+         carry no subject at all, so nothing below would catch them and the
+         function would wrongly answer False.
+      3. ESCAPE: more than three substantive words and the query stands alone,
+         whatever else it contains. "How does it work when a customer disputes a
+         charge" opens anaphorically and is still perfectly answerable by itself.
+         Everything below this line only sees short queries.
+      4. A known anaphoric phrase. "tell me more", "what do you mean".
+      5. Opens with a pronoun and has no subject of its own. "is it available".
+
+    Rule 3 is an escape rather than a check: it returns False and stops. Put rule
+    2 after it and bare acknowledgements slip through, because they have zero
+    substantive words and so never trip the length test.
+    """
     q = query.strip()
     word_count = len(q.split())
 

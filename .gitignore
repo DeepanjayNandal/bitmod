@@ -102,6 +102,31 @@ tests/stress/*.jsonl
 !tests/benchmark/results/support_heldout_warm_1500.json
 !tests/benchmark/results/support_heldout_warm_1500_rows.json.gz
 
+# The serve_threshold sweep, LIVE. Three runs of the held-out warm arm at one
+# commit and one tree hash, which is the whole point: the threshold changes what
+# the cache contains, so the three cannot be recovered by re-reading one run's
+# confidences against a different bar. Doing exactly that is what the
+# threshold_sweep block inside each report does, and it understates wrong serves
+# by 2.6x at 0.80. These three are the correction, and all three are needed: the
+# 0.85 point is here rather than borrowed from support_heldout_warm_1500.json
+# because that file predates the gate fix 3b90259 and reads 707 serves to these
+# 709. Quoting it as this sweep's endpoint would compare across a code change.
+!tests/benchmark/results/support_heldout_warm_1500_at085.json
+!tests/benchmark/results/support_heldout_warm_1500_at085_rows.json.gz
+!tests/benchmark/results/support_heldout_warm_1500_at080.json
+!tests/benchmark/results/support_heldout_warm_1500_at080_rows.json.gz
+!tests/benchmark/results/support_heldout_warm_1500_at075.json
+!tests/benchmark/results/support_heldout_warm_1500_at075_rows.json.gz
+
+# The demo at the same three thresholds. Tracked because CONTEXT quotes 76% and
+# 84% and, until now, demo.py wrote nothing at all, so both had a screenshot and
+# a command behind them and no file. Read them for what they cannot show as much
+# as what they can: new-unseen is 0/5 at every threshold, five samples that
+# cannot distinguish 0% from the 42% the held-out arm measures at 0.80.
+!tests/benchmark/results/demo_sweep_085.json
+!tests/benchmark/results/demo_sweep_080.json
+!tests/benchmark/results/demo_sweep_075.json
+
 # The only artifact in this directory produced by REAL generation. Local
 # inference, so it cannot speak to the README's hosted figures — it is kept
 # because it is the sole provenance the cached-path numbers have.
@@ -135,3 +160,5 @@ services/frontend/tsconfig.tsbuildinfo
 # Local working notes, not part of the repo
 BACKLOG.md
 HANDOFF.md
+CONTEXT.md
+interview_prep.md

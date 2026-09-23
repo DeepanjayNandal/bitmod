@@ -1,0 +1,55 @@
+{
+ "harness": "demo.py \u2014 _run_cache_pipeline called directly, shipping config",
+ "measures": "hit rate by query type on a 50-query hand-built corpus",
+ "does_not_measure": [
+  "latency \u2014 generation is stubbed and _UnusedLLM raises if called",
+  "precision \u2014 every query has a correct answer by construction except the 5 new-unseen, so this cannot see a wrong serve"
+ ],
+ "corpus": {
+  "seeded_pairs": 30,
+  "exact": 30,
+  "paraphrase": 15,
+  "new_unseen": 5,
+  "origin": "hand-written for this demo, not a public dataset"
+ },
+ "embedder": "ollama/nomic-embed-text",
+ "run_config": {
+  "serve_threshold": 0.85,
+  "search_threshold": 0.6,
+  "semantic_threshold": 0.88,
+  "fuzzy_threshold": 0.85,
+  "accumulation_damping": 0.5
+ },
+ "timestamp": "2026-09-23T10:33:39.961900+00:00",
+ "provenance": {
+  "commit": "184da23560ef108b5a98f590a68c20afd7e94639",
+  "tree_sha256": "c62e8a9221ef10d9",
+  "dirty": true,
+  "untracked_files": 0
+ },
+ "summary": {
+  "queries": 50,
+  "hits": 38,
+  "hit_rate": 0.76,
+  "misses": 12,
+  "multi_layer": 6,
+  "served_by": {
+   "exact": 30,
+   "semantic": 8
+  }
+ },
+ "by_type": {
+  "exact": {
+   "total": 30,
+   "hits": 30
+  },
+  "paraphrase": {
+   "total": 15,
+   "hits": 8
+  },
+  "new": {
+   "total": 5,
+   "hits": 0
+  }
+ }
+}

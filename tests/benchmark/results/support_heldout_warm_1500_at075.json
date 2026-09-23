@@ -1,0 +1,2126 @@
+{
+  "harness": "in-process (_run_cache_pipeline called directly)",
+  "measures": "precision against a dense confusable answer set, and recall by rephrasing type",
+  "headline": "precision \u2014 see does_not_measure for why hit rate is context only",
+  "does_not_measure": [
+    "cache hit rate as a product figure \u2014 27 answers over ~1,500 queries makes it a corpus property",
+    "end-to-end latency or token savings \u2014 generation never runs",
+    "entity handling \u2014 placeholders are filled with one fixed value each, so entity_guard is unloaded",
+    "over-serving on out-of-domain queries, unless --hold-out-categories is used: otherwise every query has a correct answer in cache"
+  ],
+  "dataset": {
+    "name": "bitext/Bitext-customer-support-llm-chatbot-training-dataset",
+    "config": "default",
+    "split": "train",
+    "source": "https://datasets-server.huggingface.co/rows",
+    "total_rows": 26872,
+    "intents": 27,
+    "categories": 11,
+    "canonical_answer_rule": "first row of each intent in dataset order \u2014 ARBITRARY, not selected. Each row carries its own generated response, so the dataset has no canonical answer; electing one is something this benchmark does to the dataset, not a property of it.",
+    "provenance_caveat": "NLG-expanded from natural seed text under computational-linguist curation, per the dataset card. Curated variations, not logged production traffic \u2014 and not authored by this project, which is why it was chosen.",
+    "placeholders": "filled with one fixed value each; see dataset.PLACEHOLDER_FILL"
+  },
+  "arm": {
+    "seeded_intents": 22,
+    "held_out_categories": [
+      "CONTACT",
+      "INVOICE",
+      "SUBSCRIPTION"
+    ],
+    "held_out_intents": [
+      "check_invoice",
+      "contact_customer_service",
+      "contact_human_agent",
+      "get_invoice",
+      "newsletter_subscription"
+    ],
+    "cache_policy": "warm \u2014 misses are stored",
+    "zipf_exponent": 0.0,
+    "seed": 20260916
+  },
+  "embedder": "ollama/nomic-embed-text",
+  "run_config": {
+    "accumulation_damping": 0.5,
+    "calibrated_confidence": true,
+    "serve_threshold": 0.75,
+    "search_threshold": 0.6,
+    "entity_guard_enabled": true,
+    "fact_min_similarity": 0.65
+  },
+  "timestamp": "2026-09-23T10:42:38.762477+00:00",
+  "provenance": {
+    "commit": "184da23560ef108b5a98f590a68c20afd7e94639",
+    "tree_sha256": "c62e8a9221ef10d9",
+    "dirty": true,
+    "untracked_files": 0
+  },
+  "duration_s": 129.6,
+  "summary": {
+    "queries_scored": 1875,
+    "served": 1384,
+    "correct": 1030,
+    "wrong": 354,
+    "missed": 491,
+    "precision": 0.7442,
+    "recall": 0.6867,
+    "hit_rate_context_only": 0.7381,
+    "wrong_per_1000_served": 255.8
+  },
+  "by_pass": {
+    "1_seed": {
+      "total": 22,
+      "hits": 0
+    },
+    "2_exact": {
+      "total": 22,
+      "hits": 22
+    },
+    "3_paraphrase": {
+      "total": 1500,
+      "hits": 1249
+    },
+    "4_held_out": {
+      "total": 375,
+      "hits": 135
+    }
+  },
+  "held_out": {
+    "queries": 375,
+    "served": 135,
+    "over_serve_rate": 0.36,
+    "note": "every serve here is wrong by construction \u2014 the answer was never cached"
+  },
+  "exact_match_check": {
+    "queries": 22,
+    "hits": 22,
+    "note": "byte-identical re-sends, excluded from every score. Expected ~100%; anything lower means the seeding pass did not populate the cache and no other number in this report is meaningful."
+  },
+  "retrieval_reach": {
+    "queries": 1500,
+    "no_candidate": 8,
+    "right_answer_retrieved": 1203,
+    "right_answer_retrieved_rate": 0.802,
+    "of_those_served": 1030,
+    "found_but_not_served": 173,
+    "note": "found_but_not_served is the cost of serve_threshold on this workload: the correct answer was the top candidate and accumulated confidence did not clear the bar"
+  },
+  "threshold_sweep_caveat": "PROJECTED, NOT MEASURED. ADDED 2026-09-23, AFTER THIS RUN: this key was not written by the harness that produced this file, it was added later and the provenance block above does not cover it. threshold_sweep re-reads this run's confidences against a different bar without re-running, so it cannot see that under --warm a lower threshold serves more, writes fewer entries, and leaves later queries a sparser cache. Live runs at serve_threshold 0.80 and 0.75 on the held-out warm arm (commit 184da23) show the projection understates wrong serves by 2.6x at 0.80 and 1.9x at 0.75, always in the reassuring direction. Do not quote a row as a measurement. The blocks are kept because a labelled projection is useful; an unlabelled one is what cost a day. See the threshold_sweep docstring in run_support_benchmark.py.",
+  "threshold_sweep": [
+    {
+      "threshold": 0.5,
+      "served": 1613,
+      "correct": 1166,
+      "wrong": 447,
+      "precision": 0.7229,
+      "recall": 0.7773
+    },
+    {
+      "threshold": 0.55,
+      "served": 1602,
+      "correct": 1157,
+      "wrong": 445,
+      "precision": 0.7222,
+      "recall": 0.7713
+    },
+    {
+      "threshold": 0.6,
+      "served": 1585,
+      "correct": 1146,
+      "wrong": 439,
+      "precision": 0.723,
+      "recall": 0.764
+    },
+    {
+      "threshold": 0.65,
+      "served": 1550,
+      "correct": 1126,
+      "wrong": 424,
+      "precision": 0.7265,
+      "recall": 0.7507
+    },
+    {
+      "threshold": 0.7,
+      "served": 1474,
+      "correct": 1086,
+      "wrong": 388,
+      "precision": 0.7368,
+      "recall": 0.724
+    },
+    {
+      "threshold": 0.75,
+      "served": 1389,
+      "correct": 1034,
+      "wrong": 355,
+      "precision": 0.7444,
+      "recall": 0.6893
+    },
+    {
+      "threshold": 0.8,
+      "served": 1225,
+      "correct": 927,
+      "wrong": 298,
+      "precision": 0.7567,
+      "recall": 0.618
+    },
+    {
+      "threshold": 0.85,
+      "served": 366,
+      "correct": 363,
+      "wrong": 3,
+      "precision": 0.9918,
+      "recall": 0.242
+    },
+    {
+      "threshold": 0.9,
+      "served": 172,
+      "correct": 171,
+      "wrong": 1,
+      "precision": 0.9942,
+      "recall": 0.114
+    },
+    {
+      "threshold": 0.95,
+      "served": 29,
+      "correct": 29,
+      "wrong": 0,
+      "precision": 1.0,
+      "recall": 0.0193
+    }
+  ],
+  "confusion": [
+    {
+      "asked": "contact_customer_service",
+      "served": "complaint",
+      "count": 48
+    },
+    {
+      "asked": "create_account",
+      "served": "switch_account",
+      "count": 23
+    },
+    {
+      "asked": "set_up_shipping_address",
+      "served": "change_shipping_address",
+      "count": 18
+    },
+    {
+      "asked": "newsletter_subscription",
+      "served": "registration_problems",
+      "count": 18
+    },
+    {
+      "asked": "newsletter_subscription",
+      "served": "delete_account",
+      "count": 17
+    },
+    {
+      "asked": "track_order",
+      "served": "change_order",
+      "count": 16
+    },
+    {
+      "asked": "change_shipping_address",
+      "served": "set_up_shipping_address",
+      "count": 15
+    },
+    {
+      "asked": "track_refund",
+      "served": "get_refund",
+      "count": 13
+    },
+    {
+      "asked": "edit_account",
+      "served": "switch_account",
+      "count": 12
+    },
+    {
+      "asked": "edit_account",
+      "served": "delete_account",
+      "count": 11
+    },
+    {
+      "asked": "delete_account",
+      "served": "switch_account",
+      "count": 11
+    },
+    {
+      "asked": "create_account",
+      "served": "delete_account",
+      "count": 10
+    },
+    {
+      "asked": "cancel_order",
+      "served": "change_order",
+      "count": 9
+    },
+    {
+      "asked": "newsletter_subscription",
+      "served": "review",
+      "count": 9
+    },
+    {
+      "asked": "contact_human_agent",
+      "served": "get_refund",
+      "count": 8
+    },
+    {
+      "asked": "change_order",
+      "served": "cancel_order",
+      "count": 6
+    },
+    {
+      "asked": "switch_account",
+      "served": "create_account",
+      "count": 6
+    },
+    {
+      "asked": "check_refund_policy",
+      "served": "get_refund",
+      "count": 6
+    },
+    {
+      "asked": "delivery_period",
+      "served": "delivery_options",
+      "count": 6
+    },
+    {
+      "asked": "place_order",
+      "served": "change_order",
+      "count": 5
+    },
+    {
+      "asked": "switch_account",
+      "served": "delete_account",
+      "count": 5
+    },
+    {
+      "asked": "get_refund",
+      "served": "track_refund",
+      "count": 5
+    },
+    {
+      "asked": "change_order",
+      "served": "track_order",
+      "count": 4
+    },
+    {
+      "asked": "get_refund",
+      "served": "check_refund_policy",
+      "count": 4
+    },
+    {
+      "asked": "delete_account",
+      "served": "create_account",
+      "count": 4
+    },
+    {
+      "asked": "contact_customer_service",
+      "served": "delivery_options",
+      "count": 4
+    },
+    {
+      "asked": "contact_customer_service",
+      "served": "delivery_period",
+      "count": 4
+    },
+    {
+      "asked": "track_order",
+      "served": "cancel_order",
+      "count": 3
+    },
+    {
+      "asked": "check_refund_policy",
+      "served": "track_refund",
+      "count": 3
+    },
+    {
+      "asked": "check_invoice",
+      "served": "check_payment_methods",
+      "count": 3
+    },
+    {
+      "asked": "contact_human_agent",
+      "served": "place_order",
+      "count": 3
+    },
+    {
+      "asked": "newsletter_subscription",
+      "served": "complaint",
+      "count": 3
+    },
+    {
+      "asked": "get_invoice",
+      "served": "complaint",
+      "count": 3
+    },
+    {
+      "asked": "place_order",
+      "served": "delivery_period",
+      "count": 2
+    },
+    {
+      "asked": "change_shipping_address",
+      "served": "edit_account",
+      "count": 2
+    },
+    {
+      "asked": "payment_issue",
+      "served": "registration_problems",
+      "count": 2
+    },
+    {
+      "asked": "payment_issue",
+      "served": "check_payment_methods",
+      "count": 2
+    },
+    {
+      "asked": "switch_account",
+      "served": "edit_account",
+      "count": 2
+    },
+    {
+      "asked": "contact_human_agent",
+      "served": "change_shipping_address",
+      "count": 2
+    },
+    {
+      "asked": "contact_customer_service",
+      "served": "change_shipping_address",
+      "count": 2
+    },
+    {
+      "asked": "check_invoice",
+      "served": "place_order",
+      "count": 2
+    },
+    {
+      "asked": "newsletter_subscription",
+      "served": "switch_account",
+      "count": 2
+    },
+    {
+      "asked": "place_order",
+      "served": "cancel_order",
+      "count": 1
+    },
+    {
+      "asked": "check_refund_policy",
+      "served": "payment_issue",
+      "count": 1
+    },
+    {
+      "asked": "check_payment_methods",
+      "served": "get_refund",
+      "count": 1
+    },
+    {
+      "asked": "check_cancellation_fee",
+      "served": "cancel_order",
+      "count": 1
+    },
+    {
+      "asked": "registration_problems",
+      "served": "payment_issue",
+      "count": 1
+    },
+    {
+      "asked": "change_order",
+      "served": "delete_account",
+      "count": 1
+    },
+    {
+      "asked": "edit_account",
+      "served": "create_account",
+      "count": 1
+    },
+    {
+      "asked": "payment_issue",
+      "served": "get_refund",
+      "count": 1
+    },
+    {
+      "asked": "cancel_order",
+      "served": "place_order",
+      "count": 1
+    },
+    {
+      "asked": "track_order",
+      "served": "delivery_period",
+      "count": 1
+    },
+    {
+      "asked": "delete_account",
+      "served": "check_cancellation_fee",
+      "count": 1
+    },
+    {
+      "asked": "cancel_order",
+      "served": "delete_account",
+      "count": 1
+    },
+    {
+      "asked": "change_order",
+      "served": "place_order",
+      "count": 1
+    },
+    {
+      "asked": "set_up_shipping_address",
+      "served": "delivery_options",
+      "count": 1
+    },
+    {
+      "asked": "contact_customer_service",
+      "served": "get_refund",
+      "count": 1
+    },
+    {
+      "asked": "check_invoice",
+      "served": "get_refund",
+      "count": 1
+    },
+    {
+      "asked": "get_invoice",
+      "served": "change_shipping_address",
+      "count": 1
+    },
+    {
+      "asked": "contact_human_agent",
+      "served": "switch_account",
+      "count": 1
+    },
+    {
+      "asked": "check_invoice",
+      "served": "complaint",
+      "count": 1
+    },
+    {
+      "asked": "check_invoice",
+      "served": "change_shipping_address",
+      "count": 1
+    },
+    {
+      "asked": "newsletter_subscription",
+      "served": "place_order",
+      "count": 1
+    }
+  ],
+  "confusion_projected": [
+    {
+      "threshold": 0.7,
+      "projected_serves": 1474,
+      "projected_wrong": 388,
+      "basis": "projected from best_candidate, not measured \u2014 see confusion_at docstring",
+      "pairs": [
+        {
+          "asked": "contact_customer_service",
+          "served": "complaint",
+          "count": 54
+        },
+        {
+          "asked": "create_account",
+          "served": "switch_account",
+          "count": 23
+        },
+        {
+          "asked": "set_up_shipping_address",
+          "served": "change_shipping_address",
+          "count": 19
+        },
+        {
+          "asked": "newsletter_subscription",
+          "served": "registration_problems",
+          "count": 18
+        },
+        {
+          "asked": "change_shipping_address",
+          "served": "set_up_shipping_address",
+          "count": 17
+        },
+        {
+          "asked": "newsletter_subscription",
+          "served": "delete_account",
+          "count": 17
+        },
+        {
+          "asked": "track_order",
+          "served": "change_order",
+          "count": 16
+        },
+        {
+          "asked": "track_refund",
+          "served": "get_refund",
+          "count": 13
+        },
+        {
+          "asked": "edit_account",
+          "served": "switch_account",
+          "count": 13
+        },
+        {
+          "asked": "edit_account",
+          "served": "delete_account",
+          "count": 11
+        },
+        {
+          "asked": "delete_account",
+          "served": "switch_account",
+          "count": 11
+        },
+        {
+          "asked": "create_account",
+          "served": "delete_account",
+          "count": 10
+        },
+        {
+          "asked": "newsletter_subscription",
+          "served": "review",
+          "count": 10
+        },
+        {
+          "asked": "cancel_order",
+          "served": "change_order",
+          "count": 9
+        },
+        {
+          "asked": "contact_human_agent",
+          "served": "get_refund",
+          "count": 8
+        },
+        {
+          "asked": "change_order",
+          "served": "cancel_order",
+          "count": 7
+        },
+        {
+          "asked": "switch_account",
+          "served": "delete_account",
+          "count": 7
+        },
+        {
+          "asked": "contact_customer_service",
+          "served": "delivery_period",
+          "count": 7
+        },
+        {
+          "asked": "delete_account",
+          "served": "create_account",
+          "count": 6
+        },
+        {
+          "asked": "switch_account",
+          "served": "create_account",
+          "count": 6
+        },
+        {
+          "asked": "check_refund_policy",
+          "served": "get_refund",
+          "count": 6
+        },
+        {
+          "asked": "delivery_period",
+          "served": "delivery_options",
+          "count": 6
+        },
+        {
+          "asked": "change_order",
+          "served": "track_order",
+          "count": 5
+        },
+        {
+          "asked": "place_order",
+          "served": "change_order",
+          "count": 5
+        },
+        {
+          "asked": "get_refund",
+          "served": "check_refund_policy",
+          "count": 5
+        },
+        {
+          "asked": "get_refund",
+          "served": "track_refund",
+          "count": 5
+        },
+        {
+          "asked": "place_order",
+          "served": "delivery_period",
+          "count": 4
+        },
+        {
+          "asked": "contact_customer_service",
+          "served": "delivery_options",
+          "count": 4
+        },
+        {
+          "asked": "get_invoice",
+          "served": "complaint",
+          "count": 4
+        },
+        {
+          "asked": "track_order",
+          "served": "cancel_order",
+          "count": 3
+        },
+        {
+          "asked": "change_shipping_address",
+          "served": "edit_account",
+          "count": 3
+        },
+        {
+          "asked": "check_refund_policy",
+          "served": "track_refund",
+          "count": 3
+        },
+        {
+          "asked": "check_invoice",
+          "served": "check_payment_methods",
+          "count": 3
+        },
+        {
+          "asked": "contact_human_agent",
+          "served": "place_order",
+          "count": 3
+        },
+        {
+          "asked": "newsletter_subscription",
+          "served": "complaint",
+          "count": 3
+        },
+        {
+          "asked": "payment_issue",
+          "served": "registration_problems",
+          "count": 2
+        },
+        {
+          "asked": "payment_issue",
+          "served": "check_payment_methods",
+          "count": 2
+        },
+        {
+          "asked": "switch_account",
+          "served": "edit_account",
+          "count": 2
+        },
+        {
+          "asked": "contact_human_agent",
+          "served": "complaint",
+          "count": 2
+        },
+        {
+          "asked": "contact_human_agent",
+          "served": "change_shipping_address",
+          "count": 2
+        },
+        {
+          "asked": "contact_customer_service",
+          "served": "change_shipping_address",
+          "count": 2
+        },
+        {
+          "asked": "check_invoice",
+          "served": "place_order",
+          "count": 2
+        },
+        {
+          "asked": "newsletter_subscription",
+          "served": "switch_account",
+          "count": 2
+        },
+        {
+          "asked": "place_order",
+          "served": "cancel_order",
+          "count": 1
+        },
+        {
+          "asked": "check_cancellation_fee",
+          "served": "payment_issue",
+          "count": 1
+        },
+        {
+          "asked": "delivery_options",
+          "served": "change_shipping_address",
+          "count": 1
+        },
+        {
+          "asked": "review",
+          "served": "complaint",
+          "count": 1
+        },
+        {
+          "asked": "check_refund_policy",
+          "served": "payment_issue",
+          "count": 1
+        },
+        {
+          "asked": "check_payment_methods",
+          "served": "get_refund",
+          "count": 1
+        },
+        {
+          "asked": "check_cancellation_fee",
+          "served": "cancel_order",
+          "count": 1
+        },
+        {
+          "asked": "registration_problems",
+          "served": "payment_issue",
+          "count": 1
+        },
+        {
+          "asked": "delivery_options",
+          "served": "place_order",
+          "count": 1
+        },
+        {
+          "asked": "track_refund",
+          "served": "check_refund_policy",
+          "count": 1
+        },
+        {
+          "asked": "create_account",
+          "served": "edit_account",
+          "count": 1
+        },
+        {
+          "asked": "change_order",
+          "served": "delete_account",
+          "count": 1
+        },
+        {
+          "asked": "edit_account",
+          "served": "create_account",
+          "count": 1
+        },
+        {
+          "asked": "payment_issue",
+          "served": "get_refund",
+          "count": 1
+        },
+        {
+          "asked": "cancel_order",
+          "served": "place_order",
+          "count": 1
+        },
+        {
+          "asked": "track_order",
+          "served": "delivery_period",
+          "count": 1
+        },
+        {
+          "asked": "delete_account",
+          "served": "check_cancellation_fee",
+          "count": 1
+        },
+        {
+          "asked": "cancel_order",
+          "served": "delete_account",
+          "count": 1
+        },
+        {
+          "asked": "change_order",
+          "served": "place_order",
+          "count": 1
+        },
+        {
+          "asked": "set_up_shipping_address",
+          "served": "delivery_options",
+          "count": 1
+        },
+        {
+          "asked": "contact_customer_service",
+          "served": "get_refund",
+          "count": 1
+        },
+        {
+          "asked": "check_invoice",
+          "served": "get_refund",
+          "count": 1
+        },
+        {
+          "asked": "get_invoice",
+          "served": "change_shipping_address",
+          "count": 1
+        },
+        {
+          "asked": "contact_human_agent",
+          "served": "switch_account",
+          "count": 1
+        },
+        {
+          "asked": "get_invoice",
+          "served": "get_refund",
+          "count": 1
+        },
+        {
+          "asked": "check_invoice",
+          "served": "complaint",
+          "count": 1
+        },
+        {
+          "asked": "check_invoice",
+          "served": "change_shipping_address",
+          "count": 1
+        },
+        {
+          "asked": "newsletter_subscription",
+          "served": "place_order",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "threshold": 0.6,
+      "projected_serves": 1585,
+      "projected_wrong": 439,
+      "basis": "projected from best_candidate, not measured \u2014 see confusion_at docstring",
+      "pairs": [
+        {
+          "asked": "contact_customer_service",
+          "served": "complaint",
+          "count": 54
+        },
+        {
+          "asked": "create_account",
+          "served": "switch_account",
+          "count": 24
+        },
+        {
+          "asked": "set_up_shipping_address",
+          "served": "change_shipping_address",
+          "count": 19
+        },
+        {
+          "asked": "change_shipping_address",
+          "served": "set_up_shipping_address",
+          "count": 18
+        },
+        {
+          "asked": "newsletter_subscription",
+          "served": "registration_problems",
+          "count": 18
+        },
+        {
+          "asked": "track_refund",
+          "served": "get_refund",
+          "count": 17
+        },
+        {
+          "asked": "newsletter_subscription",
+          "served": "delete_account",
+          "count": 17
+        },
+        {
+          "asked": "track_order",
+          "served": "change_order",
+          "count": 16
+        },
+        {
+          "asked": "newsletter_subscription",
+          "served": "review",
+          "count": 15
+        },
+        {
+          "asked": "edit_account",
+          "served": "switch_account",
+          "count": 14
+        },
+        {
+          "asked": "edit_account",
+          "served": "delete_account",
+          "count": 13
+        },
+        {
+          "asked": "create_account",
+          "served": "delete_account",
+          "count": 13
+        },
+        {
+          "asked": "delete_account",
+          "served": "switch_account",
+          "count": 12
+        },
+        {
+          "asked": "delete_account",
+          "served": "create_account",
+          "count": 9
+        },
+        {
+          "asked": "switch_account",
+          "served": "delete_account",
+          "count": 9
+        },
+        {
+          "asked": "cancel_order",
+          "served": "change_order",
+          "count": 9
+        },
+        {
+          "asked": "contact_human_agent",
+          "served": "get_refund",
+          "count": 9
+        },
+        {
+          "asked": "contact_customer_service",
+          "served": "delivery_period",
+          "count": 8
+        },
+        {
+          "asked": "change_order",
+          "served": "cancel_order",
+          "count": 7
+        },
+        {
+          "asked": "switch_account",
+          "served": "create_account",
+          "count": 7
+        },
+        {
+          "asked": "get_refund",
+          "served": "track_refund",
+          "count": 6
+        },
+        {
+          "asked": "get_refund",
+          "served": "check_refund_policy",
+          "count": 6
+        },
+        {
+          "asked": "check_refund_policy",
+          "served": "get_refund",
+          "count": 6
+        },
+        {
+          "asked": "delivery_period",
+          "served": "delivery_options",
+          "count": 6
+        },
+        {
+          "asked": "change_order",
+          "served": "track_order",
+          "count": 5
+        },
+        {
+          "asked": "place_order",
+          "served": "change_order",
+          "count": 5
+        },
+        {
+          "asked": "change_shipping_address",
+          "served": "edit_account",
+          "count": 5
+        },
+        {
+          "asked": "check_invoice",
+          "served": "place_order",
+          "count": 5
+        },
+        {
+          "asked": "place_order",
+          "served": "delivery_period",
+          "count": 4
+        },
+        {
+          "asked": "contact_customer_service",
+          "served": "delivery_options",
+          "count": 4
+        },
+        {
+          "asked": "get_invoice",
+          "served": "complaint",
+          "count": 4
+        },
+        {
+          "asked": "delete_account",
+          "served": "edit_account",
+          "count": 3
+        },
+        {
+          "asked": "track_order",
+          "served": "cancel_order",
+          "count": 3
+        },
+        {
+          "asked": "check_refund_policy",
+          "served": "track_refund",
+          "count": 3
+        },
+        {
+          "asked": "check_invoice",
+          "served": "check_payment_methods",
+          "count": 3
+        },
+        {
+          "asked": "contact_human_agent",
+          "served": "place_order",
+          "count": 3
+        },
+        {
+          "asked": "newsletter_subscription",
+          "served": "complaint",
+          "count": 3
+        },
+        {
+          "asked": "check_invoice",
+          "served": "track_refund",
+          "count": 3
+        },
+        {
+          "asked": "get_invoice",
+          "served": "get_refund",
+          "count": 3
+        },
+        {
+          "asked": "registration_problems",
+          "served": "payment_issue",
+          "count": 2
+        },
+        {
+          "asked": "delivery_options",
+          "served": "change_shipping_address",
+          "count": 2
+        },
+        {
+          "asked": "edit_account",
+          "served": "create_account",
+          "count": 2
+        },
+        {
+          "asked": "payment_issue",
+          "served": "registration_problems",
+          "count": 2
+        },
+        {
+          "asked": "payment_issue",
+          "served": "check_payment_methods",
+          "count": 2
+        },
+        {
+          "asked": "switch_account",
+          "served": "edit_account",
+          "count": 2
+        },
+        {
+          "asked": "contact_human_agent",
+          "served": "complaint",
+          "count": 2
+        },
+        {
+          "asked": "contact_human_agent",
+          "served": "change_shipping_address",
+          "count": 2
+        },
+        {
+          "asked": "check_invoice",
+          "served": "check_cancellation_fee",
+          "count": 2
+        },
+        {
+          "asked": "contact_customer_service",
+          "served": "change_shipping_address",
+          "count": 2
+        },
+        {
+          "asked": "newsletter_subscription",
+          "served": "switch_account",
+          "count": 2
+        },
+        {
+          "asked": "delivery_period",
+          "served": "track_order",
+          "count": 1
+        },
+        {
+          "asked": "check_refund_policy",
+          "served": "check_payment_methods",
+          "count": 1
+        },
+        {
+          "asked": "place_order",
+          "served": "cancel_order",
+          "count": 1
+        },
+        {
+          "asked": "check_cancellation_fee",
+          "served": "payment_issue",
+          "count": 1
+        },
+        {
+          "asked": "registration_problems",
+          "served": "delete_account",
+          "count": 1
+        },
+        {
+          "asked": "review",
+          "served": "complaint",
+          "count": 1
+        },
+        {
+          "asked": "check_refund_policy",
+          "served": "payment_issue",
+          "count": 1
+        },
+        {
+          "asked": "create_account",
+          "served": "registration_problems",
+          "count": 1
+        },
+        {
+          "asked": "check_payment_methods",
+          "served": "get_refund",
+          "count": 1
+        },
+        {
+          "asked": "check_cancellation_fee",
+          "served": "cancel_order",
+          "count": 1
+        },
+        {
+          "asked": "delivery_options",
+          "served": "place_order",
+          "count": 1
+        },
+        {
+          "asked": "track_refund",
+          "served": "check_refund_policy",
+          "count": 1
+        },
+        {
+          "asked": "create_account",
+          "served": "edit_account",
+          "count": 1
+        },
+        {
+          "asked": "change_order",
+          "served": "delete_account",
+          "count": 1
+        },
+        {
+          "asked": "payment_issue",
+          "served": "get_refund",
+          "count": 1
+        },
+        {
+          "asked": "cancel_order",
+          "served": "place_order",
+          "count": 1
+        },
+        {
+          "asked": "track_order",
+          "served": "delivery_period",
+          "count": 1
+        },
+        {
+          "asked": "delete_account",
+          "served": "check_cancellation_fee",
+          "count": 1
+        },
+        {
+          "asked": "cancel_order",
+          "served": "delete_account",
+          "count": 1
+        },
+        {
+          "asked": "change_order",
+          "served": "place_order",
+          "count": 1
+        },
+        {
+          "asked": "set_up_shipping_address",
+          "served": "delivery_options",
+          "count": 1
+        },
+        {
+          "asked": "contact_customer_service",
+          "served": "get_refund",
+          "count": 1
+        },
+        {
+          "asked": "check_invoice",
+          "served": "get_refund",
+          "count": 1
+        },
+        {
+          "asked": "get_invoice",
+          "served": "place_order",
+          "count": 1
+        },
+        {
+          "asked": "get_invoice",
+          "served": "change_shipping_address",
+          "count": 1
+        },
+        {
+          "asked": "contact_human_agent",
+          "served": "switch_account",
+          "count": 1
+        },
+        {
+          "asked": "check_invoice",
+          "served": "complaint",
+          "count": 1
+        },
+        {
+          "asked": "check_invoice",
+          "served": "change_shipping_address",
+          "count": 1
+        },
+        {
+          "asked": "newsletter_subscription",
+          "served": "place_order",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "threshold": 0.5,
+      "projected_serves": 1613,
+      "projected_wrong": 447,
+      "basis": "projected from best_candidate, not measured \u2014 see confusion_at docstring",
+      "pairs": [
+        {
+          "asked": "contact_customer_service",
+          "served": "complaint",
+          "count": 54
+        },
+        {
+          "asked": "create_account",
+          "served": "switch_account",
+          "count": 24
+        },
+        {
+          "asked": "set_up_shipping_address",
+          "served": "change_shipping_address",
+          "count": 19
+        },
+        {
+          "asked": "change_shipping_address",
+          "served": "set_up_shipping_address",
+          "count": 18
+        },
+        {
+          "asked": "newsletter_subscription",
+          "served": "registration_problems",
+          "count": 18
+        },
+        {
+          "asked": "track_refund",
+          "served": "get_refund",
+          "count": 17
+        },
+        {
+          "asked": "newsletter_subscription",
+          "served": "delete_account",
+          "count": 17
+        },
+        {
+          "asked": "track_order",
+          "served": "change_order",
+          "count": 16
+        },
+        {
+          "asked": "edit_account",
+          "served": "switch_account",
+          "count": 15
+        },
+        {
+          "asked": "newsletter_subscription",
+          "served": "review",
+          "count": 15
+        },
+        {
+          "asked": "delete_account",
+          "served": "switch_account",
+          "count": 13
+        },
+        {
+          "asked": "edit_account",
+          "served": "delete_account",
+          "count": 13
+        },
+        {
+          "asked": "create_account",
+          "served": "delete_account",
+          "count": 13
+        },
+        {
+          "asked": "switch_account",
+          "served": "delete_account",
+          "count": 10
+        },
+        {
+          "asked": "delete_account",
+          "served": "create_account",
+          "count": 9
+        },
+        {
+          "asked": "cancel_order",
+          "served": "change_order",
+          "count": 9
+        },
+        {
+          "asked": "contact_human_agent",
+          "served": "get_refund",
+          "count": 9
+        },
+        {
+          "asked": "change_order",
+          "served": "cancel_order",
+          "count": 8
+        },
+        {
+          "asked": "contact_customer_service",
+          "served": "delivery_period",
+          "count": 8
+        },
+        {
+          "asked": "switch_account",
+          "served": "create_account",
+          "count": 7
+        },
+        {
+          "asked": "get_refund",
+          "served": "track_refund",
+          "count": 6
+        },
+        {
+          "asked": "get_refund",
+          "served": "check_refund_policy",
+          "count": 6
+        },
+        {
+          "asked": "check_refund_policy",
+          "served": "get_refund",
+          "count": 6
+        },
+        {
+          "asked": "delivery_period",
+          "served": "delivery_options",
+          "count": 6
+        },
+        {
+          "asked": "change_order",
+          "served": "track_order",
+          "count": 5
+        },
+        {
+          "asked": "place_order",
+          "served": "change_order",
+          "count": 5
+        },
+        {
+          "asked": "change_shipping_address",
+          "served": "edit_account",
+          "count": 5
+        },
+        {
+          "asked": "check_invoice",
+          "served": "place_order",
+          "count": 5
+        },
+        {
+          "asked": "place_order",
+          "served": "delivery_period",
+          "count": 4
+        },
+        {
+          "asked": "contact_customer_service",
+          "served": "delivery_options",
+          "count": 4
+        },
+        {
+          "asked": "get_invoice",
+          "served": "complaint",
+          "count": 4
+        },
+        {
+          "asked": "delete_account",
+          "served": "edit_account",
+          "count": 3
+        },
+        {
+          "asked": "track_order",
+          "served": "cancel_order",
+          "count": 3
+        },
+        {
+          "asked": "check_refund_policy",
+          "served": "track_refund",
+          "count": 3
+        },
+        {
+          "asked": "check_invoice",
+          "served": "check_payment_methods",
+          "count": 3
+        },
+        {
+          "asked": "contact_human_agent",
+          "served": "place_order",
+          "count": 3
+        },
+        {
+          "asked": "newsletter_subscription",
+          "served": "complaint",
+          "count": 3
+        },
+        {
+          "asked": "check_invoice",
+          "served": "track_refund",
+          "count": 3
+        },
+        {
+          "asked": "get_invoice",
+          "served": "get_refund",
+          "count": 3
+        },
+        {
+          "asked": "check_cancellation_fee",
+          "served": "cancel_order",
+          "count": 2
+        },
+        {
+          "asked": "registration_problems",
+          "served": "payment_issue",
+          "count": 2
+        },
+        {
+          "asked": "recover_password",
+          "served": "edit_account",
+          "count": 2
+        },
+        {
+          "asked": "delivery_options",
+          "served": "change_shipping_address",
+          "count": 2
+        },
+        {
+          "asked": "edit_account",
+          "served": "create_account",
+          "count": 2
+        },
+        {
+          "asked": "payment_issue",
+          "served": "registration_problems",
+          "count": 2
+        },
+        {
+          "asked": "payment_issue",
+          "served": "check_payment_methods",
+          "count": 2
+        },
+        {
+          "asked": "switch_account",
+          "served": "edit_account",
+          "count": 2
+        },
+        {
+          "asked": "contact_human_agent",
+          "served": "complaint",
+          "count": 2
+        },
+        {
+          "asked": "contact_human_agent",
+          "served": "change_shipping_address",
+          "count": 2
+        },
+        {
+          "asked": "check_invoice",
+          "served": "check_cancellation_fee",
+          "count": 2
+        },
+        {
+          "asked": "contact_customer_service",
+          "served": "change_shipping_address",
+          "count": 2
+        },
+        {
+          "asked": "newsletter_subscription",
+          "served": "switch_account",
+          "count": 2
+        },
+        {
+          "asked": "place_order",
+          "served": "get_refund",
+          "count": 1
+        },
+        {
+          "asked": "delivery_period",
+          "served": "track_order",
+          "count": 1
+        },
+        {
+          "asked": "check_refund_policy",
+          "served": "check_payment_methods",
+          "count": 1
+        },
+        {
+          "asked": "place_order",
+          "served": "cancel_order",
+          "count": 1
+        },
+        {
+          "asked": "check_cancellation_fee",
+          "served": "payment_issue",
+          "count": 1
+        },
+        {
+          "asked": "registration_problems",
+          "served": "delete_account",
+          "count": 1
+        },
+        {
+          "asked": "review",
+          "served": "complaint",
+          "count": 1
+        },
+        {
+          "asked": "check_refund_policy",
+          "served": "payment_issue",
+          "count": 1
+        },
+        {
+          "asked": "create_account",
+          "served": "registration_problems",
+          "count": 1
+        },
+        {
+          "asked": "check_payment_methods",
+          "served": "get_refund",
+          "count": 1
+        },
+        {
+          "asked": "delivery_options",
+          "served": "place_order",
+          "count": 1
+        },
+        {
+          "asked": "track_refund",
+          "served": "check_refund_policy",
+          "count": 1
+        },
+        {
+          "asked": "create_account",
+          "served": "edit_account",
+          "count": 1
+        },
+        {
+          "asked": "change_order",
+          "served": "delete_account",
+          "count": 1
+        },
+        {
+          "asked": "payment_issue",
+          "served": "get_refund",
+          "count": 1
+        },
+        {
+          "asked": "cancel_order",
+          "served": "place_order",
+          "count": 1
+        },
+        {
+          "asked": "track_order",
+          "served": "delivery_period",
+          "count": 1
+        },
+        {
+          "asked": "delete_account",
+          "served": "check_cancellation_fee",
+          "count": 1
+        },
+        {
+          "asked": "cancel_order",
+          "served": "delete_account",
+          "count": 1
+        },
+        {
+          "asked": "change_order",
+          "served": "place_order",
+          "count": 1
+        },
+        {
+          "asked": "set_up_shipping_address",
+          "served": "delivery_options",
+          "count": 1
+        },
+        {
+          "asked": "contact_customer_service",
+          "served": "get_refund",
+          "count": 1
+        },
+        {
+          "asked": "check_invoice",
+          "served": "get_refund",
+          "count": 1
+        },
+        {
+          "asked": "get_invoice",
+          "served": "place_order",
+          "count": 1
+        },
+        {
+          "asked": "get_invoice",
+          "served": "change_shipping_address",
+          "count": 1
+        },
+        {
+          "asked": "contact_human_agent",
+          "served": "switch_account",
+          "count": 1
+        },
+        {
+          "asked": "check_invoice",
+          "served": "complaint",
+          "count": 1
+        },
+        {
+          "asked": "check_invoice",
+          "served": "change_shipping_address",
+          "count": 1
+        },
+        {
+          "asked": "newsletter_subscription",
+          "served": "place_order",
+          "count": 1
+        }
+      ]
+    }
+  ],
+  "by_variation": [
+    {
+      "tag": "K",
+      "meaning": "keyword mode ('activate SIM')",
+      "queries": 126,
+      "reached": 62,
+      "reach": 0.4921,
+      "mean_confidence": 0.7694,
+      "correct": 51,
+      "wrong": 48,
+      "recall": 0.4048,
+      "precision": 0.5152
+    },
+    {
+      "tag": "N",
+      "meaning": "negation",
+      "queries": 30,
+      "reached": 20,
+      "reach": 0.6667,
+      "mean_confidence": 0.7883,
+      "correct": 18,
+      "wrong": 9,
+      "recall": 0.6,
+      "precision": 0.6667
+    },
+    {
+      "tag": "Z",
+      "meaning": "errors and typos ('how can i activaet my card')",
+      "queries": 282,
+      "reached": 198,
+      "reach": 0.7021,
+      "mean_confidence": 0.7658,
+      "correct": 154,
+      "wrong": 62,
+      "recall": 0.5461,
+      "precision": 0.713
+    },
+    {
+      "tag": "C",
+      "meaning": "coordinated syntactic structure",
+      "queries": 170,
+      "reached": 133,
+      "reach": 0.7824,
+      "mean_confidence": 0.7876,
+      "correct": 112,
+      "wrong": 29,
+      "recall": 0.6588,
+      "precision": 0.7943
+    },
+    {
+      "tag": "E",
+      "meaning": "use of abbreviations",
+      "queries": 118,
+      "reached": 94,
+      "reach": 0.7966,
+      "mean_confidence": 0.7887,
+      "correct": 82,
+      "wrong": 20,
+      "recall": 0.6949,
+      "precision": 0.8039
+    },
+    {
+      "tag": "B",
+      "meaning": "basic syntactic structure",
+      "queries": 1500,
+      "reached": 1203,
+      "reach": 0.802,
+      "mean_confidence": 0.7968,
+      "correct": 1030,
+      "wrong": 219,
+      "recall": 0.6867,
+      "precision": 0.8247
+    },
+    {
+      "tag": "P",
+      "meaning": "politeness variation",
+      "queries": 66,
+      "reached": 53,
+      "reach": 0.803,
+      "mean_confidence": 0.8094,
+      "correct": 47,
+      "wrong": 9,
+      "recall": 0.7121,
+      "precision": 0.8393
+    },
+    {
+      "tag": "W",
+      "meaning": "offensive language",
+      "queries": 62,
+      "reached": 50,
+      "reach": 0.8065,
+      "mean_confidence": 0.7554,
+      "correct": 36,
+      "wrong": 6,
+      "recall": 0.5806,
+      "precision": 0.8571
+    },
+    {
+      "tag": "Q",
+      "meaning": "colloquial variation ('can u activ8 my SIM?')",
+      "queries": 495,
+      "reached": 401,
+      "reach": 0.8101,
+      "mean_confidence": 0.7887,
+      "correct": 341,
+      "wrong": 61,
+      "recall": 0.6889,
+      "precision": 0.8483
+    },
+    {
+      "tag": "L",
+      "meaning": "semantic variation \u2014 synonyms, hyphenation, compounding",
+      "queries": 1331,
+      "reached": 1080,
+      "reach": 0.8114,
+      "mean_confidence": 0.7984,
+      "correct": 928,
+      "wrong": 189,
+      "recall": 0.6972,
+      "precision": 0.8308
+    },
+    {
+      "tag": "I",
+      "meaning": "interrogative structure",
+      "queries": 434,
+      "reached": 357,
+      "reach": 0.8226,
+      "mean_confidence": 0.7943,
+      "correct": 299,
+      "wrong": 54,
+      "recall": 0.6889,
+      "precision": 0.847
+    },
+    {
+      "tag": "M",
+      "meaning": "morphological variation \u2014 inflection and derivation",
+      "queries": 295,
+      "reached": 255,
+      "reach": 0.8644,
+      "mean_confidence": 0.8006,
+      "correct": 216,
+      "wrong": 33,
+      "recall": 0.7322,
+      "precision": 0.8675
+    }
+  ],
+  "by_intent": [
+    {
+      "intent": "create_account",
+      "queries": 68,
+      "correct": 22,
+      "wrong": 33,
+      "recall": 0.3235
+    },
+    {
+      "intent": "edit_account",
+      "queries": 68,
+      "correct": 31,
+      "wrong": 24,
+      "recall": 0.4559
+    },
+    {
+      "intent": "delete_account",
+      "queries": 68,
+      "correct": 37,
+      "wrong": 16,
+      "recall": 0.5441
+    },
+    {
+      "intent": "set_up_shipping_address",
+      "queries": 68,
+      "correct": 40,
+      "wrong": 19,
+      "recall": 0.5882
+    },
+    {
+      "intent": "track_refund",
+      "queries": 68,
+      "correct": 40,
+      "wrong": 13,
+      "recall": 0.5882
+    },
+    {
+      "intent": "place_order",
+      "queries": 68,
+      "correct": 41,
+      "wrong": 8,
+      "recall": 0.6029
+    },
+    {
+      "intent": "change_shipping_address",
+      "queries": 69,
+      "correct": 42,
+      "wrong": 17,
+      "recall": 0.6087
+    },
+    {
+      "intent": "get_refund",
+      "queries": 68,
+      "correct": 42,
+      "wrong": 9,
+      "recall": 0.6176
+    },
+    {
+      "intent": "switch_account",
+      "queries": 68,
+      "correct": 43,
+      "wrong": 13,
+      "recall": 0.6324
+    },
+    {
+      "intent": "track_order",
+      "queries": 68,
+      "correct": 44,
+      "wrong": 20,
+      "recall": 0.6471
+    },
+    {
+      "intent": "check_refund_policy",
+      "queries": 68,
+      "correct": 48,
+      "wrong": 10,
+      "recall": 0.7059
+    },
+    {
+      "intent": "delivery_options",
+      "queries": 68,
+      "correct": 49,
+      "wrong": 0,
+      "recall": 0.7206
+    },
+    {
+      "intent": "review",
+      "queries": 68,
+      "correct": 50,
+      "wrong": 0,
+      "recall": 0.7353
+    },
+    {
+      "intent": "recover_password",
+      "queries": 68,
+      "correct": 50,
+      "wrong": 0,
+      "recall": 0.7353
+    },
+    {
+      "intent": "complaint",
+      "queries": 68,
+      "correct": 51,
+      "wrong": 0,
+      "recall": 0.75
+    },
+    {
+      "intent": "change_order",
+      "queries": 69,
+      "correct": 54,
+      "wrong": 12,
+      "recall": 0.7826
+    },
+    {
+      "intent": "delivery_period",
+      "queries": 68,
+      "correct": 56,
+      "wrong": 6,
+      "recall": 0.8235
+    },
+    {
+      "intent": "registration_problems",
+      "queries": 68,
+      "correct": 56,
+      "wrong": 1,
+      "recall": 0.8235
+    },
+    {
+      "intent": "cancel_order",
+      "queries": 69,
+      "correct": 57,
+      "wrong": 11,
+      "recall": 0.8261
+    },
+    {
+      "intent": "check_cancellation_fee",
+      "queries": 69,
+      "correct": 58,
+      "wrong": 1,
+      "recall": 0.8406
+    },
+    {
+      "intent": "payment_issue",
+      "queries": 68,
+      "correct": 58,
+      "wrong": 5,
+      "recall": 0.8529
+    },
+    {
+      "intent": "check_payment_methods",
+      "queries": 68,
+      "correct": 61,
+      "wrong": 1,
+      "recall": 0.8971
+    },
+    {
+      "intent": "check_invoice",
+      "queries": 75,
+      "correct": 0,
+      "wrong": 8,
+      "recall": null
+    },
+    {
+      "intent": "contact_human_agent",
+      "queries": 75,
+      "correct": 0,
+      "wrong": 14,
+      "recall": null
+    },
+    {
+      "intent": "contact_customer_service",
+      "queries": 75,
+      "correct": 0,
+      "wrong": 59,
+      "recall": null
+    },
+    {
+      "intent": "get_invoice",
+      "queries": 75,
+      "correct": 0,
+      "wrong": 4,
+      "recall": null
+    },
+    {
+      "intent": "newsletter_subscription",
+      "queries": 75,
+      "correct": 0,
+      "wrong": 50,
+      "recall": null
+    }
+  ],
+  "layer_coverage": [
+    {
+      "layer": "exact",
+      "contributed": 29,
+      "decisive": 29,
+      "blocked": 0,
+      "served": 29,
+      "exercised": true,
+      "queries_where_it_ran": 1919,
+      "best_similarity_seen": null,
+      "note": "answer-key match; contributes 1.0 and returns immediately"
+    },
+    {
+      "layer": "semantic",
+      "contributed": 1659,
+      "decisive": 78,
+      "blocked": 0,
+      "served": 547,
+      "exercised": true,
+      "queries_where_it_ran": 1890,
+      "best_similarity_seen": null,
+      "note": "embedding similarity, graded by _similarity_to_confidence"
+    },
+    {
+      "layer": "composable",
+      "contributed": 0,
+      "decisive": 0,
+      "blocked": 0,
+      "served": 0,
+      "exercised": false,
+      "queries_where_it_ran": 1890,
+      "best_similarity_seen": null,
+      "note": "fires only on comparison phrasing \u2014 decompose_query is a regex over compare/vs/versus/differences between, so questions with separable parts that do not use those words are never decomposed (see BACKLOG item 7)"
+    },
+    {
+      "layer": "fuzzy",
+      "contributed": 14,
+      "decisive": 0,
+      "blocked": 0,
+      "served": 0,
+      "exercised": true,
+      "queries_where_it_ran": 1890,
+      "best_similarity_seen": 0.933,
+      "note": "token overlap or edit distance, graded by measured similarity"
+    },
+    {
+      "layer": "similarity_link",
+      "contributed": 1586,
+      "decisive": 439,
+      "blocked": 0,
+      "served": 830,
+      "exercised": true,
+      "queries_where_it_ran": 1890,
+      "best_similarity_seen": null,
+      "note": "traverses links learned from semantic near-misses in the link_learn_min..link_learn_max band; needs a query to be revisited after the link exists, so a single pass over distinct queries cannot reach it"
+    },
+    {
+      "layer": "atomic_facts",
+      "contributed": 1022,
+      "decisive": 2,
+      "blocked": 0,
+      "served": 0,
+      "exercised": true,
+      "queries_where_it_ran": 1890,
+      "best_similarity_seen": null,
+      "note": "embedding search over facts extracted from cached ANSWER text, not from ingested documents; needs answers of at least fact_min_answer_length (100) chars whose sentences survive a 30-char floor"
+    },
+    {
+      "layer": "session",
+      "contributed": 20,
+      "decisive": 0,
+      "blocked": 0,
+      "served": 0,
+      "exercised": true,
+      "queries_where_it_ran": 1890,
+      "best_similarity_seen": null,
+      "note": "contributes 0.0 by design. The Batch 2 rewrite removed the flat +0.25 and made this layer resolve the query against history rather than vote on it, so it is carried as context for a miss. It will always read contributed N, decisive 0, and that is the layer working correctly"
+    },
+    {
+      "layer": "serve_verify",
+      "contributed": 0,
+      "decisive": 0,
+      "blocked": 0,
+      "served": 0,
+      "exercised": false,
+      "queries_where_it_ran": 0,
+      "best_similarity_seen": null,
+      "note": "penalty, not a match \u2014 subtracts confidence when a served candidate fails source verification, so it appears under 'blocked', never 'decisive'"
+    },
+    {
+      "layer": "promotion_verify",
+      "contributed": 0,
+      "decisive": 0,
+      "blocked": 0,
+      "served": 0,
+      "exercised": false,
+      "queries_where_it_ran": 0,
+      "best_similarity_seen": null,
+      "note": "penalty, and off by default (promotion_config.enabled); silent unless LLM promotion verification is switched on"
+    }
+  ]
+}

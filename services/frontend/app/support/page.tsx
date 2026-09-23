@@ -63,7 +63,7 @@ const faqs = [
   },
   {
     question: "Which LLMs are supported?",
-    answer: "200+ providers via the universal adapter. Set 3 env vars (URL, key, model) and any OpenAI-compatible API works — Ollama, OpenAI, Anthropic, Groq, Together, vLLM, and more.",
+    answer: "Any OpenAI-compatible provider, via the universal adapter. Set 3 env vars (URL, key, model) and any OpenAI-compatible API works — Ollama, OpenAI, Anthropic, Groq, Together, vLLM, and more.",
   },
   {
     question: "Do I need a database server?",

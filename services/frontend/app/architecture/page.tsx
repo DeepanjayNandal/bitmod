@@ -108,7 +108,7 @@ export default function ArchitecturePage() {
             label="BitMod — Intelligent Cache Layer"
             color="bg-primary/10 text-primary"
             accent="text-primary"
-            description="Drop-in proxy + 9-layer cache engine. Intercepts every LLM request. Cache hits are served in ~70-90ms over HTTP without touching the LLM — the cache lookup itself is under 1ms, the rest is the HTTP stack. Misses pass through transparently. Your SDK doesn't know it's there."
+            description="Drop-in proxy + 9-layer cache engine. Intercepts every LLM request. Cache hits are served in 68-82ms over HTTP without touching the LLM — the cache lookup itself is under 1ms, the rest is the HTTP stack. Misses pass through transparently. Your SDK doesn't know it's there."
             items={[
               "9-Layer Cache Pipeline",
               "Multi-Format Proxy",
@@ -127,7 +127,7 @@ export default function ArchitecturePage() {
             color="bg-orange-500/10 text-orange-400"
             accent="text-orange-400"
             description="The AI model that generates responses. BitMod only forwards cache misses — everything else is served locally."
-            items={["OpenAI", "Anthropic", "Google Gemini", "Ollama (local)", "AWS Bedrock", "Azure OpenAI", "xAI", "Mistral", "200+ via universal adapter"]}
+            items={["OpenAI", "Anthropic", "Google Gemini", "Ollama (local)", "AWS Bedrock", "Azure OpenAI", "xAI", "Mistral", "Any OpenAI-compatible, via universal adapter"]}
           />
           <ArrowConnector />
           <StackLayer
@@ -347,7 +347,7 @@ export default function ArchitecturePage() {
                   <div className="text-[#8b949e] text-xs space-y-0.5">
                     <div>OpenAI / Anthropic</div>
                     <div>Ollama / vLLM (self-hosted)</div>
-                    <div>Bedrock / Azure / 200+</div>
+                    <div>Bedrock / Azure / OpenAI-compat</div>
                   </div>
                 </div>
                 <div className="rounded border border-[#30363d] bg-[#161b22] p-3 text-center">
@@ -406,7 +406,7 @@ export default function ArchitecturePage() {
             {
               step: "3a",
               title: "Cache hit — serve immediately",
-              detail: "If confidence exceeds the threshold, the cached answer is returned in ~70-90ms over HTTP; the lookup itself is under 1ms. Response headers show X-Bitmod-Cache-Hit: true and the estimated savings.",
+              detail: "If confidence exceeds the threshold, the cached answer is returned in 68-82ms over HTTP; the lookup itself is 0.2ms. Response headers show X-Bitmod-Cache-Hit: true and the estimated savings.",
               color: "text-green-400",
               bg: "bg-green-500/10",
             },
@@ -481,7 +481,7 @@ export default function ArchitecturePage() {
                 icon: Brain,
                 title: "LLM Adapters",
                 count: "12 adapters",
-                items: ["Anthropic", "OpenAI", "Ollama", "Gemini", "AWS Bedrock", "Azure OpenAI", "xAI", "Mistral", "Perplexity", "OpenRouter", "HuggingFace", "Universal (200+)"],
+                items: ["Anthropic", "OpenAI", "Ollama", "Gemini", "AWS Bedrock", "Azure OpenAI", "xAI", "Mistral", "Perplexity", "OpenRouter", "HuggingFace", "Universal (OpenAI-compatible)"],
                 color: "text-blue-400",
               },
               {

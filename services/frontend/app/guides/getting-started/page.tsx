@@ -161,12 +161,12 @@ print(f"Cost saved: {result.cost_saved}")`}
               <h2 className="text-xl font-semibold">See Your Cache Savings</h2>
             </div>
             <p className="text-muted-foreground mb-4">
-              Send the same query again. This time it hits the cache — zero tokens consumed, sub-millisecond response:
+              Send the same query again. This time it hits the cache — zero tokens consumed, and because this runs in-process rather than over HTTP, a sub-millisecond lookup:
             </p>
             <CodeBlock filename="python">
 {`result = bm.query("What is semantic caching?")
 print(f"Cached: {result.cached}")              # True
-print(f"Latency: {result.generation_ms}ms")    # < 1ms
+print(f"Generation: {result.generation_ms}ms") # 0 on a hit: nothing was generated
 print(f"Tokens saved: {result.token_usage['tokens_saved']}")`}
             </CodeBlock>
 
@@ -197,7 +197,7 @@ print(f"Tokens saved: {result.token_usage['tokens_saved']}")`}
                   <h3 className="font-semibold mb-1">What just happened?</h3>
                   <p className="text-sm text-muted-foreground">
                     BitMod ran your query through a 9-layer intelligent cache pipeline. The first call hit your LLM provider and stored the result.
-                    The second call matched semantically and returned the cached response in under 1ms — saving you tokens and money.
+                    The second call was byte-identical, so it matched on the exact-match layer and returned in 0.2ms in-process — saving you tokens and money. A semantic match costs more, 42ms in-process, because the query has to be embedded first.
                     As your usage grows, the savings compound.
                   </p>
                 </div>

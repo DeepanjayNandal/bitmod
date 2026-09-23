@@ -471,11 +471,11 @@ docker compose up -d redis`}
                 <CardContent className="p-6">
                   <h3 className="font-semibold mb-2">Slow first query</h3>
                   <p className="text-sm text-muted-foreground mb-3">
-                    The first query for any new input is expected to be slow — it makes a full round-trip to your LLM provider. Subsequent similar queries return from cache in under 1ms:
+                    The first query for any new input is expected to be slow — it makes a full round-trip to your LLM provider. Subsequent identical queries return from cache in 68-82ms over HTTP:
                   </p>
                   <CodeBlock filename="terminal">
 {`# First query: 800-2000ms (LLM generation)
-# Second query: <1ms (cache hit)
+# Second query: 68-82ms (cache hit, over HTTP)
 # This is by design — the cache needs to see a query once to store it`}
                   </CodeBlock>
                 </CardContent>

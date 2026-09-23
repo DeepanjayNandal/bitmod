@@ -11,7 +11,7 @@ const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "BitMod — Modular AI Data Infrastructure",
-  description: "Compute once, serve forever. Open-source intelligent caching for LLM applications. 200+ LLM providers, 4 databases, zero lock-in. Run it with docker compose up.",
+  description: "Compute once, serve forever. Open-source intelligent caching for LLM applications. Any OpenAI-compatible LLM provider, 4 databases, zero lock-in. Run it with docker compose up.",
   icons: { icon: "/favicon.svg" },
   metadataBase: new URL("https://bitmod.io"),
   openGraph: {

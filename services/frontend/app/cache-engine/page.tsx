@@ -13,7 +13,7 @@ import {
 
 export const metadata: Metadata = {
   title: "9-Layer Cache Engine | BitMod",
-  description: "Patent-pending 9-layer intelligent cache pipeline: exact match, semantic similarity, composable decomposition, fuzzy matching, and source-aware invalidation.",
+  description: "Nine-layer intelligent cache pipeline: exact match, semantic similarity, composable decomposition, fuzzy matching, and source-aware invalidation.",
 }
 
 const CACHE_LAYERS = [
@@ -128,9 +128,9 @@ export default function CacheEnginePage() {
           </h1>
 
           <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground sm:text-xl">
-            Patent-pending technology that eliminates redundant LLM calls through nine
-            cascading cache layers &mdash; from exact hash matching to semantic similarity,
-            composable decomposition, and automatic source-aware invalidation.
+            Eliminates redundant LLM calls through nine cascading cache layers
+            &mdash; from exact hash matching to semantic similarity, composable
+            decomposition, and automatic source-aware invalidation.
           </p>
         </div>
       </section>
@@ -140,7 +140,7 @@ export default function CacheEnginePage() {
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
             {[
-              { value: "<1ms", label: "Cache Hit Latency", icon: Zap },
+              { value: "68-82ms", label: "Cached, over HTTP", icon: Zap },
               { value: "9", label: "Cache Layers", icon: Layers },
               { value: "Fail-Closed", label: "Source Verification", icon: ShieldCheck },
               { value: "3", label: "Compression Levels", icon: Database },
@@ -311,8 +311,8 @@ export default function CacheEnginePage() {
             </div>
 
             <div className="mt-6 rounded-lg bg-green-500/5 border border-green-500/20 px-4 py-3 text-center">
-              <div className="text-green-400 text-2xl font-bold">&lt;1ms</div>
-              <div className="text-[10px] text-green-400/70 mt-1">Zero LLM calls &middot; Zero cost &middot; Instant response</div>
+              <div className="text-green-400 text-2xl font-bold">~80ms</div>
+              <div className="text-[10px] text-green-400/70 mt-1">Zero LLM calls &middot; Zero cost &middot; Exact match over HTTP</div>
             </div>
           </div>
 

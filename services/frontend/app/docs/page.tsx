@@ -164,7 +164,7 @@ export default function DocsPage() {
                 <div className="text-center flex-1">
                   <div className="rounded-lg bg-green-500/10 border border-green-500/20 px-4 py-3 arch-node">
                     <div className="text-green-400 font-bold text-sm">CACHE HIT</div>
-                    <div className="text-[10px] text-green-400/70 mt-1">&lt;1ms &middot; verified &middot; cited</div>
+                    <div className="text-[10px] text-green-400/70 mt-1">68-82ms &middot; verified &middot; cited</div>
                   </div>
                   <div className="mt-2 text-[10px] text-muted-foreground">
                     Returns in native SDK format
@@ -235,7 +235,7 @@ export default function DocsPage() {
                 Response cached + returned in native format
               </div>
               <p className="text-[10px] text-muted-foreground mt-2">
-                Next identical or similar query is served from cache in &lt;1ms
+                Next identical query is served from cache in 68-82ms over HTTP
               </p>
             </div>
           </div>
@@ -618,7 +618,7 @@ response = client.chat(
             <ol className="text-sm text-muted-foreground space-y-1.5 list-decimal list-inside">
               <li>BitMod receives your SDK request in its native format (OpenAI, Anthropic, Gemini, or Ollama)</li>
               <li>Extracts the user message and runs the 9-layer cache pipeline</li>
-              <li>On cache hit: returns the cached answer in the same format your SDK expects (sub-millisecond)</li>
+              <li>On cache hit: returns the cached answer in the same format your SDK expects (68-82ms measured over HTTP, exact match)</li>
               <li>On cache miss: forwards to the real LLM provider, caches the response, returns it</li>
               <li>Your API key is passed through to the upstream provider — BitMod never stores it</li>
             </ol>
@@ -1057,7 +1057,7 @@ result = ingest_file(
           <SectionHeader
             id="cache-engine"
             title="Cache Engine"
-            description="Patent-pending 9-layer intelligent cache. The core IP that makes BitMod unique."
+            description="Nine-layer intelligent cache. Exact match, semantic similarity, composable decomposition, fuzzy matching, source-aware invalidation."
           />
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-8">
@@ -1251,7 +1251,7 @@ llm = ChatOpenAI(
 
 # All calls are cached automatically
 response = llm.invoke("What is the capital of France?")
-# Second identical call: served from cache (<1ms)`}</CodeBlock>
+# Second identical call: served from cache (68-82ms over HTTP)`}</CodeBlock>
             </div>
 
             <div>

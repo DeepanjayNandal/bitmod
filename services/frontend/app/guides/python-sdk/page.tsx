@@ -146,7 +146,7 @@ if result.hit:
     print(result.answer)       # cached response text
     print(result.confidence)   # float, e.g. 0.92
     print(result.cache_layer)  # which cache layer matched, e.g. "semantic"
-    print(result.latency_ms)   # sub-millisecond on hits
+    print(result.latency_ms)   # 68-82ms on exact hits, measured over HTTP
 else:
     print("Cache miss — no answer above the confidence threshold")`}
             </CodeBlock>

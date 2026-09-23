@@ -168,7 +168,7 @@ export default function CostReductionPage() {
           <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
             {[
               { value: "90%+", label: "Cost Reduction", icon: TrendingDown },
-              { value: "<1ms", label: "Cache Hit Latency", icon: Zap },
+              { value: "68-82ms", label: "Cached, over HTTP", icon: Zap },
               { value: "0", label: "LLM Calls on Hit", icon: DollarSign },
               { value: "3", label: "Compression Levels", icon: Layers },
             ].map((stat) => (

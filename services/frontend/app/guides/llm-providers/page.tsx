@@ -32,7 +32,7 @@ export default function LLMProvidersGuide() {
             Connecting Your LLM Provider
           </h1>
           <p className="mt-4 text-lg text-muted-foreground">
-            BitMod ships with 11 native LLM adapters plus 1 universal OpenAI-compatible adapter (12 total) — supporting 200+ providers and counting. Just set a provider and go.
+            BitMod ships with 11 native LLM adapters plus 1 universal OpenAI-compatible adapter (12 total), so any provider speaking the OpenAI API works. Just set a provider and go.
           </p>
         </div>
 
@@ -127,7 +127,7 @@ llm_model: llama3.2
                     <Zap className="h-4 w-4 text-primary" />
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Local models benefit massively from caching. A 7B model that takes 2 seconds to generate a response is served from cache in under 1ms.
+                    Local models benefit massively from caching. A 7B model that takes seconds to generate a response is served from cache in 68-82ms over HTTP, or 0.2ms in-process.
                   </p>
                 </div>
               </CardContent>
@@ -188,7 +188,7 @@ bitmod status`}
                   <ul className="text-sm text-muted-foreground space-y-1">
                     <li>Set provider credentials via environment variables or <code className="text-primary/80 bg-primary/10 px-1 py-0.5 rounded text-xs font-mono">bitmod.yaml</code>.</li>
                     <li>BitMod auto-translates between API formats — use OpenAI-compatible requests for any provider.</li>
-                    <li>11 native adapters + 1 universal OpenAI-compatible adapter cover 200+ providers.</li>
+                    <li>11 native adapters + 1 universal OpenAI-compatible adapter, which covers anything speaking that API.</li>
                     <li>Cache hits are shared across providers by default.</li>
                   </ul>
                 </div>

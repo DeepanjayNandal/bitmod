@@ -236,7 +236,7 @@ export default function HomePage() {
             {
               icon: Brain,
               title: "Any LLM, Any Provider",
-              description: "Universal — works with any OpenAI-compatible provider. Ollama, OpenAI, Anthropic, Groq, Together, Fireworks, vLLM, and 200+ more. Just set a URL.",
+              description: "Universal — works with any OpenAI-compatible provider. Ollama, OpenAI, Anthropic, Groq, Together, Fireworks, vLLM, and anything else that speaks that API. Just set a URL.",
               color: "text-blue-400",
             },
             {

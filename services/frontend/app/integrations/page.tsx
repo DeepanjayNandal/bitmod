@@ -309,7 +309,7 @@ export default function IntegrationsPage() {
             </span>
           </h2>
           <p className="mt-3 text-lg text-muted-foreground">
-            Works with any OpenAI-compatible API. 200+ providers supported. Just set a URL.
+            Works with any OpenAI-compatible API. Just set a URL.
           </p>
         </div>
 

@@ -10,7 +10,7 @@
 
 BitMod is a reverse proxy and semantic cache for LLM APIs. Drop it in front of any OpenAI, Anthropic, or Gemini endpoint. Your application changes its base URL and sends a BitMod API key. Repeated and rephrased queries are served from cache instead of reaching the LLM, cutting response time from seconds to milliseconds and eliminating redundant API spend.
 
-Built for high-repetition workloads: customer support bots, legal Q&A, HR documentation, code review pipelines. Ships with 1,356 tests, CI runs on Python 3.10, 3.11, 3.12, and 3.13 with mypy type checking on every commit.
+Built for high-repetition workloads: customer support bots, legal Q&A, HR documentation, code review pipelines. Ships with 1,362 tests, CI runs on Python 3.10, 3.11, 3.12, and 3.13 with mypy type checking on every commit.
 
 ---
 
@@ -31,8 +31,8 @@ dragged by the first call loading the model.
 Artifacts: [`run 1`](tests/benchmark/results/latency_http_llama31_8b.json) and
 [`run 2`](tests/benchmark/results/latency_http_llama31_8b_run2.json), n=10 each.
 Every figure is a range because two runs of the same script against the same
-model gave different answers. Cached-exact medians across five runs: 68.4, 69.6,
-71.9, 79.5, 81.9ms — it moves with machine memory pressure. Rephrased queries
+model gave different answers. Cached-exact medians across the four committed
+runs: 68.4, 69.6, 79.5, 81.9ms — it moves with machine memory pressure. Rephrased queries
 served semantically rather than by exact match cost more and are not in this
 figure. These numbers describe self-hosted inference, not a hosted provider.
 
@@ -86,9 +86,9 @@ flowchart TD
         C0["① Normalization — composite SHA-256 key"]
         C1["② Exact Match — O(1) key lookup"]
         C2["③ Source Verification — version hash check"]
-        C3["④ Semantic Similarity — embedding cosine ≥ 0.92"]
+        C3["④ Semantic Similarity — embedding cosine ≥ 0.88"]
         C4["⑤ Composable Decomposition — sub-query reuse"]
-        C5["⑥ Fuzzy Match — Jaccard + token overlap ≥ 0.85"]
+        C5["⑥ Fuzzy Match — token overlap or edit distance ≥ 0.85"]
         C6["⑦ Similarity Link Traversal — near-miss graph"]
         C7["⑧ Atomic Fact Search — reusable facts"]
         C8["⑨ Session Context — prior turn injection"]
@@ -96,25 +96,27 @@ flowchart TD
     end
 
     subgraph p ["Pluggable Provider Layer  ·  Hexagonal Architecture"]
-        P1["LLM  ·  OpenAI · Anthropic · Ollama · 200+ OpenAI-compat"]
+        P1["LLM  ·  OpenAI · Anthropic · Ollama · any OpenAI-compat"]
         P2["Embeddings  ·  4 providers"]
-        P3["Databases  ·  SQLite (default) · PostgreSQL"]
+        P3["Databases  ·  SQLite (default) · PostgreSQL · MySQL · MongoDB"]
         P4["Vector Stores  ·  Qdrant · Chroma · Pinecone"]
     end
 
     A --> gw --> ce
-    ce -->|"confidence ≥ 0.95  ·  cache hit  ·  ~70-85ms over HTTP" | A
-    ce -->|"confidence < 0.30  ·  cache miss"| p
-    ce -->|"0.30–0.94  ·  partial hit  ·  token reduction"| p
+    ce -->|"confidence ≥ 0.85  ·  cache hit  ·  68-82ms over HTTP" | A
+    ce -->|"below 0.85, no evidence  ·  cache miss"| p
+    ce -->|"below 0.85, some evidence  ·  partial hit  ·  token reduction"| p
     p -->|"generate → embed → store"| ce
 
     style A fill:#3b82f6,color:#fff
 ```
 
 **Three possible outcomes for every query:**
-- **Cache hit** (confidence ≥ 0.95): response served immediately, no LLM call
-- **Partial hit** (0.30–0.94): cached context injected into the LLM prompt, reducing redundant generation
-- **Cache miss** (< 0.30): full LLM generation, result stored for future reuse
+- **Cache hit** (confidence ≥ `serve_threshold`, shipping 0.85): response served immediately, no LLM call
+- **Partial hit** (below the threshold, but at least one layer produced evidence): cached context injected into the LLM prompt, reducing redundant generation
+- **Cache miss** (below the threshold with no evidence at all): full LLM generation, result stored for future reuse
+
+The partial/miss split is not a confidence band. `base.py:1163` branches on whether the evidence list is non-empty, so a query with one weak signal takes the partial path at any confidence above zero.
 
 ---
 
@@ -123,10 +125,11 @@ flowchart TD
 BitMod uses **Bayesian evidence accumulation**: each layer contributes a confidence score `[0, 1]`, composed as:
 
 ```
-total_confidence = 1 - ∏(1 - cᵢ)
+pos_total = 1 - ∏(1 - cᵢ)
+total_confidence = best + (pos_total - best) × damping     # damping ships at 0.50
 ```
 
-This is not winner-take-all. A semantic match at 0.88 plus a fuzzy match at 0.72 combine to a higher confidence than either alone. Negative evidence (stale source hashes, context-dependent query signals) subtracts from the score.
+This is not winner-take-all. A semantic match at 0.88 plus a fuzzy match at 0.72 combine to more than either alone: undamped they give 0.966, and the shipped 0.50 damping pulls that back to 0.923. Damping exists because plain noisy-OR overstates when layers agree, measured at +0.126 for two contributing layers and +0.386 for three (ADR-004, `accumulation_fit.json`). Negative evidence (stale source hashes, context-dependent query signals) subtracts from the score.
 
 ### Cache Layer Breakdown
 
@@ -134,24 +137,24 @@ This is not winner-take-all. A semantic match at 0.88 plus a fuzzy match at 0.72
 |---|---|---|---|
 | ① Query Normalization | Lowercase + stopword removal + SHA-256 | Always runs | Composite key includes namespace, filters, role |
 | ② Exact Match | Key lookup against normalized composite | O(1) | First and fastest check |
-| ③ Source Verification | SHA-256 hash per source section | Any mismatch → invalidate | Prevents serving stale answers when documents change |
-| ④ Semantic Similarity | Cosine similarity on query embeddings | ≥ 0.92 direct serve / ≥ 0.75 context | Catches rephrased questions with same meaning |
+| ③ Source Verification | SHA-256 hash per source section | Any mismatch → invalidate | Applies to answers cached with a source manifest; see Source-Version Locking |
+| ④ Semantic Similarity | Cosine similarity on query embeddings | ≥ 0.88 direct serve / ≥ 0.60 retrieval | Catches rephrased questions with same meaning |
 | ⑤ Composable Decomposition | Sub-query splitting + partial reassembly | Any sub-hit counts | "Compare X vs Y" reuses cached X and Y independently |
-| ⑥ Fuzzy Match | Jaccard + token overlap similarity | ≥ 0.85 | Catches typos and minor rephrasing |
+| ⑥ Fuzzy Match | Greater of token overlap and edit distance | ≥ 0.85 | Edit distance is the half that catches typos; token overlap catches reordering |
 | ⑦ Similarity Link Traversal | 2-hop near-miss graph (bidirectional) | Configurable strength | Walks related queries learned across sessions |
-| ⑧ Atomic Fact Search | Embedding search over extracted facts | ≥ 0.80 similarity | Reuses sub-facts from prior answers without full regeneration |
+| ⑧ Atomic Fact Search | Embedding search over extracted facts | ≥ 0.65 similarity | Reuses sub-facts from prior answers without full regeneration |
 | ⑨ Session Context | Prior turn injection from session tracker | turn_count > 0 | Injects conversation history as partial cache evidence |
 
 **Supporting mechanisms (not lookup layers):**
 
 - **Cache Qualification Gate**: runs before serving from layers ② and ⑤, detects context-dependent queries ("tell me more", pronoun-heavy follow-ups) and routes them to the LLM instead
 - **Invalidation**: maintenance layer; changing a source section invalidates the answers derived from it. One hop, not a dependency-graph walk.
-- **TTL**: entries carry an optional `max_age_seconds` and expire on read. No global default is configured, so entries written by the proxy and chat service never expire.
+- **TTL**: entries carry an optional `max_age_seconds` and expire on read. A global default is configurable via `BITMOD_CACHE_DEFAULT_TTL` and every write path inherits it; it ships as `0`, which means never expire, so entries do not expire unless you set it.
 - **LRU eviction**: cost-aware, keeping expensive-to-regenerate entries. Implemented on SQLite only — PostgreSQL, MySQL and MongoDB do not evict.
 
 ### Source-Version Locking
 
-Every cached answer is bound to the SHA-256 hash of each source section it was generated from. Before serving:
+Answers cached from ingested documents are bound to the SHA-256 hash of each source section they were generated from. Before serving:
 
 ```
 for each section in answer.source_manifest:
@@ -160,7 +163,9 @@ for each section in answer.source_manifest:
         queue_for_regeneration(query)
 ```
 
-This ensures answers never go stale when documents are updated.
+This ensures document-grounded answers never go stale when their sources are updated.
+
+**This does not cover every cached answer.** Answers cached by the reverse proxy have no source manifest: `proxy/base.py:1350` and `services/chat/app/main.py:471` both store an empty `source_sections`, and `double_verify` returns true immediately on an empty list, so those entries are served without a hash check. They have nothing to go stale against, since they were never derived from an ingested document, but the guarantee above is not what protects them. The paths that do populate a manifest are `api.py:520`, `api.py:671`, `main.py:1053` and `main.py:1680`.
 
 ---
 
@@ -400,7 +405,7 @@ bitmod/
 
 **Why hexagonal architecture?** Provider lock-in is real. Swapping LLMs, databases, or vector stores should be configuration, not refactoring. See [ADR 001](docs/adr/001-hexagonal-architecture.md).
 
-**Why Bayesian scoring over a single threshold?** A fuzzy match at 0.78 and a semantic match at 0.88 together are more reliable than either alone. Multiplicative composition prevents false confidence from a single weak signal.
+**Why Bayesian scoring over a single threshold?** A fuzzy match at 0.78 and a semantic match at 0.88 together are stronger evidence than either alone. Accumulation makes agreeing layers reinforce each other, and damping at 0.50 corrects the overstatement that pure noisy-OR produces when they do.
 
 **What this doesn't do:** BitMod is a cache and retrieval layer, not an agent framework or RAG pipeline replacement. It works best for high-repetition query workloads: support, legal, HR, documentation Q&A.
 
@@ -408,7 +413,7 @@ bitmod/
 
 ## Known Limitations
 
-- **Benchmark hit rates are workload-dependent**: the 94% figure is measured on high-repetition corpora (support tickets, legal Q&A). Diverse or open-ended conversations will see lower rates.
+- **Benchmark hit rates are workload-dependent**: BitMod served 45.7% of a 1,500-query public support corpus at the shipping threshold (`support_warm_1500.json`). Rates rise with repetitive traffic and fall on diverse or open-ended conversations. Measure on your own workload rather than trusting either number.
 - **Not a RAG replacement**: BitMod caches and reuses LLM outputs; it does not do retrieval-augmented generation or long-document reasoning.
 
 ---

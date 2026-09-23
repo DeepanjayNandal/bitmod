@@ -270,14 +270,30 @@ def retrieval_reach(rows: list[dict]) -> dict:
 def threshold_sweep(rows: list[dict]) -> list[dict]:
     """Precision and recall against serve_threshold, recomputed without re-running.
 
-    Carries the same approximation as the in-process runner's sweep and for the
-    same reason: a query that served stopped early, so at a HIGHER threshold the
-    pipeline might have continued to later layers and recovered. The curve
-    therefore reads low above the threshold in force.
+    PROJECTED, NOT MEASURED, and the error is large and one-directional.
 
-    That caveat is close to vacuous on a frozen-cache run, where almost nothing
-    serves at 0.85 and so almost nothing stopped early. It is not vacuous under
-    --warm.
+    This re-reads one run's recorded confidences against a different bar. What it
+    cannot re-read is the cache those confidences came from, and under --warm the
+    cache is itself a function of the threshold: a miss is what writes an entry,
+    so a lower bar serves more, writes less, and leaves later queries a sparser
+    cache to retrieve from. The confidences change; the projection assumes they
+    do not.
+
+    Measured 2026-09-23, this projection against live runs at the same commit,
+    held-out warm arm:
+
+        0.80   projected 120 wrong of 1111 served    live 309 of 1285    2.6x
+        0.75   projected 184 wrong of 1316 served    live 354 of 1384    1.9x
+
+    It understates wrong serves, which is the reassuring direction. Do not quote
+    a row of this as a measurement. Set BITMOD_CACHE_SERVE_THRESHOLD and run it.
+
+    A second, smaller approximation runs the other way: a query that served
+    stopped early, so at a HIGHER threshold the pipeline might have continued to
+    later layers and recovered, and the curve reads low above the threshold in
+    force. That one is close to vacuous on a frozen-cache run, where almost
+    nothing serves at 0.85 and so almost nothing stopped early. It is not vacuous
+    under --warm, and it is the smaller of the two.
     """
     considered = [r for r in _scored(rows) if r["best_candidate"]]
     answerable = [r for r in _scored(rows) if r["expected_answers"]]
@@ -670,6 +686,14 @@ def main() -> None:
             ),
         },
         "retrieval_reach": retrieval_reach(rows),
+        "threshold_sweep_caveat": (
+            "PROJECTED, NOT MEASURED. Re-reads this run's confidences against a different bar without "
+            "re-running, so it cannot see that under --warm a lower threshold serves more, writes fewer "
+            "entries, and leaves later queries a sparser cache. Measured 2026-09-23 against live runs at "
+            "the same commit on the held-out warm arm, this understates wrong serves by 2.6x at 0.80 and "
+            "1.9x at 0.75, always in the reassuring direction. Do not quote a row as a measurement. See "
+            "the threshold_sweep docstring in run_support_benchmark.py."
+        ),
         "threshold_sweep": threshold_sweep(rows),
         "confusion": confusion(rows, answer_to_intent),
         "confusion_projected": [confusion_at(rows, answer_to_intent, t) for t in (0.70, 0.60, 0.50)],

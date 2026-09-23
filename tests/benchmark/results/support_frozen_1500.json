@@ -85,6 +85,7 @@
     "found_but_not_served": 805,
     "note": "found_but_not_served is the cost of serve_threshold on this workload: the correct answer was the top candidate and accumulated confidence did not clear the bar"
   },
+  "threshold_sweep_caveat": "PROJECTED, NOT MEASURED. ADDED 2026-09-23, AFTER THIS RUN: this key was not written by the harness that produced this file, it was added later and the provenance block above does not cover it. threshold_sweep re-reads this run's confidences against a different bar without re-running, so it cannot see that under --warm a lower threshold serves more, writes fewer entries, and leaves later queries a sparser cache. Live runs at serve_threshold 0.80 and 0.75 on the held-out warm arm (commit 184da23) show the projection understates wrong serves by 2.6x at 0.80 and 1.9x at 0.75, always in the reassuring direction. Do not quote a row as a measurement. The blocks are kept because a labelled projection is useful; an unlabelled one is what cost a day. See the threshold_sweep docstring in run_support_benchmark.py.",
   "threshold_sweep": [
     {
       "threshold": 0.5,

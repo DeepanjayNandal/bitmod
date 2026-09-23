@@ -22,11 +22,14 @@ Usage:
     python3 demo.py
 """
 
+import json
 import os
 import sys
 import tempfile
 import time
+from datetime import datetime, timezone
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "core"))
 
 from bitmod.adapters.db_sqlite import SQLiteBackend
@@ -34,6 +37,8 @@ from bitmod.adapters.embed_ollama import OllamaEmbeddingAdapter
 from bitmod.cache_engine import _get_config
 from bitmod.proxy import BitmodProxy
 from bitmod.router import LLMRouter
+
+from tests.benchmark.provenance import provenance
 
 # ---------------------------------------------------------------------------
 # 30 customer support Q&A pairs seeded into cache
@@ -375,6 +380,58 @@ def main():
         print(f"    Same questions again  : {rate(by_type['exact'])}")
         print(f"    Rephrased questions   : {rate(by_type['paraphrase'])}")
         print(f"    New unseen questions  : {rate(by_type['new'])}  ← correct, should miss")
+        print()
+
+        # The demo printed these and wrote nothing, so every figure it produced
+        # had a screenshot and a command behind it and no file. Thresholds come
+        # from the environment, so a sweep is three runs of this script with no
+        # code change; without an artifact per run, the sweep leaves no trace.
+        out_path = os.getenv("BITMOD_DEMO_OUT", "tests/benchmark/results/demo_run.json")
+        report = {
+            "harness": "demo.py — _run_cache_pipeline called directly, shipping config",
+            "measures": "hit rate by query type on a 50-query hand-built corpus",
+            "does_not_measure": [
+                "latency — generation is stubbed and _UnusedLLM raises if called",
+                "precision — every query has a correct answer by construction "
+                "except the 5 new-unseen, so this cannot see a wrong serve",
+            ],
+            "corpus": {
+                "seeded_pairs": len(QA_PAIRS),
+                "exact": len(QA_PAIRS),
+                "paraphrase": len(PARAPHRASES),
+                "new_unseen": len(NEW_QUESTIONS),
+                "origin": "hand-written for this demo, not a public dataset",
+            },
+            "embedder": "ollama/nomic-embed-text",
+            "run_config": {
+                "serve_threshold": config.serve_threshold,
+                "search_threshold": config.search_threshold,
+                "semantic_threshold": config.semantic_threshold,
+                "fuzzy_threshold": config.fuzzy_threshold,
+                "accumulation_damping": config.accumulation_damping,
+            },
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "provenance": provenance(),
+            "summary": {
+                "queries": total,
+                "hits": hits,
+                "hit_rate": round(hits / total, 4),
+                "misses": misses,
+                "multi_layer": multi_layer,
+                "served_by": {k: v for k, v in sorted(counts.items()) if k != "miss"},
+            },
+            "by_type": {
+                name: {
+                    "total": len(rows),
+                    "hits": sum(1 for r in rows if r != "miss"),
+                }
+                for name, rows in by_type.items()
+            },
+        }
+        os.makedirs(os.path.dirname(out_path), exist_ok=True)
+        with open(out_path, "w") as handle:
+            json.dump(report, handle, indent=1)
+        print(f"  Written: {out_path}")
         print()
 
         # Latency is deliberately NOT measured here — see the note on the stub

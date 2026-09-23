@@ -9,7 +9,7 @@ import {
 
 export const metadata: Metadata = {
   title: "Cost Reduction | BitMod",
-  description: "Cut LLM API costs by 90% or more with BitMod intelligent caching. Eliminate redundant calls, reduce latency, and keep your data on your servers.",
+  description: "Cut LLM API costs by your cache hit rate: every hit is a generation call you never pay for. 45.7% measured on a public support corpus. Keep your data on your servers.",
 }
 
 export default function CostReductionPage() {
@@ -33,13 +33,14 @@ export default function CostReductionPage() {
               Cut LLM Costs
             </span>
             <br />
-            <span className="text-foreground">by 90%+</span>
+            <span className="text-foreground">by your hit rate</span>
           </h1>
 
           <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground sm:text-xl">
-            BitMod&apos;s 9-layer intelligent cache intercepts redundant LLM calls before they
-            happen. Exact match, semantic similarity, composable decomposition &mdash; all running
-            on your infrastructure.
+            Every cache hit is a generation call you never pay for, so the saving is the hit
+            rate. BitMod served <span className="text-foreground font-medium">45.7%</span> of a
+            1,500-query public support workload at the shipping threshold. Your rate depends on how
+            repetitive your traffic is, and the honest way to find out is to run it on yours.
           </p>
         </div>
       </section>
@@ -51,7 +52,7 @@ export default function CostReductionPage() {
             The math is simple
           </h2>
           <p className="mt-3 text-lg text-muted-foreground">
-            Same questions, dramatically different bills.
+At the measured hit rate, not a hypothetical one.
           </p>
         </div>
 
@@ -100,19 +101,19 @@ export default function CostReductionPage() {
               <div className="text-sm font-mono text-[#8b949e]">Daily API usage</div>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm font-mono">
-                  <span className="text-[#e6edf3]">Unique queries</span>
-                  <span className="text-[#79c0ff]">1 &times; $0.03</span>
+                  <span className="text-[#e6edf3]">Cache misses</span>
+                  <span className="text-[#79c0ff]">543 &times; $0.03</span>
                 </div>
                 <div className="flex justify-between text-sm font-mono">
                   <span className="text-[#e6edf3]">Cache hits</span>
-                  <span className="text-[#7ee787] font-bold">999 &times; $0.00</span>
+                  <span className="text-[#7ee787] font-bold">457 &times; $0.00</span>
                 </div>
                 <div className="border-t border-border/20 pt-2 flex justify-between text-sm font-mono">
                   <span className="text-[#e6edf3] font-bold">Daily total</span>
-                  <span className="text-[#7ee787] font-bold text-lg">$0.03</span>
+                  <span className="text-[#7ee787] font-bold text-lg">$16.29</span>
                 </div>
               </div>
-              <div className="text-xs text-[#7ee787]">99.9% served from cache</div>
+              <div className="text-xs text-[#7ee787]">45.7% served from cache, the measured rate on a public support corpus</div>
             </div>
           </div>
         </div>
@@ -167,7 +168,7 @@ export default function CostReductionPage() {
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
             {[
-              { value: "90%+", label: "Cost Reduction", icon: TrendingDown },
+              { value: "45.7%", label: "Calls avoided, support corpus", icon: TrendingDown },
               { value: "68-82ms", label: "Cached, over HTTP", icon: Zap },
               { value: "0", label: "LLM Calls on Hit", icon: DollarSign },
               { value: "3", label: "Compression Levels", icon: Layers },

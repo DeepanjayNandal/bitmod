@@ -54,7 +54,7 @@ Provider prompt caching reduces the cost of processing the *prompt*. It does not
 
 **Provider caching reduces cost *per call*. BitMod reduces the *number* of calls.**
 
-When BitMod's cache hits, no API call is made at all -- zero input tokens, zero output tokens, zero latency. When BitMod's cache misses, the request passes through to the provider, where prompt caching can still reduce the cost of that call.
+When BitMod's cache hits, no API call is made at all -- zero input tokens and zero output tokens. The cached response still has to travel: 68-82ms over HTTP on the exact-match path, against seconds for generation. When BitMod's cache misses, the request passes through to the provider, where prompt caching can still reduce the cost of that call.
 
 The result is double savings:
 

@@ -14,9 +14,9 @@ BitMod implements a multi-layer cache pipeline that eliminates redundant LLM API
 
 **Confidence composition over binary decisions.** Rather than a single hit/miss threshold, each layer produces a confidence score. The final Bayesian accumulation layer composes these scores into a posterior probability of answer correctness, enabling the system to serve high-confidence partial results or combine evidence from multiple layers.
 
-**Cost-awareness.** The pipeline is ordered by computational cost: O(1) hash lookups run first, embedding comparisons second, decomposition third, and fuzzy scanning last. A hit at any layer short-circuits the remaining layers.
+**Cost-awareness.** The pipeline is ordered by computational cost: O(1) hash lookups run first, embedding comparisons second, decomposition third, and fuzzy scanning last. Two layers short-circuit: an exact-match hit returns at `proxy/base.py:608` and a composable full hit at `:770`. Every other layer contributes graded evidence and the pipeline continues, so a serve can rest on several layers that none of them would carry alone.
 
-**Source integrity.** Every cached answer is bound to the SHA-256 hash of the source data that produced it. When source data changes, cached answers are automatically invalidated via double verification at serve time.
+**Source integrity.** Answers generated from ingested documents are bound to the SHA-256 hash of each source section they came from, and double verification re-checks every hash at serve time, invalidating on any mismatch. This does not cover every cached answer: answers cached by the reverse proxy carry no manifest (`proxy/base.py:1350` and `services/chat/app/main.py:471` store an empty `source_sections`, and `double_verify` returns true immediately on an empty list). They were never derived from a document and have nothing to go stale against, but the guarantee above is not what protects them.
 
 ---
 

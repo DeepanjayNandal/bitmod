@@ -40,7 +40,7 @@ The gain that combining adds over the strongest single piece of evidence is damp
 pos_total = best + (pos_total - best) * accumulation_damping
 ```
 
-Applied at `core/bitmod/cache_engine.py:1336`, only when more than one layer contributed positive evidence, and gated on the `calibrated_confidence` flag. `accumulation_damping` defaults to `0.50` (`core/bitmod/config.py:324`, overridable via `BITMOD_CACHE_ACCUMULATION_DAMPING`).
+Applied at `core/bitmod/cache_engine.py:1406`, only when more than one layer contributed positive evidence, and gated on the `calibrated_confidence` flag. `accumulation_damping` defaults to `0.50` (`core/bitmod/config.py:351`, overridable via `BITMOD_CACHE_ACCUMULATION_DAMPING`).
 
 Three properties follow from damping the gain rather than the total. A single contributing layer is unchanged, which is correct because it is already calibrated. An exact match still means 1.0, because there is no gain over a best piece that is already certain. And the undamped noisy-OR total remains the ceiling — combining always adds something, just less than it claimed.
 

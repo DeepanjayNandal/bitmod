@@ -1,4 +1,4 @@
-"""Change-driven cache invalidation engine (Patent VIII)."""
+"""Change-driven cache invalidation engine."""
 
 import hashlib
 import logging

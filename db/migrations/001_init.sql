@@ -108,7 +108,7 @@ CREATE INDEX IF NOT EXISTS ix_chunks_current ON chunks (is_current);
 CREATE INDEX IF NOT EXISTS ix_chunks_embedding ON chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 
 -- ============================================================================
--- ANSWER CACHE (Patent §VII)
+-- ANSWER CACHE
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS answer_cache (
@@ -139,7 +139,7 @@ CREATE INDEX IF NOT EXISTS ix_answer_cache_normalized ON answer_cache USING gin 
 CREATE INDEX IF NOT EXISTS ix_answer_cache_sections ON answer_cache USING gin (source_sections);
 
 -- ============================================================================
--- CACHED ACTION PLANS (Patent §XIII)
+-- CACHED ACTION PLANS (schema only: no code reads or writes these)
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS action_plans (
@@ -166,7 +166,7 @@ CREATE INDEX IF NOT EXISTS ix_action_plans_key ON action_plans (intent_key);
 CREATE INDEX IF NOT EXISTS ix_action_plans_valid ON action_plans (is_valid);
 
 -- ============================================================================
--- PLAN APPROVALS (Patent §XIV)
+-- PLAN APPROVALS (schema only: no code reads or writes these)
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS plan_approvals (
@@ -202,7 +202,7 @@ CREATE TABLE IF NOT EXISTS plan_executions (
 CREATE INDEX IF NOT EXISTS ix_plan_executions_plan ON plan_executions (plan_id);
 
 -- ============================================================================
--- CHANGE DETECTION (Patent §IV, §V)
+-- CHANGE DETECTION (schema only: no code reads or writes these)
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS source_monitors (
@@ -242,7 +242,7 @@ CREATE INDEX IF NOT EXISTS ix_change_events_status ON change_events (processing_
 CREATE INDEX IF NOT EXISTS ix_change_events_citations ON change_events USING gin (affected_citations);
 
 -- ============================================================================
--- GAP DETECTION (Patent §X)
+-- GAP DETECTION (schema only: no code reads or writes these)
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS data_gaps (
@@ -261,7 +261,7 @@ CREATE INDEX IF NOT EXISTS ix_data_gaps_unresolved ON data_gaps (resolved, frequ
     WHERE resolved = false;
 
 -- ============================================================================
--- SUBSCRIPTIONS & NOTIFICATIONS (Patent §IX)
+-- SUBSCRIPTIONS & NOTIFICATIONS (schema only: no code reads or writes these)
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS subscriptions (

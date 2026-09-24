@@ -1,20 +1,23 @@
 """Bitmod Intelligent Cache Engine.
 
-Implements Patent §VI-§VIII, §XII, §XV, §XIX, §XXII, §XXIV:
+What this module actually implements:
 - Parameterized answer caching with composite SHA-256 keying
-- Source-version locking via source-data manifests
-- Serve-time double verification
-- Fuzzy query matching (cache miss → similar cached query → user confirmation)
+- Source-version locking via source-data manifests, for answers that carry one
+- Serve-time double verification (returns True immediately on an empty manifest)
+- Fuzzy query matching, scored as evidence; there is no user-confirmation step
 - Semantic cache matching (embedding-based similarity search)
-- Composable query decomposition (complex queries → independent sub-caches)
-- Temporal queries (point-in-time, permanently valid)
-- Adaptive storage tiering (hot/warm/cold)
-- Response versioning (version chains, differential display)
-- Cache metrics tracking
-- TTL-based expiration and LRU eviction
+- Composable query decomposition (complex queries into independent sub-caches)
+- Bayesian evidence accumulation across layers, with damping
+- Atomic facts and similarity links written after generation
+- TTL-based expiration, and LRU eviction on SQLite only
 
-All database operations go through the DatabaseBackend interface —
-no direct SQL or ORM coupling.
+Deliberately NOT here, despite older docs having claimed otherwise: adaptive
+storage tiering, response version chains, predictive warming, federated
+sharing, cached action plans. None of them exist anywhere in the codebase.
+
+All database operations go through the DatabaseBackend interface, so there is
+no direct SQL or ORM coupling. Note that five capabilities are reached through
+hasattr and are SQLite-only; see get_cache_stats and _maybe_evict.
 """
 
 from __future__ import annotations
@@ -523,7 +526,7 @@ def fuzzy_prefilter_terms(query_normalized: str, prefix_length: int | None = Non
 
 
 # ---------------------------------------------------------------------------
-# Composite Key Generation (Patent §VII)
+# Composite Key Generation
 # ---------------------------------------------------------------------------
 
 
@@ -568,7 +571,7 @@ def compute_answer_key(
 
 
 # ---------------------------------------------------------------------------
-# Cache Lookup + Double Verification (Patent §VII, §VIII)
+# Cache Lookup + Double Verification
 # ---------------------------------------------------------------------------
 
 
@@ -583,7 +586,7 @@ def double_verify(
     cached: AnswerCacheRecord,
     hash_cache: dict[str, str | None] | None = None,
 ) -> bool:
-    """Serve-time double verification (Patent §VIII).
+    """Serve-time double verification.
 
     Before serving ANY cached answer, verify that every source section's
     version_hash still matches. Returns True if all sources still valid.
@@ -662,7 +665,7 @@ def double_verify(
 
 
 def is_temporal_query(cached: AnswerCacheRecord) -> bool:
-    """Check if this is a temporal/historical query (Patent §XIX).
+    """Check if this is a temporal/historical query.
 
     Temporal queries are permanently valid — historical data doesn't change.
     """
@@ -716,7 +719,7 @@ def try_cache(
 
 
 # ---------------------------------------------------------------------------
-# Fuzzy Query Matching (Patent §XII)
+# Fuzzy Query Matching
 # ---------------------------------------------------------------------------
 
 
@@ -775,7 +778,7 @@ def fuzzy_match(
 
 
 # ---------------------------------------------------------------------------
-# Composable Query Decomposition (Patent §XV)
+# Composable Query Decomposition
 # ---------------------------------------------------------------------------
 
 
@@ -1165,7 +1168,7 @@ def store_answer(
 
 
 # ---------------------------------------------------------------------------
-# Semantic Cache Matching (Patent §XII extension)
+# Semantic Cache Matching
 # ---------------------------------------------------------------------------
 
 try:
@@ -1283,7 +1286,7 @@ def semantic_cache_match(
 
 
 # ---------------------------------------------------------------------------
-# Cache Invalidation (Patent §VIII)
+# Cache Invalidation
 # ---------------------------------------------------------------------------
 
 
@@ -1324,7 +1327,7 @@ def get_cache_stats(backend: DatabaseBackend, session, namespace_id: str | None 
 
 
 # ---------------------------------------------------------------------------
-# Pipeline Evidence Accumulation (Patent §VI cohesive engine)
+# Pipeline Evidence Accumulation
 # ---------------------------------------------------------------------------
 
 

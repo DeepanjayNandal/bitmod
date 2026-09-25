@@ -220,6 +220,7 @@ against centroids before candidates, rather than scanning every vector.
 |---|---|
 | API keys | Stored as SHA-256 hashes, compared with `hmac.compare_digest`. Plaintext is never persisted. |
 | Auth | On by default (`BITMOD_AUTH_ENABLED`). JWT and RBAC on the gateway. |
+| Proxy routes | `POST /v1/chat` and the `/v1/chat/{path:path}` catch-all require a `read` scope (`services/gateway/app/main.py:676`), matching `/v1/chat/completions`. |
 | Namespace isolation | Cache keys and queries are namespace-scoped; a backend that cannot scope a search fails closed. |
 | Rate limiting | Configurable per route. |
 | Input sanitisation | HTML escape, null byte removal, length limits. |

@@ -1288,6 +1288,23 @@ def cmd_query(args: argparse.Namespace) -> int:
     return 0
 
 
+def _gateway_auth_headers() -> dict[str, str]:
+    """Credentials for a gateway call, empty when none configured.
+
+    The gateway reads its allowlist from BITMOD_API_KEYS and accepts one of
+    those keys as `Authorization: ApiKey <key>` (see core/bitmod/auth.py).
+    Clients name the single key they send BITMOD_API_KEY, which is the
+    convention the README curl examples already use.
+
+    Returns {} when unset so a gateway with auth disabled keeps working with no
+    configuration at all; the caller surfaces the 401 if one comes back.
+    """
+    import os
+
+    key = os.getenv("BITMOD_API_KEY", "")
+    return {"Authorization": f"ApiKey {key}"} if key else {}
+
+
 def _query_via_chat_service(gateway_url: str, question: str, filters: dict) -> dict | None:
     """Send query through the gateway to the chat service (full 9-layer pipeline).
 
@@ -1304,8 +1321,14 @@ def _query_via_chat_service(gateway_url: str, question: str, filters: dict) -> d
             resp = client.post(
                 f"{gateway_url}/v1/chat",
                 json={"message": question, "filters": filters, "stream": False},
-                headers={"X-Bitmod-Debug": "true"},
+                headers={"X-Bitmod-Debug": "true", **_gateway_auth_headers()},
             )
+            if resp.status_code in (401, 403):
+                raise RuntimeError(
+                    "Gateway rejected the request (HTTP "
+                    f"{resp.status_code}). Auth is enabled, so set BITMOD_API_KEY to one of the "
+                    "keys in the gateway's BITMOD_API_KEYS list."
+                )
             if resp.status_code == 200:
                 return resp.json()  # type: ignore[no-any-return]
             # Non-200: include status and detail in the error
@@ -1339,7 +1362,7 @@ def _query_via_urllib(gateway_url: str, question: str, filters: dict) -> dict | 
     req = urllib.request.Request(  # noqa: S310 — intentional HTTP request to local gateway
         f"{gateway_url}/v1/chat",
         data=payload,
-        headers={"Content-Type": "application/json", "X-Bitmod-Debug": "true"},
+        headers={"Content-Type": "application/json", "X-Bitmod-Debug": "true", **_gateway_auth_headers()},
         method="POST",
     )
     try:

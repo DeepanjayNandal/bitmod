@@ -18,6 +18,20 @@ from pathlib import Path
 import httpx
 import pytest
 
+
+def _gateway_auth_headers() -> dict:
+    """Credentials for the gateway, empty when BITMOD_API_KEY is unset.
+
+    The gateway accepts one of its BITMOD_API_KEYS as `Authorization: ApiKey
+    <key>`. Sending nothing when unset keeps this runnable against a gateway
+    with auth disabled.
+    """
+    import os
+
+    key = os.getenv("BITMOD_API_KEY", "")
+    return {"Authorization": f"ApiKey {key}"} if key else {}
+
+
 API_URL = os.getenv("BITMOD_TEST_API_URL", "https://test.bitmod.io")
 SAMPLE_DIR = Path(__file__).parent / "sample_data"
 TIMEOUT = 120.0
@@ -69,7 +83,7 @@ def chat(client: httpx.Client, message: str, **kwargs) -> dict:
     payload = {"message": message, "stream": False}
     if kwargs.get("filters"):
         payload["filters"] = kwargs["filters"]
-    resp = client.post(f"{API_URL}/v1/chat", json=payload, timeout=TIMEOUT)
+    resp = client.post(f"{API_URL}/v1/chat", json=payload, headers=_gateway_auth_headers(), timeout=TIMEOUT)
     resp.raise_for_status()
     return resp.json()
 

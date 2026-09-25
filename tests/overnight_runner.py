@@ -37,6 +37,20 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
+
+def _gateway_auth_headers() -> dict:
+    """Credentials for the gateway, empty when BITMOD_API_KEY is unset.
+
+    The gateway accepts one of its BITMOD_API_KEYS as `Authorization: ApiKey
+    <key>`. Sending nothing when unset keeps this runnable against a gateway
+    with auth disabled.
+    """
+    import os
+
+    key = os.getenv("BITMOD_API_KEY", "")
+    return {"Authorization": f"ApiKey {key}"} if key else {}
+
+
 try:
     import httpx
 except ImportError:
@@ -292,7 +306,7 @@ async def chat_request(
 
     start = time.perf_counter()
     try:
-        resp = await client.post(f"{url}/v1/chat", json=payload, timeout=timeout)
+        resp = await client.post(f"{url}/v1/chat", json=payload, headers=_gateway_auth_headers(), timeout=timeout)
         elapsed = (time.perf_counter() - start) * 1000
 
         if resp.status_code == 200:

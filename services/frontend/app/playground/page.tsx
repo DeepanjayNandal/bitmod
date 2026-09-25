@@ -9,8 +9,9 @@ import {
   Layers, Search, Brain, GitBranch, FileCode, ShieldCheck,
   MessageSquare, ChevronDown, ChevronRight, BookOpen,
   CheckCircle, XCircle, ArrowRight, History,
-  Plus, X,
+  Plus, X, KeyRound,
 } from "lucide-react"
+import { getApiKey, setApiKey as persistApiKey, authHeaders, MISSING_KEY_MESSAGE } from "@/lib/api-key"
 
 // --- Types ---
 
@@ -402,6 +403,10 @@ export default function PlaygroundPage() {
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("prompts")
   const [sessions, setSessions] = useState<ConversationSession[]>([])
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
+  // Read on mount rather than in the initialiser: localStorage does not exist
+  // during server rendering, and touching it there desyncs the first paint.
+  const [apiKey, setApiKeyState] = useState("")
+  useEffect(() => setApiKeyState(getApiKey()), [])
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const getApiUrl = useCallback(
@@ -414,7 +419,7 @@ export default function PlaygroundPage() {
     const url = getApiUrl()
     const params = new URLSearchParams({ limit: "20" })
     fetch(`${url}/v1/history?${params}`, {
-      headers: { "X-Requested-With": "XMLHttpRequest" },
+      headers: { "X-Requested-With": "XMLHttpRequest", ...authHeaders(apiKey) },
     })
       .then((r) => (r.ok ? r.json() : []))
       .then((data) => setHistory(Array.isArray(data) ? data : []))
@@ -514,6 +519,7 @@ export default function PlaygroundPage() {
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
         "X-Requested-With": "XMLHttpRequest",
+        ...authHeaders(apiKey),
       }
       if (showDebug) headers["X-Bitmod-Debug"] = "true"
 
@@ -526,6 +532,10 @@ export default function PlaygroundPage() {
         signal: controller.signal,
       })
 
+      if (response.status === 401 || response.status === 403) {
+        setMessages((prev) => [...prev, { role: "assistant", content: MISSING_KEY_MESSAGE }])
+        return
+      }
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
 
       const data = await response.json()
@@ -563,6 +573,32 @@ export default function PlaygroundPage() {
         <p className="mt-2 text-muted-foreground">
           Test your BitMod instance. See every layer of the cache pipeline in real time.
         </p>
+
+        {/* API key. Stored in localStorage, never in the bundle: a
+            NEXT_PUBLIC_ variable would ship the key inside the page that is
+            supposed to be protected by it. */}
+        <div className="mt-4 flex flex-col gap-1.5 sm:flex-row sm:items-center">
+          <label htmlFor="bitmod-api-key" className="flex items-center gap-1.5 text-xs text-muted-foreground sm:w-32">
+            <KeyRound className="h-3.5 w-3.5" />
+            API key
+          </label>
+          <input
+            id="bitmod-api-key"
+            type="password"
+            value={apiKey}
+            onChange={(e) => {
+              setApiKeyState(e.target.value)
+              persistApiKey(e.target.value)
+            }}
+            placeholder="Optional. Required when the gateway has auth enabled."
+            autoComplete="off"
+            spellCheck={false}
+            className="flex-1 rounded-md border border-border/60 bg-background/60 px-3 py-1.5 text-xs font-mono outline-none focus:border-primary/60"
+          />
+          <span className="text-[10px] text-muted-foreground">
+            {apiKey ? "Saved in this browser" : "Not set"}
+          </span>
+        </div>
       </div>
 
       <div className="flex flex-col gap-6">
@@ -753,14 +789,18 @@ export default function PlaygroundPage() {
           </div>
         </Card>
 
-        {/* Sidebar — horizontal row below chat */}
-        <div className="grid grid-cols-3 gap-4">
+        {/* Sidebar, a horizontal row below chat.
+            items-start stops grid items stretching to the row height. Without
+            it the single-row toggle card matched the nine-row Cache Layers card
+            beside it and rendered as a header above a block of empty space,
+            which read as a panel that had failed to load. */}
+        <div className="grid grid-cols-3 gap-4 items-start">
           {/* Pipeline Trace Toggle */}
           <Card className="border-border/40 bg-card/50">
             <CardContent className="pt-4 pb-4">
               <div className="flex items-center justify-between">
                 <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                  Pipeline Trace
+                  Show pipeline trace
                 </label>
                 <button
                   onClick={() => setShowDebug(!showDebug)}

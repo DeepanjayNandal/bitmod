@@ -22,6 +22,20 @@ from datetime import datetime, timezone
 
 import httpx
 
+
+def _gateway_auth_headers() -> dict:
+    """Credentials for the gateway, empty when BITMOD_API_KEY is unset.
+
+    The gateway accepts one of its BITMOD_API_KEYS as `Authorization: ApiKey
+    <key>`. Sending nothing when unset keeps this runnable against a gateway
+    with auth disabled.
+    """
+    import os
+
+    key = os.getenv("BITMOD_API_KEY", "")
+    return {"Authorization": f"ApiKey {key}"} if key else {}
+
+
 GATEWAY_URL = os.getenv("GATEWAY_URL", "http://localhost:8000")
 RESULTS_LOG = Path("/tmp/bitmod-stress-results.jsonl")
 PAUSE_SIGNAL = Path("/tmp/bitmod-stress-pause")
@@ -126,7 +140,7 @@ async def send_prompt(client: httpx.AsyncClient, prompt: dict) -> dict:
                 "project_id": "stress-test",
                 "stream": False,
             },
-            headers={"X-Bitmod-Debug": "true"},
+            headers={"X-Bitmod-Debug": "true", **_gateway_auth_headers()},
             timeout=REQUEST_TIMEOUT,
         )
         elapsed_ms = (time.monotonic() - start_time) * 1000

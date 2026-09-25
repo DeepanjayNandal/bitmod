@@ -103,6 +103,11 @@ def call(client: httpx.Client, url: str, message: str) -> tuple[float, bool, str
     started = time.perf_counter()
     response = client.post(url, json={"message": message, "stream": False})
     elapsed = (time.perf_counter() - started) * 1000
+    if response.status_code in (401, 403):
+        raise SystemExit(
+            f"Gateway returned {response.status_code}. /v1/chat requires a read scope: set "
+            "BITMOD_API_KEY to one of the gateway's BITMOD_API_KEYS before running this harness."
+        )
     response.raise_for_status()
     body = response.json()
     answer = body.get("answer") or ""
@@ -143,7 +148,15 @@ def main() -> None:
     semantic: list[float] = []
     semantic_served = 0
 
-    with httpx.Client(timeout=300) as client:
+    # The gateway requires a read scope on /v1/chat. Set once on the client so
+    # every call inherits it; unset BITMOD_API_KEY sends nothing, which keeps
+    # this runnable against a gateway with auth disabled.
+    import os
+
+    _key = os.getenv("BITMOD_API_KEY", "")
+    _auth = {"Authorization": f"ApiKey {_key}"} if _key else {}
+
+    with httpx.Client(timeout=300, headers=_auth) as client:
         print(f"cold pass — {len(questions)} generations through {url}", flush=True)
         for index, question in enumerate(questions, 1):
             elapsed, cached, _ = call(client, url, question)
@@ -174,9 +187,20 @@ def main() -> None:
     exact_summary = summarise(exact)
     semantic_summary = summarise(semantic)
 
+    # Median over median is the headline, because every other figure this tool
+    # prints and the README publishes is a median. The paragraph above the
+    # README's latency table argues for medians on the grounds that a cold
+    # mean is dragged by the first call loading the model, and then the speedup
+    # silently used means anyway, which is how the README came to publish a
+    # ratio no pair of its own numbers produces. The mean ratio is still
+    # recorded in the artifact so the older figures remain traceable.
     speedup = None
-    if cold_summary.get("n") and exact_summary.get("n") and exact_summary["mean_ms"]:
-        speedup = round(cold_summary["mean_ms"] / exact_summary["mean_ms"], 1)
+    speedup_mean_basis = None
+    if cold_summary.get("n") and exact_summary.get("n"):
+        if exact_summary["median_ms"]:
+            speedup = round(cold_summary["median_ms"] / exact_summary["median_ms"], 1)
+        if exact_summary["mean_ms"]:
+            speedup_mean_basis = round(cold_summary["mean_ms"] / exact_summary["mean_ms"], 1)
 
     report = {
         "harness": "HTTP through the running gateway (POST /v1/chat)",
@@ -206,8 +230,12 @@ def main() -> None:
         "cached_semantic_served": semantic_served,
         "cached_semantic_attempts": len(rephrasings),
         "speedup_cold_over_exact": speedup,
+        "speedup_cold_over_exact_mean_basis": speedup_mean_basis,
         "speedup_condition": (
-            "ratio of the two measured means above; inherits the cold path's provider condition entirely"
+            "speedup_cold_over_exact is cold median over cached-exact median, matching every other "
+            "figure here and in the README. speedup_cold_over_exact_mean_basis is the same ratio taken "
+            "over means, which is what this field used to hold and what older artifacts report. Both "
+            "inherit the cold path's provider condition entirely."
         ),
     }
 
@@ -228,7 +256,9 @@ def main() -> None:
     note = "  <- bucket empty, nothing to report" if not semantic else ""
     print(f"  cached semantic served   {semantic_served}/{len(rephrasings)}{note}")
     if speedup:
-        print(f"  speedup (cold / exact)   {speedup}x   — provider-conditional, see artifact")
+        print(f"  speedup (cold / exact)   {speedup}x   (medians), provider-conditional, see artifact")
+    if speedup_mean_basis:
+        print(f"  speedup on means         {speedup_mean_basis}x   (recorded, not the headline)")
     print(f"\n  report written to {out_path}")
 
 

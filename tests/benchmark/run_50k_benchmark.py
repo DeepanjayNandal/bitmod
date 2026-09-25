@@ -40,6 +40,20 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
+
+def _gateway_auth_headers() -> dict:
+    """Credentials for the gateway, empty when BITMOD_API_KEY is unset.
+
+    The gateway accepts one of its BITMOD_API_KEYS as `Authorization: ApiKey
+    <key>`. Sending nothing when unset keeps this runnable against a gateway
+    with auth disabled.
+    """
+    import os
+
+    key = os.getenv("BITMOD_API_KEY", "")
+    return {"Authorization": f"ApiKey {key}"} if key else {}
+
+
 BENCHMARK_DIR = Path(__file__).resolve().parent
 DATA_DIR = BENCHMARK_DIR / "data"
 RESULTS_DIR = BENCHMARK_DIR / "results"
@@ -255,7 +269,7 @@ def send_query(client, text: str, query_type: str, phase: str, target_layers: st
         resp = client.post(
             "/v1/chat",
             json={"message": text[:1500]},
-            headers={"X-Requested-With": "XMLHttpRequest"},
+            headers={"X-Requested-With": "XMLHttpRequest", **_gateway_auth_headers()},
         )
         elapsed = (time.perf_counter() - start) * 1000
         if resp.status_code == 200:

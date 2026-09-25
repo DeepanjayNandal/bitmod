@@ -23,6 +23,8 @@ import {
 
 // ─── Config ──────────────────────────────────────────────────────
 
+import { getApiKey, setApiKey as persistApiKey, authHeaders, MISSING_KEY_MESSAGE } from "@/lib/api-key"
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 // ─── Helpers ─────────────────────────────────────────────────────
@@ -374,6 +376,9 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  // localStorage is unavailable during SSR, so read it on mount.
+  const [apiKey, setApiKeyState] = useState("")
+  useEffect(() => setApiKeyState(getApiKey()), [])
   const [secondsAgo, setSecondsAgo] = useState(0)
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(["cache", "comparison"]))
 
@@ -391,7 +396,14 @@ export default function AdminPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/v1/admin/metrics`)
+      // /v1/admin/metrics requires admin scope. This page previously sent no
+      // credentials at all, so it failed against any gateway with auth on.
+      const res = await fetch(`${API_URL}/v1/admin/metrics`, { headers: authHeaders() })
+      if (res.status === 401 || res.status === 403) {
+        setError(MISSING_KEY_MESSAGE)
+        delayRef.current = Math.min(delayRef.current * 2, 300_000)
+        return
+      }
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
       setData(normalizeMetrics(json))
@@ -523,6 +535,32 @@ export default function AdminPage() {
           <p className="mt-2 text-muted-foreground">
             Live cache performance, provider status, and infrastructure metrics.
           </p>
+
+          {/* /v1/admin/metrics needs admin scope. Key lives in localStorage,
+              not in a NEXT_PUBLIC_ variable, for the same reason as the
+              Playground: build-time inlining would publish it. */}
+          <div className="mt-4 flex flex-col gap-1.5 sm:flex-row sm:items-center">
+            <label htmlFor="bitmod-admin-api-key" className="text-xs text-muted-foreground sm:w-32">
+              API key (admin)
+            </label>
+            <input
+              id="bitmod-admin-api-key"
+              type="password"
+              value={apiKey}
+              onChange={(e) => {
+                setApiKeyState(e.target.value)
+                persistApiKey(e.target.value)
+                fetchData()
+              }}
+              placeholder="Required when the gateway has auth enabled."
+              autoComplete="off"
+              spellCheck={false}
+              className="flex-1 rounded-md border border-border/60 bg-background/60 px-3 py-1.5 text-xs font-mono outline-none focus:border-primary/60"
+            />
+            <span className="text-[10px] text-muted-foreground">
+              {apiKey ? "Saved in this browser" : "Not set"}
+            </span>
+          </div>
         </div>
 
         {/* Connection error banner */}

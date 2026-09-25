@@ -252,13 +252,22 @@ class TestProxyValidation:
             "/v1/chat/{path:path} catch-all and forwarded to the chat service"
         )
     def test_chat_completions_rejects_unauthenticated_requests(self):
-        """The catch-all it used to fall through to has no gateway auth at all.
+        """Both /v1/chat surfaces require credentials. This covers the OpenAI one.
 
-        /v1/chat/{path:path} carries no auth dependency, so while the OpenAI
-        endpoint was shadowed, SDK traffic reached the chat service without the
-        gateway ever authenticating it — protected only by the chat service's
-        own internal-token check. The dedicated route requires read scope, and
-        routing to it has to preserve that.
+        The catch-all this route used to be shadowed by, proxy_chat, carried no
+        auth dependency for a long time, so SDK traffic reached the chat service
+        without the gateway authenticating it. Two docstrings here recorded that
+        as acceptable on the grounds it was "protected only by the chat service's
+        own internal-token check". That reasoning was wrong twice over:
+        BITMOD_INTERNAL_TOKEN is unset by default, so
+        services/chat/app/main.py:174 allowlists on request.client.host, which is
+        the gateway rather than the caller; and setting it would not have helped,
+        because services/gateway/app/main.py:713 makes the gateway attach it
+        automatically.
+
+        proxy_chat now carries the same read-scope dependency this route uses.
+        test_chat_route_rejects_unauthenticated_requests below covers it, and the
+        two should be read together.
 
         An earlier version of this asserted that the route declared a Depends
         default. That was true the whole time the gateway authenticated nobody:
@@ -284,6 +293,38 @@ class TestProxyValidation:
         assert response.status_code == 401, (
             f"an unauthenticated request was served ({response.status_code}) — "
             "the route's auth dependency is not being invoked"
+        )
+
+    def test_chat_route_rejects_unauthenticated_requests(self):
+        """POST /v1/chat with no credentials must 401 when auth is enabled.
+
+        The companion to the test above. proxy_chat serves both /v1/chat and the
+        /v1/chat/{path:path} catch-all, and until its dependency was added an
+        unauthenticated POST here reached the chat service and caused a real LLM
+        call. Asserting on the response rather than on the declaration is
+        deliberate: _auth_dependency's docstring records a past bug where a
+        zero-argument lambda was bound by FastAPI and never awaited, so a route
+        could declare a Depends and still authenticate nobody. Only the status
+        code can see that.
+        """
+        pytest.importorskip("fastapi", reason="fastapi not installed")
+
+        import bitmod.auth as bitmod_auth
+        from fastapi.testclient import TestClient
+
+        from services.gateway.app import main as gw
+
+        with patch.object(bitmod_auth, "_AUTH_ENABLED", True):
+            with TestClient(gw.app, raise_server_exceptions=False) as client:
+                response = client.post(
+                    "/v1/chat",
+                    json={"message": "hello", "stream": False},
+                    headers={"X-Requested-With": "XMLHttpRequest"},
+                )
+
+        assert response.status_code == 401, (
+            f"an unauthenticated POST /v1/chat was served ({response.status_code}); "
+            "the route reaches the chat service without the gateway authenticating it"
         )
     def test_other_chat_paths_still_reach_the_chat_service(self):
         """Only /v1/chat/completions moves. The catch-all keeps everything else.

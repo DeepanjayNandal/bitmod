@@ -566,6 +566,12 @@ async def metrics_endpoint(request: Request):
 # _auth_dependency wrapper. Both paths end up awaiting the dependency
 # require_auth_db builds, which is the part that was missing.
 #
+# That now includes proxy_chat, which serves /v1/chat and the
+# /v1/chat/{path:path} catch-all and carried no dependency until it was added.
+# Nothing behind it covered the gap: the chat service's internal_auth middleware
+# allowlists on request.client.host, which is this gateway rather than the
+# original caller.
+#
 # Declared once so FastAPI registers the schemes in OpenAPI and /docs shows
 # which routes need credentials. They document the headers; _authenticate is
 # the only place that reads them, so the two cannot disagree about a value.
@@ -664,7 +670,11 @@ async def proxy_openai_completions(request: Request, _user: AuthUser = Depends(_
 # Proxy to chat service
 @app.api_route("/v1/chat", methods=["GET", "POST"])
 @app.api_route("/v1/chat/{path:path}", methods=["GET", "POST"])
-async def proxy_chat(request: Request, path: str = ""):
+async def proxy_chat(
+    request: Request,
+    path: str = "",
+    _user: AuthUser = Depends(_auth_dependency(scopes=["read"])),
+):
     chat_url = config.gateway.chat_service_url
 
     # SSRF prevention: only proxy to known internal service URLs

@@ -27,6 +27,20 @@ from pathlib import Path
 
 import httpx
 
+
+def _gateway_auth_headers() -> dict:
+    """Credentials for the gateway, empty when BITMOD_API_KEY is unset.
+
+    The gateway accepts one of its BITMOD_API_KEYS as `Authorization: ApiKey
+    <key>`. Sending nothing when unset keeps this runnable against a gateway
+    with auth disabled.
+    """
+    import os
+
+    key = os.getenv("BITMOD_API_KEY", "")
+    return {"Authorization": f"ApiKey {key}"} if key else {}
+
+
 # ─── Config ───────────────────────────────────────────────────────
 
 BASE_URL = os.getenv("BITMOD_URL", "http://localhost:8000")
@@ -141,6 +155,7 @@ async def _ingest_one(client: httpx.AsyncClient, pair: dict):
         resp = await client.post(
             f"{BASE_URL}/v1/chat",
             json={"message": pair["question"], "stream": False},
+            headers=_gateway_auth_headers(),
             timeout=120.0,
         )
         resp.raise_for_status()
@@ -249,7 +264,7 @@ async def _execute_query(client: httpx.AsyncClient, query_record: dict, wave_met
         resp = await client.post(
             f"{BASE_URL}/v1/chat",
             json={"message": question, "stream": False},
-            headers={"X-Bitmod-Debug": "true"},
+            headers={"X-Bitmod-Debug": "true", **_gateway_auth_headers()},
             timeout=120.0,
         )
         elapsed_ms = (time.monotonic() - t0) * 1000

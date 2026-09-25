@@ -172,8 +172,15 @@ services/gateway/bitmod_backup/
 tsconfig.tsbuildinfo
 services/frontend/tsconfig.tsbuildinfo
 
-# Local working notes, not part of the repo
+# Local working notes, not part of the repo.
+#
+# These hold interview framing, salary targets and unfiltered engineering
+# state. CLAUDE.md is listed at the top of this file and was committed three
+# times before 4dfe5d8 removed it, so it is already public in history; ignoring
+# it now prevents new commits but does not undo that. The rest have never been
+# committed, and the point of this block is to keep it that way.
 BACKLOG.md
 HANDOFF.md
 CONTEXT.md
 interview_prep.md
+BitMod_Interview_Notes.md

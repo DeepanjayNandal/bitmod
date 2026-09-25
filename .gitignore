@@ -149,6 +149,12 @@ tests/stress/*.jsonl
 # and speedup figures ranges instead of points, and it is the run the
 # docs/latency_run.png screenshot shows.
 !tests/benchmark/results/latency_http_llama31_8b_run2.json
+# Third 8B run. Kept because it is the one that widened the published range:
+# cached median 83.1ms and speedup 92.5x both fell outside what runs 1 and 2
+# had established, so the README's figures are the spread across all three
+# rather than a pair. Also the first artifact written after the speedup
+# headline moved from means to medians, so it carries both bases.
+!tests/benchmark/results/latency_http_llama31_8b_run3.json
 
 # Backup sessions (generated at runtime)
 bitmod_backup/

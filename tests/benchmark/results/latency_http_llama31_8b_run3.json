@@ -1,0 +1,68 @@
+{
+  "harness": "HTTP through the running gateway (POST /v1/chat)",
+  "measures": "what a client sees: cached latency, and generating latency for the configured provider",
+  "base_url": "http://localhost:8000",
+  "provider": "ollama/llama3.1:8b (Q4_K_M) on localhost via host.docker.internal \u2014 LOCAL inference, not a hosted provider",
+  "model_rationale": "8B is what a self-hosted deployment runs. Rerun after the speedup headline moved from means to medians.",
+  "does_not_measure": [
+    "the README's '12.5s avg (GPT-4o / Claude)'. The cold figure describes whichever provider this gateway is configured with, recorded under 'provider' below.",
+    "any hosted provider unless 'provider' says so \u2014 check it before quoting the cold number or the speedup",
+    "token savings; nothing here tokenizes"
+  ],
+  "cached_paths_are_not_one_number": "exact and semantic are reported separately and never averaged. Exact can return before the query is embedded; semantic cannot. An average over them is set by the traffic mix, not by the cache.",
+  "timestamp": "2026-09-25T05:45:05.187796+00:00",
+  "provenance": {
+    "commit": "852343370c93e0c1c581be9345b867be00f0664f",
+    "tree_sha256": "b168bb86889b8a9b",
+    "dirty": true,
+    "untracked_files": 2
+  },
+  "cold_real_generation": {
+    "n": 10,
+    "mean_ms": 8656.4,
+    "median_ms": 7688.2,
+    "min_ms": 5130.2,
+    "max_ms": 18118.0,
+    "p95_ms": 18118.0
+  },
+  "cold_per_call_ms": [
+    18118.0,
+    8269.4,
+    5130.2,
+    7457.3,
+    8371.7,
+    7919.2,
+    11348.6,
+    6936.1,
+    6940.8,
+    6072.9
+  ],
+  "cached_exact_per_call_ms": [
+    93.0,
+    83.4,
+    77.5,
+    90.6,
+    92.4,
+    85.1,
+    40.1,
+    76.1,
+    82.7,
+    80.3
+  ],
+  "cached_exact": {
+    "n": 10,
+    "mean_ms": 80.1,
+    "median_ms": 83.1,
+    "min_ms": 40.1,
+    "max_ms": 93.0,
+    "p95_ms": 93.0
+  },
+  "cached_semantic": {
+    "n": 0
+  },
+  "cached_semantic_served": 0,
+  "cached_semantic_attempts": 10,
+  "speedup_cold_over_exact": 92.5,
+  "speedup_cold_over_exact_mean_basis": 108.1,
+  "speedup_condition": "speedup_cold_over_exact is cold median over cached-exact median, matching every other figure here and in the README. speedup_cold_over_exact_mean_basis is the same ratio taken over means, which is what this field used to hold and what older artifacts report. Both inherit the cold path's provider condition entirely."
+}

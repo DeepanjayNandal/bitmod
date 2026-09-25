@@ -19,6 +19,10 @@ venv/
 *.db
 *.db-shm
 *.db-wal
+# SQLite's in-memory sentinel written to disk as a literal filename. Nothing
+# should produce this; config._resolve_db_path passes ":memory:" through
+# untouched. Ignored so a regression leaves a mess rather than a commit.
+:memory:
 *.sqlite3
 .DS_Store
 .idea/

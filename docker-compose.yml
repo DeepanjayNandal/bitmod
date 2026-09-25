@@ -25,6 +25,13 @@ services:
     environment:
       - CORS_ORIGINS=${CORS_ORIGINS:-https://bitmod.io,https://app.bitmod.io,http://localhost:3000}
       - CHAT_SERVICE_URL=http://bitmod-chat:8001
+      # Absolute, mirroring the chat service below. .env ships a RELATIVE
+      # BITMOD_SQLITE_PATH so a laptop run writes beside the working directory;
+      # relative here resolves against the container CWD (/app) instead of the
+      # shared volume, so the gateway read an empty database while chat wrote
+      # the real one, and /v1/admin/metrics reported zero entries against a
+      # working cache.
+      - BITMOD_SQLITE_PATH=/app/data/bitmod.db
     volumes:
       - bitmod_data:/app/data
     ports:

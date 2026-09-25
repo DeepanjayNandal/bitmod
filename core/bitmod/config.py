@@ -12,6 +12,48 @@ from dataclasses import dataclass, field
 DEFAULT_LLM_URL = "http://localhost:11434/v1"
 DEFAULT_LOCAL_MODEL = "llama3.2"
 
+# Markers that identify the root of a Bitmod checkout or project directory.
+_PROJECT_MARKERS = ("bitmod.yaml", ".git", "pyproject.toml")
+
+
+def _resolve_db_path(raw: str) -> str:
+    """Make a relative BITMOD_SQLITE_PATH stable across services.
+
+    A relative path resolves against the current working directory, and the two
+    services are not started from the same one. `make dev-local` runs
+    `cd services/chat && uvicorn ...` and `cd services/gateway && uvicorn ...`,
+    so `BITMOD_SQLITE_PATH=bitmod.db` gave chat services/chat/bitmod.db and the
+    gateway services/gateway/bitmod.db. Two databases, and every gateway-side
+    read (cache stats, admin metrics, invalidation) ran against one the chat
+    service never wrote. Docker hid this because the compose file pins an
+    absolute path for both.
+
+    So a relative path is resolved against the nearest enclosing directory that
+    looks like a project root, walking up from the working directory. Both
+    services then land on the same file regardless of where they were started.
+
+    Absolute paths are returned untouched, which is what Docker passes and what
+    anyone naming an explicit location expects. If no marker is found the
+    working directory is used, so running from an arbitrary folder still puts
+    the file beside you.
+    """
+    # ":memory:" is SQLite's in-memory sentinel, not a filename, and the URI
+    # form carries it as a query string. Resolving either against a directory
+    # produces a real file on disk named ":memory:", which is what an earlier
+    # version of this function did: tests/test_proxy_app.py and
+    # tests/test_cli_expanded.py set BITMOD_SQLITE_PATH=":memory:" and each run
+    # left a 389KB database at the project root.
+    if not raw or raw == ":memory:" or raw.startswith("file:") or os.path.isabs(raw):
+        return raw
+
+    import pathlib
+
+    start = pathlib.Path.cwd()
+    for directory in (start, *start.parents):
+        if any((directory / marker).exists() for marker in _PROJECT_MARKERS):
+            return str(directory / raw)
+    return str(start / raw)
+
 
 @dataclass
 class DatabaseConfig:
@@ -23,7 +65,9 @@ class DatabaseConfig:
     backend: str = field(default_factory=lambda: os.getenv("BITMOD_DB_BACKEND", "sqlite"))
     # SQLite
     sqlite_path: str = field(
-        default_factory=lambda: os.getenv("BITMOD_SQLITE_PATH", os.path.expanduser("~/.bitmod/bitmod.db"))
+        default_factory=lambda: _resolve_db_path(
+            os.getenv("BITMOD_SQLITE_PATH", os.path.expanduser("~/.bitmod/bitmod.db"))
+        )
     )
     # PostgreSQL / MySQL (connection URL)
     url: str = field(

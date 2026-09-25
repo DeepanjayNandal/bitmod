@@ -6,9 +6,9 @@
 
 ![BitMod](docs/homepage.png)
 
-> **Compute once, serve forever.** BitMod sits between your application and any LLM provider, intercepting queries and serving semantically equivalent ones from cache, cutting response latency and API costs without changing a line of application code.
-
-BitMod is a reverse proxy and semantic cache for LLM APIs. Drop it in front of any OpenAI, Anthropic, or Gemini endpoint. Your application changes its base URL and sends a BitMod API key. Repeated and rephrased queries are served from cache instead of reaching the LLM, cutting response time from seconds to milliseconds and eliminating redundant API spend.
+> **Compute once, serve forever.** BitMod sits between your application and any LLM provider, serving repeated and rephrased queries from cache instead of the model.
+>
+> The hard part is knowing when not to answer. Nine layers run in cost order, hash lookups first and scanning last, each scoring the query and stopping early when one is certain. Otherwise their evidence combines into a single confidence score. Below the threshold BitMod does not serve, and passes what it found to the model instead of guessing. Given 375 questions it had nothing cached for, it declined all 375.
 
 Built for high-repetition workloads: customer support bots, legal Q&A, HR documentation, code review pipelines. Ships with 1,362 tests, CI runs on Python 3.10, 3.11, 3.12, and 3.13 with mypy type checking on every commit.
 
@@ -18,23 +18,34 @@ Built for high-repetition workloads: customer support bots, legal Q&A, HR docume
 
 ### End-to-end latency
 
-Measured over HTTP through the running gateway, n=10 per row, generation by
-self-hosted `ollama/llama3.1:8b`. Medians, because the mean of a cold pass is
-dragged by the first call loading the model.
+Measured over HTTP through the running gateway, n=10 per row. The table is the
+two `ollama/llama3.1:8b` runs; two further runs on a smaller model are below.
+Medians, because the mean of a cold pass is dragged by the first call loading
+the model.
 
 | Metric | Value |
 |---|---|
-| Cached response latency (exact match) | **68–82ms** |
+| Cached response latency (exact match) | **79.5–81.9ms** median |
 | LLM latency (no cache) | **8.0–8.1s** median |
-| Speedup | **95.6–99.3×** |
+| Speedup | **98.6–101.1×** |
 
 Artifacts: [`run 1`](tests/benchmark/results/latency_http_llama31_8b.json) and
 [`run 2`](tests/benchmark/results/latency_http_llama31_8b_run2.json), n=10 each.
 Every figure is a range because two runs of the same script against the same
-model gave different answers. Cached-exact medians across the four committed
-runs: 68.4, 69.6, 79.5, 81.9ms — it moves with machine memory pressure. Rephrased queries
-served semantically rather than by exact match cost more and are not in this
-figure. These numbers describe self-hosted inference, not a hosted provider.
+model gave different answers. The speedup is cold median over cached median
+**within each run** (8034.6/79.5 = 101.1x, 8076.7/81.9 = 98.6x), not a ratio of
+the two ranges above it, which would give a different number.
+
+Two further committed runs measured the same cached path on a smaller model:
+[`latency_http_gateway.json`](tests/benchmark/results/latency_http_gateway.json)
+at 68.4ms and
+[`latency_http_llama32_3b.json`](tests/benchmark/results/latency_http_llama32_3b.json)
+at 69.6ms. They belong to the same measurement, because a cache hit never
+reaches the model, so the model named on a run cannot explain its cached figure;
+the spread across all four (68.4 to 81.9ms) is machine and transport, and
+`latency_http_gateway.json` also ran over Docker host networking. Rephrased
+queries served semantically rather than by exact match cost more and are not in
+this figure. These numbers describe self-hosted inference, not a hosted provider.
 
 ### Reproduce it locally (no API key required)
 
@@ -103,7 +114,7 @@ flowchart TD
     end
 
     A --> gw --> ce
-    ce -->|"confidence ≥ 0.85  ·  cache hit  ·  68-82ms over HTTP" | A
+    ce -->|"confidence ≥ 0.85  ·  cache hit  ·  ~80ms over HTTP" | A
     ce -->|"below 0.85, no evidence  ·  cache miss"| p
     ce -->|"below 0.85, some evidence  ·  partial hit  ·  token reduction"| p
     p -->|"generate → embed → store"| ce
@@ -406,8 +417,6 @@ bitmod/
 **Why hexagonal architecture?** Provider lock-in is real. Swapping LLMs, databases, or vector stores should be configuration, not refactoring. See [ADR 001](docs/adr/001-hexagonal-architecture.md).
 
 **Why Bayesian scoring over a single threshold?** A fuzzy match at 0.78 and a semantic match at 0.88 together are stronger evidence than either alone. Accumulation makes agreeing layers reinforce each other, and damping at 0.50 corrects the overstatement that pure noisy-OR produces when they do.
-
-**What this doesn't do:** BitMod is a cache and retrieval layer, not an agent framework or RAG pipeline replacement. It works best for high-repetition query workloads: support, legal, HR, documentation Q&A.
 
 ---
 

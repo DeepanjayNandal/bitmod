@@ -12,7 +12,7 @@ else through. Optionally it also ingests documents, version-tracks them, and bin
 answers to the source sections they came from so an answer is invalidated when its source
 changes.
 
-It is a personal project built solo. What follows describes the system that exists in this
+What follows describes the system that exists in this
 repository. Anything not implemented is not described here.
 
 ---

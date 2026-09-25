@@ -19,27 +19,28 @@ Built for high-repetition workloads: customer support bots, legal Q&A, HR docume
 ### End-to-end latency
 
 Measured over HTTP through the running gateway, n=10 per row. The table is the
-three `ollama/llama3.1:8b` runs; two further runs on a smaller model are below.
+four `ollama/llama3.1:8b` runs; two further runs on a smaller model are below.
 Medians, because the mean of a cold pass is dragged by the first call loading
 the model.
 
 | Metric | Value |
 |---|---|
-| Cached response latency (exact match) | **79.5–83.1ms** median |
+| Cached response latency (exact match) | **79.5–88.5ms** median |
 | LLM latency (no cache) | **7.7–8.1s** median |
-| Speedup | **92.5–101.1×** |
+| Speedup | **90.0–101.1×** |
 
 Artifacts, n=10 each:
 [`run 1`](tests/benchmark/results/latency_http_llama31_8b.json),
-[`run 2`](tests/benchmark/results/latency_http_llama31_8b_run2.json) and
-[`run 3`](tests/benchmark/results/latency_http_llama31_8b_run3.json).
-Every figure is a range **across all three runs**, because the same script
+[`run 2`](tests/benchmark/results/latency_http_llama31_8b_run2.json),
+[`run 3`](tests/benchmark/results/latency_http_llama31_8b_run3.json) and
+[`run 4`](tests/benchmark/results/latency_http_llama31_8b_run4.json).
+Every figure is a range **across all four runs**, because the same script
 against the same model on the same machine gave different answers each time.
 The speedup is cold median over cached median **within each run** (8034.6/79.5 =
-101.1x, 8076.7/81.9 = 98.6x, 7688.2/83.1 = 92.5x), not a ratio of the ranges
-above it, which would give a different number. Three runs is enough to show the
-spread is real and not enough to characterise it; treat the range as the
-observed spread on one machine rather than a specification.
+101.1x, 8076.7/81.9 = 98.6x, 7688.2/83.1 = 92.5x, 7966.9/88.5 = 90.0x), not a
+ratio of the ranges above it, which would give a different number. Four runs is
+enough to show the spread is real and not enough to characterise it; treat the
+range as the observed spread on one machine rather than a specification.
 
 Two further committed runs measured the same cached path on a smaller model:
 [`latency_http_gateway.json`](tests/benchmark/results/latency_http_gateway.json)
@@ -47,7 +48,7 @@ at 68.4ms and
 [`latency_http_llama32_3b.json`](tests/benchmark/results/latency_http_llama32_3b.json)
 at 69.6ms. They belong to the same measurement, because a cache hit never
 reaches the model, so the model named on a run cannot explain its cached figure;
-the spread across all five (68.4 to 83.1ms) is machine and transport, and
+the spread across all six (68.4 to 88.5ms) is machine and transport, and
 `latency_http_gateway.json` also ran over Docker host networking. Rephrased
 queries served semantically rather than by exact match cost more and are not in
 this figure. These numbers describe self-hosted inference, not a hosted provider.

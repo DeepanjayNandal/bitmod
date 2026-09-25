@@ -155,6 +155,11 @@ tests/stress/*.jsonl
 # rather than a pair. Also the first artifact written after the speedup
 # headline moved from means to medians, so it carries both bases.
 !tests/benchmark/results/latency_http_llama31_8b_run3.json
+# Fourth 8B run, and the first taken on a clean tree (provenance dirty=false).
+# It widened the range again, cached median 88.5ms and speedup 90.0x, which is
+# the point of keeping all four rather than the best pair: the spread is a
+# property of the machine, not of any one run.
+!tests/benchmark/results/latency_http_llama31_8b_run4.json
 
 # Backup sessions (generated at runtime)
 bitmod_backup/

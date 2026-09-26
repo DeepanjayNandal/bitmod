@@ -61,7 +61,7 @@ query can be served on the combined evidence of several that none of them would 
 |---|---|---|---|
 | 1 | Normalization | Lowercase, stopword removal, SHA-256 composite key | always runs |
 | 2 | Exact match | O(1) key lookup | exact |
-| 3 | Source verification | SHA-256 hash per source section | any mismatch invalidates |
+| 3 | Source verification | SHA-256 hash per source section | any mismatch invalidates, for answers carrying a source manifest |
 | 4 | Semantic similarity | Cosine on query embeddings | ≥ 0.88 serve, ≥ 0.60 retrieve |
 | 5 | Composable decomposition | Sub-query splitting and partial reassembly | any sub-hit counts |
 | 6 | Fuzzy match | Greater of token overlap and edit distance | ≥ 0.85 |

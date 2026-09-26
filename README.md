@@ -428,7 +428,7 @@ bitmod/
 
 ## Known Limitations
 
-- **Benchmark hit rates are workload-dependent**: BitMod served 45.7% of a 1,500-query public support corpus at the shipping threshold (`support_warm_1500.json`). Rates rise with repetitive traffic and fall on diverse or open-ended conversations. Measure on your own workload rather than trusting either number.
+- **Benchmark hit rates are workload-dependent**: BitMod served 45.7% of a 1,500-query public support corpus at the shipping threshold (`support_warm_1500.json`). Rates rise with repetitive traffic and fall on diverse or open-ended conversations. Measure on your own workload rather than trusting that number.
 - **Not a RAG replacement**: BitMod caches and reuses LLM outputs; it does not do retrieval-augmented generation or long-document reasoning.
 
 ---

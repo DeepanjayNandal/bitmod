@@ -59,7 +59,7 @@ const categories: Array<{
     description: "Found a security issue? Report it responsibly. Do not open a public issue — email us directly.",
     fields: ["name", "email", "severity", "message"],
     destination: "security@bitmod.io",
-    note: "We respond within 48 hours and coordinate disclosure privately. See our SECURITY.md for full policy.",
+    note: "Disclosure is coordinated privately. This is a personal project with no response-time commitment.",
   },
   {
     id: "feature",
@@ -225,12 +225,6 @@ export default function ContactPage() {
                       title: "Open Issues",
                       desc: "Browse all open issues on GitHub.",
                       href: "https://github.com/DeepanjayNandal/bitmod/issues",
-                      internal: false,
-                    },
-                    {
-                      title: "Security Policy",
-                      desc: "Responsible disclosure process.",
-                      href: "https://github.com/DeepanjayNandal/bitmod/blob/main/SECURITY.md",
                       internal: false,
                     },
                   ].map((link) => (

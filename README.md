@@ -10,7 +10,7 @@
 >
 > The hard part is knowing when not to answer. Nine layers run in cost order, hash lookups first and scanning last, each scoring the query and stopping early when one is certain. Otherwise their evidence combines into a single confidence score. Below the threshold BitMod does not serve, and passes what it found to the model instead of guessing. Given 375 questions it had nothing cached for, it declined all 375.
 
-Built for high-repetition workloads: customer support bots, legal Q&A, HR documentation, code review pipelines. Ships with 1,362 tests, CI runs on Python 3.10, 3.11, 3.12, and 3.13 with mypy type checking on every commit.
+Built for high-repetition workloads: customer support bots, legal Q&A, HR documentation, code review pipelines. Ships with 1,363 tests, CI runs on Python 3.10, 3.11, 3.12, and 3.13 with mypy type checking on every commit.
 
 ---
 
@@ -120,7 +120,7 @@ flowchart TD
     end
 
     A --> gw --> ce
-    ce -->|"confidence ≥ 0.85  ·  cache hit  ·  ~80ms over HTTP" | A
+    ce -->|"confidence ≥ 0.85  ·  cache hit  ·  79.5-88.5ms over HTTP" | A
     ce -->|"below 0.85, no evidence  ·  cache miss"| p
     ce -->|"below 0.85, some evidence  ·  partial hit  ·  token reduction"| p
     p -->|"generate → embed → store"| ce
@@ -180,7 +180,7 @@ for each section in answer.source_manifest:
         queue_for_regeneration(query)
 ```
 
-This ensures document-grounded answers never go stale when their sources are updated.
+This is what keeps document-grounded answers from going stale when their sources change.
 
 **This does not cover every cached answer.** Answers cached by the reverse proxy have no source manifest: `proxy/base.py:1350` and `services/chat/app/main.py:471` both store an empty `source_sections`, and `double_verify` returns true immediately on an empty list, so those entries are served without a hash check. They have nothing to go stale against, since they were never derived from an ingested document, but the guarantee above is not what protects them. The paths that do populate a manifest are `api.py:520`, `api.py:671`, `main.py:1053` and `main.py:1680`.
 

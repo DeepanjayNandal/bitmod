@@ -49,9 +49,13 @@ walk.
 
 ## The Nine-Layer Cache Pipeline
 
-Layers run in cost order: O(1) hash lookups first, embeddings second, scanning last. Each
-contributes graded confidence rather than a hit or miss verdict, and a query can be served on
-the combined evidence of several layers that none of them would carry alone.
+Layers run in cost order: O(1) hash lookups first, embeddings second, scanning last. Two of
+them can end the pipeline on their own: an exact-match hit returns from
+`_run_cache_pipeline` at `proxy/base.py:608`, and a composable full hit at `:770`. Neither
+waits for the layers below it, so on those paths nothing is accumulated.
+
+Every other layer contributes graded confidence rather than a hit or miss verdict, and a
+query can be served on the combined evidence of several that none of them would carry alone.
 
 | # | Layer | Method | Threshold |
 |---|---|---|---|
@@ -227,7 +231,7 @@ against centroids before candidates, rather than scanning every vector.
 | Audit | Append-only audit events. |
 | CSP | Locked to self, no external scripts. |
 
-See [SECURITY.md](SECURITY.md) and the runbooks in `docs/runbooks/`.
+See the incident runbooks in [`docs/runbooks/`](docs/runbooks/).
 
 ---
 

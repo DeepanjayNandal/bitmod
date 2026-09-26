@@ -186,7 +186,8 @@ interview_prep.md
 
 # Untracked but kept on disk. SECURITY.md promised a 48-hour acknowledgement and
 # a 7-day critical fix from a single unpaid maintainer, which is not a
-# commitment a portfolio project can honour, and pointed at security@bitmod.io.
+# commitment a portfolio project can honour, and pointed at a security mailbox
+# on this domain that does not exist.
 # Deepanjay says that mailbox does not exist; what is verifiable from outside is
 # only that bitmod.io has MX records on Microsoft 365, so the domain accepts
 # mail while individual local parts cannot be checked without sending some.

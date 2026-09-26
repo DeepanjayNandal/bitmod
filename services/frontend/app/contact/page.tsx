@@ -6,12 +6,12 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import {
-  Shield, Building2, MessageSquarePlus, Users, Bug,
-  HelpCircle, ArrowRight, Send, CheckCircle, ExternalLink
+  Shield, MessageSquarePlus, Users, Bug,
+  HelpCircle, ArrowRight, ExternalLink
 } from "lucide-react"
 import { GithubIcon } from "@/components/icons"
 
-type FieldName = "name" | "email" | "company" | "severity" | "message"
+type FieldName = "name" | "email" | "severity" | "message"
 
 const categories: Array<{
   id: string
@@ -34,20 +34,8 @@ const categories: Array<{
     heading: "General Inquiry",
     description: "Have a question about BitMod? Need help with your deployment? We're here to help.",
     fields: ["name", "email", "message"],
-    destination: "support@bitmod.io",
-    note: "We typically respond within 24 hours.",
-  },
-  {
-    id: "enterprise",
-    label: "Enterprise",
-    icon: Building2,
-    color: "text-[#d2a8ff]",
-    bgActive: "bg-[#d2a8ff]/15 border-[#d2a8ff]/40 text-[#d2a8ff]",
-    heading: "Enterprise Sales",
-    description: "Custom compliance bundles, dedicated security reviews, white-label deployments, and priority support SLAs.",
-    fields: ["name", "email", "company", "message"],
-    destination: "enterprise@bitmod.io",
-    note: "For custom authentication integrations, compliance requirements, and architecture consulting.",
+    destination: "github",
+    note: "General questions are tracked as GitHub issues, which keeps answers searchable for the next person with the same question.",
   },
   {
     id: "security",
@@ -58,8 +46,8 @@ const categories: Array<{
     heading: "Report a Vulnerability",
     description: "Found a security issue? Report it responsibly. Do not open a public issue — email us directly.",
     fields: ["name", "email", "severity", "message"],
-    destination: "security@bitmod.io",
-    note: "Disclosure is coordinated privately. This is a personal project with no response-time commitment.",
+    destination: "github-security",
+    note: "Opens a private GitHub security advisory, not a public issue. This is a personal project with no response-time commitment.",
   },
   {
     id: "feature",
@@ -103,11 +91,9 @@ const severityOptions = ["Critical", "High", "Medium", "Low", "Informational"]
 
 export default function ContactPage() {
   const [activeCategory, setActiveCategory] = useState("general")
-  const [submitted, setSubmitted] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    company: "",
     severity: "",
     message: "",
   })
@@ -115,30 +101,10 @@ export default function ContactPage() {
   const category = categories.find((c) => c.id === activeCategory)!
   const Icon = category.icon
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (category.destination === "github") {
-      return
-    }
-
-    // Build mailto link with form data
-    const subject = encodeURIComponent(
-      category.id === "security"
-        ? `[Vulnerability Report] ${formData.severity ? `[${formData.severity}] ` : ""}BitMod Security`
-        : category.id === "enterprise"
-        ? `[Enterprise] ${formData.company || "Inquiry"}`
-        : category.id === "feature"
-        ? `[Feature Request] BitMod`
-        : `[${category.label}] BitMod`
-    )
-    const body = encodeURIComponent(
-      `Name: ${formData.name}\nEmail: ${formData.email}${formData.company ? `\nCompany: ${formData.company}` : ""}${formData.severity ? `\nSeverity: ${formData.severity}` : ""}\n\n${formData.message}`
-    )
-    window.open(`mailto:${category.destination}?subject=${subject}&body=${body}`, "_self")
-    setSubmitted(true)
-    setTimeout(() => setSubmitted(false), 3000)
-  }
+  // Every category opens a GitHub URL through an anchor, so there is no submit
+  // path left. preventDefault stops Enter in a text field triggering a native
+  // GET submit and reloading the page.
+  const handleSubmit = (e: React.FormEvent) => e.preventDefault()
 
   return (
     <div className="relative">
@@ -162,8 +128,8 @@ export default function ContactPage() {
           </h1>
 
           <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground sm:text-xl">
-            Enterprise sales, security reports, feature requests, bug reports, or just a question.
-            Pick a category and we&apos;ll route it to the right team.
+            Security reports, feature requests, bug reports, or just a question.
+            Pick a category and it opens a prefilled GitHub page.
           </p>
         </div>
       </section>
@@ -180,8 +146,7 @@ export default function ContactPage() {
                 key={cat.id}
                 onClick={() => {
                   setActiveCategory(cat.id)
-                  setSubmitted(false)
-                  setFormData({ name: "", email: "", company: "", severity: "", message: "" })
+                  setFormData({ name: "", email: "", severity: "", message: "" })
                 }}
                 className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium border transition-all duration-200 cursor-pointer ${
                   isActive
@@ -287,23 +252,6 @@ export default function ContactPage() {
                   )}
                 </div>
 
-                {/* Company field (enterprise only) */}
-                {category.fields.includes("company") && (
-                  <div>
-                    <label htmlFor="company" className="block text-xs text-muted-foreground uppercase tracking-wider mb-1.5">
-                      Company
-                    </label>
-                    <input
-                      id="company"
-                      type="text"
-                      value={formData.company}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, company: e.target.value }))}
-                      className="w-full rounded-lg border border-border/40 bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="Your organization"
-                    />
-                  </div>
-                )}
-
                 {/* Severity selector (security only) */}
                 {category.fields.includes("severity") && (
                   <div>
@@ -349,8 +297,6 @@ export default function ContactPage() {
                       placeholder={
                         category.id === "security"
                           ? "Describe the vulnerability, affected components, and potential impact..."
-                          : category.id === "enterprise"
-                          ? "Tell us about your use case, scale, and requirements..."
                           : category.id === "bug"
                           ? "1. What did you do?\n2. What did you expect?\n3. What happened instead?\n\nBitMod version: \nOS: "
                           : category.id === "feature"
@@ -370,10 +316,22 @@ export default function ContactPage() {
 
                 {/* Submit */}
                 <div className="flex items-center gap-3 pt-2">
-                  {category.destination === "github" ? (
+                  {category.destination === "github-security" ? (
                     <Button type="button" asChild>
                       <a
-                        href={`https://github.com/DeepanjayNandal/bitmod/issues/new?labels=${category.id === "bug" ? "bug" : "enhancement"}&title=${encodeURIComponent(formData.message.split("\n")[0] || "")}&body=${encodeURIComponent(`**From:** ${formData.name} (${formData.email})\n\n${formData.message}`)}`}
+                        href="https://github.com/DeepanjayNandal/bitmod/security/advisories/new"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <GithubIcon className="mr-2 h-4 w-4" />
+                        Open a private advisory
+                        <ExternalLink className="ml-2 h-3.5 w-3.5" />
+                      </a>
+                    </Button>
+                  ) : (
+                    <Button type="button" asChild>
+                      <a
+                        href={`https://github.com/DeepanjayNandal/bitmod/issues/new?labels=${category.id === "bug" ? "bug" : category.id === "feature" ? "enhancement" : "question"}&title=${encodeURIComponent(formData.message.split("\n")[0] || "")}&body=${encodeURIComponent(`**From:** ${formData.name} (${formData.email})\n\n${formData.message}`)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                       >
@@ -382,32 +340,12 @@ export default function ContactPage() {
                         <ExternalLink className="ml-2 h-3.5 w-3.5" />
                       </a>
                     </Button>
-                  ) : submitted ? (
-                    <Button disabled className="bg-green-500/15 text-green-400 border-green-500/30">
-                      <CheckCircle className="mr-2 h-4 w-4" />
-                      Opening mail client...
-                    </Button>
-                  ) : (
-                    <Button type="submit">
-                      <Send className="mr-2 h-4 w-4" />
-                      Send to {category.destination}
-                    </Button>
                   )}
                 </div>
               </form>
             )}
           </CardContent>
         </Card>
-
-        {/* Direct email fallback */}
-        <div className="mt-6 text-center text-sm text-muted-foreground">
-          <p>
-            Prefer email? Reach us directly at{" "}
-            <a href="mailto:support@bitmod.io" className="text-primary hover:underline">support@bitmod.io</a>,{" "}
-            <a href="mailto:enterprise@bitmod.io" className="text-primary hover:underline">enterprise@bitmod.io</a>, or{" "}
-            <a href="mailto:security@bitmod.io" className="text-primary hover:underline">security@bitmod.io</a>
-          </p>
-        </div>
       </section>
     </div>
   )

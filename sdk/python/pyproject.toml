@@ -9,7 +9,7 @@ description = "Official Python SDK for BitMod — Intelligent AI Cache Infrastru
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
-authors = [{ name = "BitMod", email = "sdk@bitmod.io" }]
+authors = [{ name = "Deepanjay Nandal" }]
 keywords = ["bitmod", "ai", "cache", "llm", "inference"]
 classifiers = [
     "Development Status :: 3 - Alpha",
